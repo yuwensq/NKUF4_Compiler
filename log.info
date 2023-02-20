@@ -1,0 +1,127 @@
+GNU Make 4.1
+Built for x86_64-pc-linux-gnu
+Copyright (C) 1988-2014 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Reading makefiles...
+Reading makefile 'Makefile'...
+Updating goal targets....
+Considering target file 'test'.
+  Considering target file 'app'.
+   File 'app' does not exist.
+    Considering target file 'src/lexer.cpp'.
+      Considering target file 'src/lexer.l'.
+       Finished prerequisites of target file 'src/lexer.l'.
+      No need to remake target 'src/lexer.l'.
+     Finished prerequisites of target file 'src/lexer.cpp'.
+     Prerequisite 'src/lexer.l' is older than target 'src/lexer.cpp'.
+    No need to remake target 'src/lexer.cpp'.
+    Considering target file 'src/parser.cpp'.
+      Considering target file 'src/parser.y'.
+       Finished prerequisites of target file 'src/parser.y'.
+      No need to remake target 'src/parser.y'.
+     Finished prerequisites of target file 'src/parser.cpp'.
+     Prerequisite 'src/parser.y' is older than target 'src/parser.cpp'.
+    No need to remake target 'src/parser.cpp'.
+    Considering target file 'build/compiler'.
+     File 'build/compiler' does not exist.
+      Considering target file 'build/obj/SymbolTable.o'.
+        Considering target file 'src/SymbolTable.cpp'.
+         Finished prerequisites of target file 'src/SymbolTable.cpp'.
+        No need to remake target 'src/SymbolTable.cpp'.
+       Finished prerequisites of target file 'build/obj/SymbolTable.o'.
+       Prerequisite 'src/SymbolTable.cpp' is older than target 'build/obj/SymbolTable.o'.
+      No need to remake target 'build/obj/SymbolTable.o'.
+      Considering target file 'build/obj/BasicBlock.o'.
+        Considering target file 'src/BasicBlock.cpp'.
+         Finished prerequisites of target file 'src/BasicBlock.cpp'.
+        No need to remake target 'src/BasicBlock.cpp'.
+       Finished prerequisites of target file 'build/obj/BasicBlock.o'.
+       Prerequisite 'src/BasicBlock.cpp' is older than target 'build/obj/BasicBlock.o'.
+      No need to remake target 'build/obj/BasicBlock.o'.
+      Considering target file 'build/obj/Instruction.o'.
+        Considering target file 'src/Instruction.cpp'.
+         Finished prerequisites of target file 'src/Instruction.cpp'.
+        No need to remake target 'src/Instruction.cpp'.
+       Finished prerequisites of target file 'build/obj/Instruction.o'.
+       Prerequisite 'src/Instruction.cpp' is older than target 'build/obj/Instruction.o'.
+      No need to remake target 'build/obj/Instruction.o'.
+      Considering target file 'build/obj/main.o'.
+        Considering target file 'src/main.cpp'.
+         Finished prerequisites of target file 'src/main.cpp'.
+        No need to remake target 'src/main.cpp'.
+       Finished prerequisites of target file 'build/obj/main.o'.
+       Prerequisite 'src/main.cpp' is older than target 'build/obj/main.o'.
+      No need to remake target 'build/obj/main.o'.
+      Considering target file 'build/obj/Operand.o'.
+        Considering target file 'src/Operand.cpp'.
+         Finished prerequisites of target file 'src/Operand.cpp'.
+        No need to remake target 'src/Operand.cpp'.
+       Finished prerequisites of target file 'build/obj/Operand.o'.
+       Prerequisite 'src/Operand.cpp' is older than target 'build/obj/Operand.o'.
+      No need to remake target 'build/obj/Operand.o'.
+      Considering target file 'build/obj/parser.o'.
+        Pruning file 'src/parser.cpp'.
+       Finished prerequisites of target file 'build/obj/parser.o'.
+       Prerequisite 'src/parser.cpp' is older than target 'build/obj/parser.o'.
+      No need to remake target 'build/obj/parser.o'.
+      Considering target file 'build/obj/Ast.o'.
+        Considering target file 'src/Ast.cpp'.
+         Finished prerequisites of target file 'src/Ast.cpp'.
+        No need to remake target 'src/Ast.cpp'.
+       Finished prerequisites of target file 'build/obj/Ast.o'.
+       Prerequisite 'src/Ast.cpp' is older than target 'build/obj/Ast.o'.
+      No need to remake target 'build/obj/Ast.o'.
+      Considering target file 'build/obj/Type.o'.
+        Considering target file 'src/Type.cpp'.
+         Finished prerequisites of target file 'src/Type.cpp'.
+        No need to remake target 'src/Type.cpp'.
+       Finished prerequisites of target file 'build/obj/Type.o'.
+       Prerequisite 'src/Type.cpp' is older than target 'build/obj/Type.o'.
+      No need to remake target 'build/obj/Type.o'.
+      Considering target file 'build/obj/MachineCode.o'.
+        Considering target file 'src/MachineCode.cpp'.
+         Finished prerequisites of target file 'src/MachineCode.cpp'.
+        No need to remake target 'src/MachineCode.cpp'.
+       Finished prerequisites of target file 'build/obj/MachineCode.o'.
+       Prerequisite 'src/MachineCode.cpp' is older than target 'build/obj/MachineCode.o'.
+      No need to remake target 'build/obj/MachineCode.o'.
+      Considering target file 'build/obj/Unit.o'.
+        Considering target file 'src/Unit.cpp'.
+         Finished prerequisites of target file 'src/Unit.cpp'.
+        No need to remake target 'src/Unit.cpp'.
+       Finished prerequisites of target file 'build/obj/Unit.o'.
+       Prerequisite 'src/Unit.cpp' is older than target 'build/obj/Unit.o'.
+      No need to remake target 'build/obj/Unit.o'.
+      Considering target file 'build/obj/Function.o'.
+        Considering target file 'src/Function.cpp'.
+         Finished prerequisites of target file 'src/Function.cpp'.
+        No need to remake target 'src/Function.cpp'.
+       Finished prerequisites of target file 'build/obj/Function.o'.
+       Prerequisite 'src/Function.cpp' is older than target 'build/obj/Function.o'.
+      No need to remake target 'build/obj/Function.o'.
+      Considering target file 'build/obj/lexer.o'.
+        Pruning file 'src/lexer.cpp'.
+       Finished prerequisites of target file 'build/obj/lexer.o'.
+       Prerequisite 'src/lexer.cpp' is older than target 'build/obj/lexer.o'.
+      No need to remake target 'build/obj/lexer.o'.
+      Considering target file 'build/obj/LiveVariableAnalysis.o'.
+        Considering target file 'src/LiveVariableAnalysis.cpp'.
+         Finished prerequisites of target file 'src/LiveVariableAnalysis.cpp'.
+        No need to remake target 'src/LiveVariableAnalysis.cpp'.
+       Finished prerequisites of target file 'build/obj/LiveVariableAnalysis.o'.
+       Prerequisite 'src/LiveVariableAnalysis.cpp' is older than target 'build/obj/LiveVariableAnalysis.o'.
+      No need to remake target 'build/obj/LiveVariableAnalysis.o'.
+      Considering target file 'build/obj/LinearScan.o'.
+        Considering target file 'src/LinearScan.cpp'.
+         Finished prerequisites of target file 'src/LinearScan.cpp'.
+        No need to remake target 'src/LinearScan.cpp'.
+       Finished prerequisites of target file 'build/obj/LinearScan.o'.
+       Prerequisite 'src/LinearScan.cpp' is older than target 'build/obj/LinearScan.o'.
+      No need to remake target 'build/obj/LinearScan.o'.
+      Pruning file 'build/obj/lexer.o'.
+      Pruning file 'build/obj/parser.o'.
+     Finished prerequisites of target file 'build/compiler'.
+    Must remake target 'build/compiler'.
+Makefile:48: recipe for target 'build/compiler' failed
