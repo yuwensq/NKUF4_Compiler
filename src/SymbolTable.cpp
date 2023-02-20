@@ -70,6 +70,7 @@ IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int s
         argAddr = new Operand(se);
     }
     addr = nullptr;
+    initial = false;
 }
 
 void IdentifierSymbolEntry::setValue(double value)

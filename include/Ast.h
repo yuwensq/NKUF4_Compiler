@@ -151,7 +151,7 @@ public:
         if (se->getType()->isArray())
         {
             std::vector<int> indexs = ((ArrayType *)se->getType())->getIndexs();
-            SymbolEntry *temp;
+            SymbolEntry *temp = nullptr;
             ExprNode *expr = index;
             while (expr)
             {
