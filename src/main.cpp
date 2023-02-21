@@ -21,6 +21,19 @@ bool dump_ast;
 bool dump_ir;
 bool dump_asm;
 
+void globalFunc()
+{
+    // 添加一个memset函数用来初始化数组
+    // memset(int*, int, int);
+    std::vector<Type *> vec;
+    vec.push_back(new PointerType(new ArrayType({})));
+    vec.push_back(TypeSystem::intType);
+    vec.push_back(TypeSystem::intType);
+    Type *funcType = new FunctionType(TypeSystem::voidType, vec);
+    SymbolEntry *se = new IdentifierSymbolEntry(funcType, "memset", globals->getLevel(), true);
+    globals->install("memset", se);
+}
+
 int main(int argc, char *argv[])
 {
     int opt;
@@ -65,6 +78,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     // dump_tokens = true;
+    globalFunc();
     yyparse();
     if (dump_ast)
         ast.output();

@@ -779,25 +779,29 @@ void DeclStmt::genCode()
             Operand *zero = new Operand(new ConstantSymbolEntry(baseType, 0));
             new BinaryInstruction(BinaryInstruction::ADD, zeroReg, zero, zero, now_bb);
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
-            Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, 1));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
+            // 调用memset函数
+            std::vector<Operand *> rParams;
+            rParams.push_back(ele_addr);
+            rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
+            rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, size * 4)));
+            new CallInstruction(nullptr, globals->lookup("memset"), rParams, now_bb);
+            int stride = 0;
             for (int i = 0; i < size; i++)
             {
                 if (exprArray[i])
                 {
+                    if (i != 0) {
+                        Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, stride));
+                        Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, eleType)), SymbolTable::getLabel()));
+                        new GepInstruction(ele_addr, ele_addr, {step}, now_bb, true);
+                        // ele_addr = next_addr;
+                        stride = 0;
+                    }
                     exprArray[i]->genCode();
                     new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
                 }
-                else
-                {
-                    new StoreInstruction(ele_addr, zeroReg, now_bb);
-                }
-                if (i != size - 1)
-                {
-                    Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, eleType)), SymbolTable::getLabel()));
-                    new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
-                    ele_addr = next_addr;
-                }
+                stride++;
                 // new BinaryInstruction(BinaryInstruction::ADD, ele_addr, ele_addr, step, now_bb);
             }
             // for (int i = 0; i < size; i++) {
