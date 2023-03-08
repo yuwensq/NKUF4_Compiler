@@ -775,9 +775,6 @@ void DeclStmt::genCode()
             }
             indexs = ((ArrayType *)se->getType())->getIndexs();
             // 因为数组初始化可能会用到很多零，这里我们先准备一个，然后之后就不用频繁load了
-            Operand *zeroReg = new Operand(new TemporarySymbolEntry(baseType, SymbolTable::getLabel()));
-            Operand *zero = new Operand(new ConstantSymbolEntry(baseType, 0));
-            new BinaryInstruction(BinaryInstruction::ADD, zeroReg, zero, zero, now_bb);
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
             // 调用memset函数
