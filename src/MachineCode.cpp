@@ -649,7 +649,7 @@ void MachineFunction::output()
     auto entry = block_list[0];
     auto fp = new MachineOperand(MachineOperand::REG, 11);
     auto sp = new MachineOperand(MachineOperand::REG, 13);
-    auto lr = new MachineOperand(MachineOperand::REG, 14);
+    // auto lr = new MachineOperand(MachineOperand::REG, 14);
     std::vector<MachineOperand *> save_regs = getSavedRegs();
     std::vector<MachineOperand *> save_fregs = getSavedFRegs();
     // save_regs.push_back(fp);
@@ -688,14 +688,14 @@ void MachineFunction::output()
 
 void MachineUnit::PrintGlobalDecl()
 {
-    // TODO:
-    // You need to print global variable/const declarition code;
     // 先把const的和不是const的给分开
     std::vector<SymbolEntry *> commonVar;
     std::vector<SymbolEntry *> constVar;
     for (auto se : global_vars)
     {
-        if (se->getType()->isInt() && ((IntType *)se->getType())->isConst() || se->getType()->isFloat() && ((FloatType *)se->getType())->isConst() || se->getType()->isArray() && ((ArrayType *)se->getType())->isConst())
+        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst()) || 
+            (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst()) || 
+            (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
         {
             constVar.push_back(se);
         }

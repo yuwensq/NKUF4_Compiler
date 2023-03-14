@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "Function.h"
+#include "Type.h"
 #include "AsmBuilder.h"
 
 class Unit
@@ -35,6 +36,7 @@ public:
             declare_list.push_back(se);
         }
     };
+    void printInitValOfArray(ArrayType*, double*, int) const;
     void genMachineCode(MachineUnit *munit);
 };
 

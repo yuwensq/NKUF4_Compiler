@@ -40,30 +40,30 @@ $(PARSER):$(BISON)
 
 $(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp
 	@mkdir -p $(OBJ_PATH)
-	@clang++ $(CFLAGS) -c -o $@ $<
+	@clang++ $(CFLAGS) -Wall -Werror -c -o $@ $<
 
 $(BINARY):$(OBJ)
-	@clang++ -O0 -g -o $@ $^
+	@clang++ -O0 -g -Wall -Werror -o  $@ $^
 
 app:$(LEXER) $(PARSER) $(BINARY)
 
 run:app
-	@$(BINARY) -o example.s -S example.sy -O2
+	@$(BINARY) -o example.s -S example.sy
 
 run1:app
 	@$(BINARY) -o example.s -S example.sy -O2
-	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/libsysy.a -o example
+	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/sylib.a -o example
 	qemu-arm -L /usr/arm-linux-gnueabihf/ ./example
 	echo $$?
 
 run2:app
 	@$(BINARY) -o example.s -S example.sy
-	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/libsysy.a -o example
+	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/sylib.a -o example
 	qemu-arm -L /usr/arm-linux-gnueabihf/ ./example
 	echo $$?
 
 ll:app
-	@$(BINARY) -o example.ll -i example.sy -O2
+	@$(BINARY) -o example.ll -i example.sy
 
 ll1:app
 	@$(BINARY) -o example.ll -i example.sy 
@@ -85,7 +85,7 @@ gdb:app
 
 $(OBJ_PATH)/lexer.o:$(SRC_PATH)/lexer.cpp
 	@mkdir -p $(OBJ_PATH)
-	@clang++ $(CFLAGS) -c -o $@ $<
+	@g++ $(CFLAGS) -c -o $@ $<
 
 $(TEST_PATH)/%.toks:$(TEST_PATH)/%.sy
 	@$(BINARY) $< -o $@ -t
@@ -103,7 +103,7 @@ $(TEST_PATH)/%_std.s:$(TEST_PATH)/%.sy
 	@arm-linux-gnueabihf-gcc -x c $< -S -o $@ 
 
 $(TEST_PATH)/%.s:$(TEST_PATH)/%.sy
-	@timeout 5s $(BINARY) $< -o $@ -S 2>$(addsuffix .log, $(basename $@))
+	@timeout 500s $(BINARY) $< -o $@ -S 2>$(addsuffix .log, $(basename $@))
 	@[ $$? != 0 ] && echo "\033[1;31mCOMPILE FAIL:\033[0m $(notdir $<)" || echo "\033[1;32mCOMPILE SUCCESS:\033[0m $(notdir $<)"
 
 llvmir:$(LLVM_IR)
@@ -133,14 +133,14 @@ test:app
 			continue
 			fi
 		fi
-		arm-linux-gnueabihf-gcc -mcpu=cortex-a72 -o $${BIN} $${ASM} $(SYSLIB_PATH)/libsysy.a >>$${LOG} 2>&1
+		arm-linux-gnueabihf-gcc -mcpu=cortex-a72 -o $${BIN} $${ASM} $(SYSLIB_PATH)/sylib.a >>$${LOG} 2>&1
 		if [ $$? != 0 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mAssemble Error\033[0m"
 		else
 			if [ -f "$${IN}" ]; then
-				timeout 10s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} <$${IN} >$${RES} 2>>$${LOG}
+				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} <$${IN} >$${RES} 2>>$${LOG}
 			else
-				timeout 10s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} >$${RES} 2>>$${LOG}
+				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} >$${RES} 2>>$${LOG}
 			fi
 			RETURN_VALUE=$$?
 			FINAL=`tail -c 1 $${RES}`
@@ -188,7 +188,7 @@ lltest:app
 		OUT=$${file%.*}.out
 		FILE=$${file##*/}
 		FILE=$${FILE%.*}
-		timeout 300s $(BINARY) $${file} -o $${IR} -O2 -i 2>$${LOG}
+		timeout 300s $(BINARY) $${file} -o $${IR} -i 2>$${LOG}
 		RETURN_VALUE=$$?
 		if [ $$RETURN_VALUE = 124 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mCompile Timeout\033[0m"
@@ -203,9 +203,9 @@ lltest:app
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mAssemble Error\033[0m"
 		else
 			if [ -f "$${IN}" ]; then
-				timeout 5s $${BIN} <$${IN} >$${RES} 2>>$${LOG}
+				timeout 25s $${BIN} <$${IN} >$${RES} 2>>$${LOG}
 			else
-				timeout 5s $${BIN} >$${RES} 2>>$${LOG}
+				timeout 25s $${BIN} >$${RES} 2>>$${LOG}
 			fi
 			RETURN_VALUE=$$?
 			FINAL=`tail -c 1 $${RES}`

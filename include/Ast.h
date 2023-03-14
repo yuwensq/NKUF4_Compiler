@@ -6,6 +6,7 @@
 #include <stack>
 #include "Operand.h"
 #include "Type.h"
+#include "debug.h"
 
 class SymbolEntry;
 class Unit;
@@ -50,7 +51,7 @@ protected:
     Type *type;
 
 public:
-    ExprNode(SymbolEntry *symbolEntry) : symbolEntry(symbolEntry), isCond(false){};
+    ExprNode(SymbolEntry *symbolEntry) : isCond(false), symbolEntry(symbolEntry) {};
     Operand *getOperand() { return dst; };
     SymbolEntry *getSymPtr() { return symbolEntry; };
     bool isConde() const { return isCond; };
@@ -186,7 +187,7 @@ public:
         else if (se->getType()->isPtr())
         {
             ArrayType *arrType = (ArrayType *)((PointerType *)se->getType())->getType();
-            SymbolEntry *temp;
+            SymbolEntry *temp = nullptr;
             if (index == nullptr)
             {
                 this->type = se->getType();
@@ -205,6 +206,7 @@ public:
                     temp = new TemporarySymbolEntry(TypeSystem::floatType, SymbolTable::getLabel());
                 }
             }
+            Assert(temp, "temp不应为null\n");
             dst = new Operand(temp);
         }
         else

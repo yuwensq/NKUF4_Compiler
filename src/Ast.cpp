@@ -294,6 +294,7 @@ double Id::getValue()
 
 CallExpr::CallExpr(SymbolEntry *se, ExprNode *param) : ExprNode(se)
 {
+    this->param = param;
     dst = nullptr;
     // 统计实参数量
     unsigned long int paramCnt = 0;
@@ -328,7 +329,6 @@ CallExpr::CallExpr(SymbolEntry *se, ExprNode *param) : ExprNode(se)
             SymbolEntry *se = new TemporarySymbolEntry(this->type, SymbolTable::getLabel());
             dst = new Operand(se);
         }
-        ExprNode *temp = param;
         // 逐个比较形参列表和实参列表中每个参数的类型是否相同
         if (params.size() < FParams.size())
             fprintf(stderr, "too few arguments to function %s %s\n", symbolEntry->toStr().c_str(), type->toStr().c_str());
@@ -725,21 +725,17 @@ void DeclStmt::genCode()
         addr = new Operand(addr_se);
         se->setAddr(addr);
         unit.addGlobalVar(se);
-        if (se->getType()->isArray() && exprArray)
+        if (se->getType()->isArray())
         {
             int size = se->getType()->getSize() / TypeSystem::intType->getSize();
             double *arrayValue = new double[size];
             se->setArrayValue(arrayValue);
             for (int i = 0; i < size; i++)
             {
-                if (exprArray[i])
-                {
+                if (exprArray && exprArray[i])
                     arrayValue[i] = exprArray[i]->getValue();
-                }
                 else
-                {
                     arrayValue[i] = 0;
-                }
             }
         }
     }
@@ -774,32 +770,50 @@ void DeclStmt::genCode()
                 offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
             }
             indexs = ((ArrayType *)se->getType())->getIndexs();
-            // 因为数组初始化可能会用到很多零，这里我们先准备一个，然后之后就不用频繁load了
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
-            // 调用memset函数
-            std::vector<Operand *> rParams;
-            rParams.push_back(ele_addr);
-            rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
-            rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, size * 4)));
-            new CallInstruction(nullptr, globals->lookup("memset"), rParams, now_bb);
-            int stride = 0;
+            // 调用memset函数版本的数组初始化，因为没有在ir中加memset函数，只用中间代码的话会报错
+            // std::vector<Operand *> rParams;
+            // rParams.push_back(ele_addr);
+            // rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
+            // rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, size * 4)));
+            // new CallInstruction(nullptr, globals->lookup("memset"), rParams, now_bb);
+            // int stride = 0;
+            // for (int i = 0; i < size; i++)
+            // {
+            //     if (exprArray[i])
+            //     {
+            //         if (i != 0) {
+            //             Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, stride));
+            //             Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
+            //             new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
+            //             ele_addr = next_addr;
+            //             stride = 0;
+            //         }
+            //         exprArray[i]->genCode();
+            //         new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
+            //     }
+            //     stride++;
+            //     // new BinaryInstruction(BinaryInstruction::ADD, ele_addr, ele_addr, step, now_bb);
+            // }
+            Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, 1));
             for (int i = 0; i < size; i++)
             {
+                if (i != 0)
+                {
+                    Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
+                    new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
+                    ele_addr = next_addr;
+                }
                 if (exprArray[i])
                 {
-                    if (i != 0) {
-                        Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, stride));
-                        Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, eleType)), SymbolTable::getLabel()));
-                        new GepInstruction(ele_addr, ele_addr, {step}, now_bb, true);
-                        // ele_addr = next_addr;
-                        stride = 0;
-                    }
                     exprArray[i]->genCode();
                     new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
                 }
-                stride++;
-                // new BinaryInstruction(BinaryInstruction::ADD, ele_addr, ele_addr, step, now_bb);
+                else
+                {
+                    new StoreInstruction(ele_addr, new Operand(new ConstantSymbolEntry(baseType, 0)), now_bb);
+                }
             }
             // for (int i = 0; i < size; i++) {
             //     if (exprArray[i]) {

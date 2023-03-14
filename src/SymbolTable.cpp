@@ -75,8 +75,8 @@ IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int s
 
 void IdentifierSymbolEntry::setValue(double value)
 {
-    if (this->getType()->isInt() && ((IntType *)this->getType())->isConst() ||
-        this->getType()->isFloat() && ((FloatType *)this->getType())->isConst())
+    if ((this->getType()->isInt() && ((IntType *)this->getType())->isConst()) ||
+        (this->getType()->isFloat() && ((FloatType *)this->getType())->isConst()))
     {
         if (!initial)
         {

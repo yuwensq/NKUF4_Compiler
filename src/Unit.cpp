@@ -2,6 +2,7 @@
 #include "Type.h"
 #include "AsmBuilder.h"
 #include "MachineCode.h"
+#include "debug.h"
 #include <sstream>
 extern FILE *yyout;
 
@@ -13,6 +14,35 @@ void Unit::insertFunc(Function *f)
 void Unit::removeFunc(Function *func)
 {
     func_list.erase(std::find(func_list.begin(), func_list.end(), func));
+}
+
+void Unit::printInitValOfArray(ArrayType *type, double *initVal, int startPos) const
+{
+    Assert(initVal, "initVal为空\n");
+    std::vector<int> dim = type->getIndexs();
+    Type *baseType = type->getBaseType();
+    if (dim.size() > 0)
+    {
+        int size = dim[0];
+        int subLen = type->getSize() / TypeSystem::intType->getSize() / size; // 子数组长度
+        fprintf(yyout, "%s [", type->toStr().c_str());
+        dim.erase(dim.begin());
+        for (int i = 0; i < size; i++)
+        {
+            printInitValOfArray(new ArrayType(dim, baseType), initVal, startPos + i * subLen);
+            if (i != size - 1)
+                fprintf(yyout, ", ");
+        }
+        fprintf(yyout, "]");
+    }
+    else
+    { // 是一个i32
+        if (type->getBaseType()->isInt())
+            fprintf(yyout, "%s %d", type->toStr().c_str(), (int)initVal[startPos]);
+        else
+            fprintf(yyout, "%s %f", type->toStr().c_str(), initVal[startPos]);
+    }
+    delete type; // 以后要注意释放内存了
 }
 
 void Unit::output() const
@@ -29,14 +59,17 @@ void Unit::output() const
             else if (se->getType()->isFloat())
             {
                 value = (float)value;
-                uint64_t v = reinterpret_cast<uint64_t&>(value);
+                uint64_t v = reinterpret_cast<uint64_t &>(value);
                 fprintf(yyout, "%s = global %s 0x%lx, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str(), v);
-                // fprintf(yyout, "%s = global %s %f, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str(), (float)value);
             }
         }
         else
         {
-            fprintf(yyout, "%s = global %s zeroinitializer, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str());
+            double *initValue = se->getArrayValue();
+            fprintf(yyout, "%s = global ", se->toStr().c_str());
+            printInitValOfArray(new ArrayType(*((ArrayType *)se->getType())), initValue, 0);
+            fprintf(yyout, ", align 4\n");
+            // fprintf(yyout, "%s = global %s zeroinitializer, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str());
         }
     }
     // 再打印函数

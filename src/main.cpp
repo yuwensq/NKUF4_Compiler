@@ -77,18 +77,24 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s: fail to open output file\n", outfile);
         exit(EXIT_FAILURE);
     }
+    
     // dump_tokens = true;
     globalFunc();
     yyparse();
+    Log("语法分析成功\n");
     if (dump_ast)
         ast.output();
     ast.typeCheck();
     ast.genCode(&unit);
+    Log("中间代码生成成功\n");
     if (dump_ir)
         unit.output();
     unit.genMachineCode(&mUnit);
+    Log("目标代码生成成功\n");
     LinearScan linearScan(&mUnit);
-    linearScan.allocateRegisters();
+    if (dump_asm)
+        linearScan.allocateRegisters();
+    Log("线性扫描完成\n");
     if (dump_asm)
         mUnit.output();
     return 0;

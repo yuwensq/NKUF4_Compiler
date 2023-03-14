@@ -138,10 +138,12 @@ public:
     Type *getBaseType() { return baseType; };
     bool isConst()
     {
+        bool result = false;
         if (baseType->isInt())
-            return ((IntType *)baseType)->isConst();
+            result = ((IntType *)baseType)->isConst();
         else if (baseType->isFloat())
-            return ((FloatType *)baseType)->isConst();
+            result = ((FloatType *)baseType)->isConst();
+        return result;
     };
 };
 
