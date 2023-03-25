@@ -5,6 +5,8 @@
 #include "Unit.h"
 #include "MachineCode.h"
 #include "LinearScan.h"
+#include "MachinePeepHole.h"
+#include "MachineStraight.h"
 using namespace std;
 
 Ast ast;
@@ -91,6 +93,14 @@ int main(int argc, char *argv[])
         unit.output();
     unit.genMachineCode(&mUnit);
     Log("目标代码生成成功\n");
+
+    MachinePeepHole mph(&mUnit);
+    MachineStraight mst(&mUnit);
+    mph.pass();
+    mst.pass();
+
+    Log("目标代码优化成功\n");
+
     LinearScan linearScan(&mUnit);
     if (dump_asm)
         linearScan.allocateRegisters();

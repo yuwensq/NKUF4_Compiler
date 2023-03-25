@@ -1,9 +1,12 @@
 #include <algorithm>
+#include "debug.h"
 #include "LinearScan.h"
 #include "SymbolTable.h"
 #include "AsmBuilder.h"
 #include "MachineCode.h"
 #include "LiveVariableAnalysis.h"
+
+extern FILE *yyout;
 
 LinearScan::LinearScan(MachineUnit *unit)
 {
@@ -26,10 +29,12 @@ void LinearScan::allocateRegisters()
             computeLiveIntervals();
             spillIntervals.clear();
             success = linearScanRegisterAllocation();
-            if (success) // all vregs can be mapped to real regs
+            if (success) { // all vregs can be mapped to real regs 
                 modifyCode();
-            else // spill vregs that can't be mapped to real regs
+            }
+            else { // spill vregs that can't be mapped to real regs
                 genSpillCode();
+            }
         }
     }
 }
@@ -44,7 +49,7 @@ void LinearScan::makeDuChains()
     for (auto &bb : func->getBlocks())
     {
         liveVar.clear();
-        for (auto &t : bb->getLiveOut())
+        for (auto &t : bb->live_out)
             liveVar[*t].insert(t);
         int no;
         no = i = bb->getInsts().size() + i;
@@ -74,7 +79,9 @@ void LinearScan::makeDuChains()
 
 void LinearScan::computeLiveIntervals()
 {
+    Log("Start MakeDuChain");
     makeDuChains();
+    Log("DuChain complete, DuChain Size %zu", du_chains.size());
     intervals.clear();
     for (auto &du_chain : du_chains)
     {
@@ -84,25 +91,33 @@ void LinearScan::computeLiveIntervals()
         Interval *interval = new Interval({du_chain.first->getParent()->getNo(), t, false, 0, 0, {du_chain.first}, du_chain.second, du_chain.first->isFReg()});
         intervals.push_back(interval);
     }
+    Log("loop1 comp, intervals Size %zu", intervals.size());
+    // long long step = 0;
     for (auto &interval : intervals)
     {
+        // Log("loop2 step: %lld", step++);
         auto uses = interval->uses;
         auto begin = interval->start;
         auto end = interval->end;
+        // long long blocks = 0;
+        // int a = 0;
         for (auto block : func->getBlocks())
         {
-            auto liveIn = block->getLiveIn();
-            auto liveOut = block->getLiveOut();
+            // a++;
+            // Log("loop2 step: %lld block: %lld", step - 1, blocks++);
+            auto &liveIn = block->live_in;
+            auto &liveOut = block->live_out;
             bool in = false;
             bool out = false;
+            // Log("uses size %zu", uses.size());
             for (auto use : uses)
-                if (liveIn.count(use))
+                if (liveIn.find(use) != liveIn.end())
                 {
                     in = true;
                     break;
                 }
             for (auto use : uses)
-                if (liveOut.count(use))
+                if (liveOut.find(use) != liveOut.end())
                 {
                     out = true;
                     break;
@@ -133,20 +148,24 @@ void LinearScan::computeLiveIntervals()
                 end = std::max(temp, end);
             }
         }
+        // Log("%d", a);
         interval->start = begin;
         interval->end = end;
     }
+    Log("loop2 comp");
     bool change;
     change = true;
     while (change)
     {
         change = false;
-        std::vector<Interval *> t(intervals.begin(), intervals.end());
-        for (size_t i = 0; i < t.size(); i++)
-            for (size_t j = i + 1; j < t.size(); j++)
+        // std::vector<Interval *> t(intervals.begin(), intervals.end());
+        // for (size_t i = 0; i < intervals.size(); i++)
+        //     for (size_t j = i + 1; j < intervals.size(); j++)
+        for (auto it1 = intervals.begin(); it1 != intervals.end(); it1++)
+            for (auto it2 = it1 + 1; it2 != intervals.end(); it2++)
             {
-                Interval *w1 = t[i];
-                Interval *w2 = t[j];
+                Interval *w1 = *it1;
+                Interval *w2 = *it2;
                 if (**w1->defs.begin() == **w2->defs.begin())
                 {
                     std::set<MachineOperand *> temp;
@@ -164,13 +183,16 @@ void LinearScan::computeLiveIntervals()
                         auto w2Max = std::max(w2->start, w2->end);
                         w1->start = std::min(w1Min, w2Min);
                         w1->end = std::max(w1Max, w2Max);
-                        auto it = std::find(intervals.begin(), intervals.end(), w2);
-                        if (it != intervals.end())
-                            intervals.erase(it);
+                        // auto it = std::find(intervals.begin(), intervals.end(), w2);
+                        // if (it != intervals.end())
+                        //     intervals.erase(it);
+                        it2 = intervals.erase(it2);
+                        it2--;
                     }
                 }
             }
     }
+    Log("loop3 comp, intervals Size %zu", intervals.size());
     sort(intervals.begin(), intervals.end(), compareStart);
 }
 
@@ -185,6 +207,7 @@ bool LinearScan::linearScanRegisterAllocation()
     for (int i = 16; i <= 31; i++)
         fpuRegs.push_back(i);
     bool result = true;
+    Log("%zu", intervals.size());
     for (auto interval : intervals)
     {
         expireOldIntervals(interval);
@@ -229,7 +252,8 @@ void LinearScan::expireOldIntervals(Interval *interval)
             regs.push_back(actInterval->rreg);
         it = active.erase(it);
     }
-    // sort(regs.begin(), regs.end());
+    // 这个可以让用的寄存器总数比较少，就可以减少push次数了
+    sort(regs.begin(), regs.end());
 }
 
 void LinearScan::spillAtInterval(Interval *interval)

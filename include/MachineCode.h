@@ -5,6 +5,7 @@
 #include <string>
 #include <algorithm>
 #include <fstream>
+#include "debug.h"
 #include "SymbolTable.h"
 
 /* Hint:
@@ -89,7 +90,8 @@ protected:
         CMP,
         STACK,
         VCVT,
-        VMRS
+        VMRS,
+        MLA
     };
 
 public:
@@ -114,9 +116,20 @@ public:
     bool isPOP() { return type == STACK && this->op == 1; }
     bool isVPOP() { return type == STACK && this->op == 3; }
     bool isLoad() { return type == LOAD; };
+    bool isCLoad() { return type == LOAD && this->op == 0; };
+    bool isVLoad() { return type == LOAD && this->op == 1; };
+    bool isStore() { return type == STORE; };
+    bool isCStore() { return type == STORE && this->op == 0; };
+    bool isVStore() { return type == STORE && this->op == 1; };
+    bool isMul() { return type == BINARY && this->op == 2; };
+    bool isAdd() { return type == BINARY && this->op == 0; };
     bool isBinary() { return type == BINARY; };
     bool isRet() { return type == BRANCH && op == 2; };
     bool isUncondBranch() { return type == BRANCH && (op == 2 || (op == 0 && cond == MachineInstruction::NONE)); };
+    bool isUBranch() { return type == BRANCH && op == 0 && cond == MachineInstruction::NONE; }
+    bool isBranch() { return type == BRANCH && op == 0; };
+    bool isMov() { return type == MOV && op == 0; };
+    bool isCondMov() { return type == MOV && cond != MachineInstruction::NONE; };
 };
 
 class BinaryMInstruction : public MachineInstruction
@@ -205,6 +218,13 @@ public:
     BranchMInstruction(MachineBlock *p, int op,
                        MachineOperand *dst,
                        int cond = MachineInstruction::NONE);
+    void setTarget(MachineOperand *dst)
+    {
+        Assert(this->op == B, "不能修改target");
+        use_list.clear();
+        use_list.push_back(dst);
+        dst->setParent(this);
+    };
     void output();
 };
 
@@ -264,18 +284,28 @@ public:
     void output();
 };
 
+class MlaMInstruction : public MachineInstruction
+{
+public:
+    MlaMInstruction(MachineBlock *p, MachineOperand *dst,
+                    MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
+                    int cond = MachineInstruction::NONE);
+    void output();
+};
+
 class MachineBlock
 {
 private:
+    static unsigned long long inst_num; // 打印文字池，各个块共享这个变量
     MachineFunction *parent;
     int no;
     std::vector<MachineBlock *> pred, succ;
     std::vector<MachineInstruction *> inst_list;
     std::vector<MachineInstruction *> unsure_insts;
-    std::set<MachineOperand *> live_in;
-    std::set<MachineOperand *> live_out;
 
 public:
+    std::set<MachineOperand *> live_in;
+    std::set<MachineOperand *> live_out;
     std::vector<MachineInstruction *> &getInsts() { return inst_list; };
     std::vector<MachineInstruction *>::iterator begin() { return inst_list.begin(); };
     std::vector<MachineInstruction *>::iterator end() { return inst_list.end(); };
@@ -288,7 +318,9 @@ public:
     };
     void InsertInst(MachineInstruction *inst) { this->inst_list.push_back(inst); };
     void addPred(MachineBlock *p) { this->pred.push_back(p); };
+    void removePred(MachineBlock *p) { this->pred.erase(std::find(this->pred.begin(), this->pred.end(), p)); };
     void addSucc(MachineBlock *s) { this->succ.push_back(s); };
+    void removeSucc(MachineBlock *s) { this->succ.erase(std::find(this->succ.begin(), this->succ.end(), s)); };
     void insertBefore(MachineInstruction *, MachineInstruction *);
     void insertAfter(MachineInstruction *, MachineInstruction *);
     void insertFront(MachineInstruction *inst) { this->inst_list.insert(inst_list.begin(), inst); };
@@ -298,11 +330,12 @@ public:
     {
         this->inst_list.erase(find(inst_list.begin(), inst_list.end(), inst));
     };
-    std::set<MachineOperand *> &getLiveIn() { return live_in; };
-    std::set<MachineOperand *> &getLiveOut() { return live_out; };
+    inline std::set<MachineOperand *> &getLiveIn() { return live_in; };
+    inline std::set<MachineOperand *> &getLiveOut() { return live_out; };
     std::vector<MachineBlock *> &getPreds() { return pred; };
     std::vector<MachineBlock *> &getSuccs() { return succ; };
     MachineFunction *getParent() { return parent; };
+    int getNo() { return no; };
     void output();
 };
 
@@ -331,6 +364,7 @@ public:
         return this->stack_size;
     };
     void InsertBlock(MachineBlock *block) { this->block_list.push_back(block); };
+    void RemoveBlock(MachineBlock *block) { this->block_list.erase(std::find(this->block_list.begin(), this->block_list.end(), block)); };
     void addSavedRegs(int regno) { saved_regs.insert(regno); };
     std::vector<MachineOperand *> getAllSavedRegs();
     std::vector<MachineOperand *> getSavedRegs();

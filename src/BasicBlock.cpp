@@ -1,13 +1,21 @@
 #include "BasicBlock.h"
 #include "Function.h"
+#include "debug.h"
 #include <algorithm>
 
 extern FILE *yyout;
 
 // insert the instruction to the front of the basicblock.
-void BasicBlock::insertFront(Instruction *inst)
+void BasicBlock::insertFront(Instruction *inst, bool isArray = false)
 {
-    insertBefore(inst, head->getNext());
+    Instruction *pin = head->getNext();
+    if (isArray) {
+        while (pin && pin->isAlloc()) {
+            pin = pin->getNext(); 
+        }
+        pin = pin ? pin : head;
+    }
+    insertBefore(inst, pin);
 }
 
 // insert the instruction to the back of the basicblock.

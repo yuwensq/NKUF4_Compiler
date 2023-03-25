@@ -746,7 +746,7 @@ void DeclStmt::genCode()
         Operand *addr;
         addr = new Operand(new TemporarySymbolEntry(new PointerType(se->getType()), SymbolTable::getLabel()));
         alloca = new AllocaInstruction(addr, se); // allocate space for local id in function stack.
-        entry->insertFront(alloca);               // allocate instructions should be inserted into the begin of the entry block.
+        entry->insertFront(alloca, se->getType()->isArray());               // allocate instructions should be inserted into the begin of the entry block.
         se->setAddr(addr);                        // set the addr operand in symbol entry so that we can use it in subsequent code generation.
         if (expr)
         {
@@ -1012,7 +1012,6 @@ void FunctionDef::genCode()
     BasicBlock *entry = func->getEntry();
     // set the insert point to the entry basicblock of this function.
     builder->setInsertBB(entry);
-
     if (decl != nullptr)
     {
         decl->genCode();

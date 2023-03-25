@@ -39,7 +39,7 @@ void LiveVariableAnalysis::computeDefUse(MachineFunction *func)
 void LiveVariableAnalysis::iterate(MachineFunction *func)
 {
     for (auto &block : func->getBlocks())
-        block->getLiveIn().clear();
+        block->live_in.clear();
     bool change;
     change = true;
     while (change)
@@ -47,15 +47,15 @@ void LiveVariableAnalysis::iterate(MachineFunction *func)
         change = false;
         for (auto &block : func->getBlocks())
         {
-            block->getLiveOut().clear();
-            auto old = block->getLiveIn();
+            block->live_out.clear();
+            auto old = block->live_in;
             for (auto &succ : block->getSuccs())
-                block->getLiveOut().insert(succ->getLiveIn().begin(), succ->getLiveIn().end());
-            block->getLiveIn() = use[block];
+                block->live_out.insert(succ->live_in.begin(), succ->live_in.end());
+            block->live_in = use[block];
             std::vector<MachineOperand *> temp;
-            set_difference(block->getLiveOut().begin(), block->getLiveOut().end(),
-                           def[block].begin(), def[block].end(), inserter(block->getLiveIn(), block->getLiveIn().end()));
-            if (old != block->getLiveIn())
+            set_difference(block->live_out.begin(), block->live_out.end(),
+                           def[block].begin(), def[block].end(), inserter(block->live_in, block->live_in.end()));
+            if (old != block->live_in)
                 change = true;
         }
     }

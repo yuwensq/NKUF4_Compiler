@@ -20,7 +20,7 @@ private:
 public:
     BasicBlock(Function *);
     ~BasicBlock();
-    void insertFront(Instruction *);
+    void insertFront(Instruction *, bool);
     void insertBack(Instruction *);
     void insertBefore(Instruction *, Instruction *);
     void remove(Instruction *);

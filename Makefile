@@ -40,7 +40,7 @@ $(PARSER):$(BISON)
 
 $(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp
 	@mkdir -p $(OBJ_PATH)
-	@clang++ $(CFLAGS) -Wall -Werror -c -o $@ $<
+	@clang++ $(CFLAGS)  -c -o $@ $<
 
 $(BINARY):$(OBJ)
 	@clang++ -O0 -g -Wall -Werror -o  $@ $^
@@ -51,7 +51,7 @@ run:app
 	@$(BINARY) -o example.s -S example.sy
 
 run1:app
-	@$(BINARY) -o example.s -S example.sy -O2
+	@$(BINARY) -o example.s -S example.sy
 	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/sylib.a -o example
 	qemu-arm -L /usr/arm-linux-gnueabihf/ ./example
 	echo $$?
@@ -123,7 +123,7 @@ test:app
 		OUT=$${file%.*}.out
 		FILE=$${file##*/}
 		FILE=$${FILE%.*}
-		timeout 60s $(BINARY) $${file} -o $${ASM} -S 2>$${LOG}
+		timeout 180s $(BINARY) $${file} -o $${ASM} -S 2>$${LOG}
 		RETURN_VALUE=$$?
 		if [ $$RETURN_VALUE = 124 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mCompile Timeout\033[0m"

@@ -1,4 +1,6 @@
 #include "MachineCode.h"
+#include "assert.h"
+#include "debug.h"
 #include "AsmBuilder.h"
 #include "Type.h"
 #include <iostream>
@@ -105,7 +107,10 @@ void MachineOperand::output()
             fprintf(yyout, "%s", this->label.c_str() + 1);
         else // 变量
             fprintf(yyout, "addr_%s_%d", this->label.c_str(), this->getParent()->getParent()->getParent()->getParent()->getLtorgNum());
+        break;
     default:
+        printf("%d\n", this->type);
+        assert(0);
         break;
     }
 }
@@ -517,6 +522,35 @@ void VmrsMInstruction::output()
     fprintf(yyout, "\tvmrs APSR_nzcv, FPSCR\n");
 }
 
+MlaMInstruction::MlaMInstruction(MachineBlock *p, MachineOperand *dst, MachineOperand *src1, MachineOperand *src2, MachineOperand *src3, int cond)
+{
+    this->parent = p;
+    this->type = MachineInstruction::MLA;
+    this->op = -1;
+    this->cond = cond;
+    def_list.push_back(dst);
+    use_list.push_back(src1);
+    use_list.push_back(src2);
+    use_list.push_back(src3);
+    dst->setParent(this);
+    src1->setParent(this);
+    src2->setParent(this);
+    src3->setParent(this);
+}
+
+void MlaMInstruction::output()
+{
+    fprintf(yyout, "\tmla ");
+    def_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[1]->output();
+    fprintf(yyout, ", ");
+    use_list[2]->output();
+    fprintf(yyout, "\n");
+}
+
 MachineFunction::MachineFunction(MachineUnit *p, SymbolEntry *sym_ptr)
 {
     this->parent = p;
@@ -525,6 +559,8 @@ MachineFunction::MachineFunction(MachineUnit *p, SymbolEntry *sym_ptr)
     addSavedRegs(11);
     addSavedRegs(14);
 };
+
+unsigned long long MachineBlock::inst_num = 0;
 
 void MachineBlock::insertBefore(MachineInstruction *insertee, MachineInstruction *pin)
 {
@@ -535,6 +571,7 @@ void MachineBlock::insertBefore(MachineInstruction *insertee, MachineInstruction
 void MachineBlock::insertAfter(MachineInstruction *insertee, MachineInstruction *pin)
 {
     auto it = std::find(inst_list.begin(), inst_list.end(), pin);
+    Assert(it != inst_list.end(), "指令没在inst列表中");
     it++;
     inst_list.insert(it, insertee);
 }
@@ -576,7 +613,6 @@ void MachineBlock::backPatch(std::vector<MachineOperand *> saved_regs)
 void MachineBlock::output()
 {
     fprintf(yyout, ".L%d:\n", this->no);
-    unsigned long long int inst_num = 0;
     for (auto iter : inst_list)
     {
         iter->output();
@@ -847,3 +883,5 @@ void MachineUnit::output()
         iter->output();
     printLTORG();
 }
+
+
