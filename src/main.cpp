@@ -94,10 +94,10 @@ int main(int argc, char *argv[])
     unit.genMachineCode(&mUnit);
     Log("目标代码生成成功\n");
 
-    MachinePeepHole mph(&mUnit);
+    MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
-    mph.pass();
     mst.pass();
+    mph.pass();
 
     Log("目标代码优化成功\n");
 

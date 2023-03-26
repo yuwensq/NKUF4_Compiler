@@ -253,6 +253,7 @@ void LinearScan::expireOldIntervals(Interval *interval)
         it = active.erase(it);
     }
     // 这个可以让用的寄存器总数比较少，就可以减少push次数了
+    sort(fpuRegs.begin(), fpuRegs.end());
     sort(regs.begin(), regs.end());
 }
 

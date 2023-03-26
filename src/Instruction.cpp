@@ -1163,15 +1163,15 @@ void F2IInstruction::genMachineCode(AsmBuilder *builder)
     { // 如果src本来就是个浮点寄存器
         auto internal_reg = genMachineVReg(true);
         cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::FTS, internal_reg, src));
-        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, internal_reg));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, new MachineOperand(*internal_reg)));
     }
     else
     {
         // 这种情况可能是浮点立即数转int
         auto internal_reg = genMachineVReg(true);
         cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src));
-        cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::FTS, internal_reg, internal_reg));
-        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, internal_reg));
+        cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::FTS, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg)));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, new MachineOperand(*internal_reg)));
     }
 }
 
@@ -1202,5 +1202,5 @@ void I2FInstruction::genMachineCode(AsmBuilder *builder)
     }
     assert(dst->isFReg());
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, src));
-    cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::STF, dst, dst));
+    cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::STF, new MachineOperand(*dst), new MachineOperand(*dst)));
 }

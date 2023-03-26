@@ -78,7 +78,7 @@ void MachineStraight::removeSlimBlock() {
 
 void MachineStraight::pass()
 {
-    Log("伸直化开始\n");
+    Log("伸直化开始");
     getSlimBlock();
     removeSlimBlock();
     Log("伸直化完成\n");

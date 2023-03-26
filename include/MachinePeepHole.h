@@ -7,10 +7,12 @@ class MachinePeepHole
 {
 private:
     MachineUnit *unit;
+    int pass_times;
 
 public:
-    MachinePeepHole(MachineUnit *unit) : unit(unit) {}
+    MachinePeepHole(MachineUnit *unit, int pass_times = 0) : unit(unit), pass_times(pass_times) {}
     void pass();
+    void subPass();
 };
 
 #endif

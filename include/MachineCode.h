@@ -91,7 +91,9 @@ protected:
         STACK,
         VCVT,
         VMRS,
-        MLA
+        MLA,
+        MLS,
+        VNEG
     };
 
 public:
@@ -123,12 +125,16 @@ public:
     bool isVStore() { return type == STORE && this->op == 1; };
     bool isMul() { return type == BINARY && this->op == 2; };
     bool isAdd() { return type == BINARY && this->op == 0; };
+    bool isSub() { return type == BINARY && this->op == 1; };
+    bool isVSub() { return type == BINARY && op == 7; };
     bool isBinary() { return type == BINARY; };
     bool isRet() { return type == BRANCH && op == 2; };
     bool isUncondBranch() { return type == BRANCH && (op == 2 || (op == 0 && cond == MachineInstruction::NONE)); };
     bool isUBranch() { return type == BRANCH && op == 0 && cond == MachineInstruction::NONE; }
     bool isBranch() { return type == BRANCH && op == 0; };
     bool isMov() { return type == MOV && op == 0; };
+    bool isVMov() { return type == MOV && op == 2; };
+    bool isVMov32() { return type == MOV && op == 3; };
     bool isCondMov() { return type == MOV && cond != MachineInstruction::NONE; };
 };
 
@@ -290,6 +296,23 @@ public:
     MlaMInstruction(MachineBlock *p, MachineOperand *dst,
                     MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
                     int cond = MachineInstruction::NONE);
+    void output();
+};
+
+class MlsMInstruction : public MachineInstruction
+{
+public:
+    MlsMInstruction(MachineBlock *p, MachineOperand *dst,
+                    MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
+                    int cond = MachineInstruction::NONE);
+    void output();
+};
+
+class VNegMInstruction : public MachineInstruction
+{
+public:
+    VNegMInstruction(MachineBlock *p, MachineOperand *dst,
+                     MachineOperand *src, int cond = MachineInstruction::NONE);
     void output();
 };
 

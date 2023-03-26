@@ -551,6 +551,56 @@ void MlaMInstruction::output()
     fprintf(yyout, "\n");
 }
 
+MlsMInstruction::MlsMInstruction(MachineBlock *p, MachineOperand *dst, MachineOperand *src1, MachineOperand *src2, MachineOperand *src3, int cond)
+{
+    this->parent = p;
+    this->type = MachineInstruction::MLS;
+    this->op = -1;
+    this->cond = cond;
+    def_list.push_back(dst);
+    use_list.push_back(src1);
+    use_list.push_back(src2);
+    use_list.push_back(src3);
+    dst->setParent(this);
+    src1->setParent(this);
+    src2->setParent(this);
+    src3->setParent(this);
+}
+
+void MlsMInstruction::output()
+{
+    fprintf(yyout, "\tmls ");
+    def_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[1]->output();
+    fprintf(yyout, ", ");
+    use_list[2]->output();
+    fprintf(yyout, "\n");
+}
+
+VNegMInstruction::VNegMInstruction(MachineBlock *p, MachineOperand *dst, MachineOperand *src, int cond)
+{
+    this->parent = p;
+    this->type = MachineInstruction::VNEG;
+    this->op = -1;
+    this->cond = cond;
+    def_list.push_back(dst);
+    use_list.push_back(src);
+    dst->setParent(this);
+    src->setParent(this);
+}
+
+void VNegMInstruction::output()
+{
+    fprintf(yyout, "\tvneg.f32 ");
+    def_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[0]->output();
+    fprintf(yyout, "\n");
+}
+
 MachineFunction::MachineFunction(MachineUnit *p, SymbolEntry *sym_ptr)
 {
     this->parent = p;
@@ -729,8 +779,8 @@ void MachineUnit::PrintGlobalDecl()
     std::vector<SymbolEntry *> constVar;
     for (auto se : global_vars)
     {
-        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst()) || 
-            (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst()) || 
+        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst()) ||
+            (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst()) ||
             (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
         {
             constVar.push_back(se);
@@ -883,5 +933,3 @@ void MachineUnit::output()
         iter->output();
     printLTORG();
 }
-
-
