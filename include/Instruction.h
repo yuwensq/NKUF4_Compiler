@@ -19,6 +19,9 @@ public:
     bool isCond() const { return instType == COND; };
     bool isRet() const { return instType == RET; };
     bool isAlloc() const { return instType == ALLOCA; };
+    bool isLoad() const { return instType == LOAD; };
+    bool isStore() const { return instType == STORE; };
+    bool isPhi() const { return instType == PHI; };
     void setParent(BasicBlock *);
     void setNext(Instruction *);
     void setPrev(Instruction *);
@@ -32,6 +35,9 @@ public:
     MachineOperand *genMachineLabel(int block_no);
     MachineOperand *immToVReg(MachineOperand *, MachineBlock *);
     virtual void genMachineCode(AsmBuilder *) = 0;
+    std::vector<Operand*>& getOperands() { return operands; }
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand *> replaceAllUsesWith(Operand *); // Mem2Reg
 
 protected:
     unsigned instType;
@@ -55,7 +61,8 @@ protected:
         ZEXT,
         GEP,
         FPTSI,
-        SITFP
+        SITFP,
+        PHI
     };
 };
 
@@ -238,6 +245,24 @@ public:
     I2FInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+};
+
+class PhiInstruction : public Instruction
+{
+private:
+    std::map<BasicBlock *, Operand *> srcs;
+    Operand *addr; // old PTR
+
+public:
+    PhiInstruction(Operand *dst, BasicBlock *insert_bb = nullptr);
+    ~PhiInstruction();
+    void output() const;
+    void updateDst(Operand *);
+    void addEdge(BasicBlock *block, Operand *src);
+    Operand *getAddr() { return addr; };
+    std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; };
+
+    void genMachineCode(AsmBuilder *){};
 };
 
 #endif

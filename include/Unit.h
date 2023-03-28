@@ -2,6 +2,7 @@
 #define __UNIT_H__
 
 #include <vector>
+#include <assert.h>
 #include "Function.h"
 #include "Type.h"
 #include "AsmBuilder.h"

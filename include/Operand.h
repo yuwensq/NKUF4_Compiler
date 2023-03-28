@@ -29,6 +29,7 @@ public:
     std::string toStr() const;
     SymbolEntry *getEntry() { return se; };
     Instruction *getDef() { return def; };
+    std::vector<Instruction*>& getUse() { return uses; };
 };
 
 #endif

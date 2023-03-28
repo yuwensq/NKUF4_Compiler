@@ -40,21 +40,51 @@ std::string ConstantSymbolEntry::toStr()
 {
     std::ostringstream buffer;
     if (type->isInt())
+    {
         buffer << (int)value;
+    }
+    else if (type->isBool())
+    {
+        buffer.setf(std::ios::boolalpha);
+        buffer << (bool)value;
+    }
     else if (type->isFloat())
     {
-        // 浮点数麻烦，直接打印16进制得了
-        /* 终于找到了
-        AFAIK just printing a decimal float works. If you
-really want a hexadecimal encoding, just reinterpret the
-floating-point number as an integer and print in hexadecimal; an "LLVM
-float" is just an IEEE float printed in hexadecimal.
-        */
-        double fv = (float)value;
-        uint64_t v = reinterpret_cast<uint64_t &>(fv);
-        buffer << "0x" << std::hex << v;
+        float fvalue = value;
+        void* p = &fvalue;
+        bool precise = !(*(uint8_t*)p);
+        double dvalue = fvalue;
+        p = &dvalue;
+        if (precise)
+        {
+            buffer.setf(std::ios::scientific);
+            buffer << (float)value;
+        }
+        else
+        {
+            buffer.setf(std::ios::uppercase);
+            buffer << "0x" << std::hex << (*(uint64_t*)p);
+        }
     }
     return buffer.str();
+
+//     std::ostringstream buffer;
+//     if (type->isInt())
+//         buffer << (int)value;
+//     else if (type->isFloat())
+//     {
+//         // 浮点数麻烦，直接打印16进制得了
+//         /* 终于找到了
+//         AFAIK just printing a decimal float works. If you
+// really want a hexadecimal encoding, just reinterpret the
+// floating-point number as an integer and print in hexadecimal; an "LLVM
+// float" is just an IEEE float printed in hexadecimal.
+//         */
+//         double fv = (float)value;
+//         uint64_t v = reinterpret_cast<uint64_t &>(fv);
+//         buffer << "0x" << std::hex << v;
+//     }
+//     return buffer.str();
 }
 
 IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int scope, bool sysy, int argNum) : SymbolEntry(type, SymbolEntry::VARIABLE), name(name), sysy(sysy)

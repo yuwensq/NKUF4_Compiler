@@ -855,7 +855,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
 {
     auto cur_block = builder->getBlock();
     // 先把不是浮点数的放到r0-r3里
-    long unsigned int i;
+    size_t i;
     int sum = 0;
     for (i = 1; i <= operands.size() - 1 && sum < 4; i++)
     {
@@ -871,7 +871,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
         sum++;
     }
-    int intLastPos = i;
+    auto intLastPos = i;
     // 把浮点数放到寄存器里
     sum = 0;
     for (i = 1; i <= operands.size() - 1 && sum < 16; i++)
@@ -891,7 +891,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         }
         sum++;
     }
-    int floatLastPos = i;
+    auto floatLastPos = i;
     int param_size_in_stack = 0;
     // 开始从后向前push
     for (long unsigned int i = operands.size() - 1; i >= 1; i--)
@@ -1203,4 +1203,88 @@ void I2FInstruction::genMachineCode(AsmBuilder *builder)
     assert(dst->isFReg());
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, dst, src));
     cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::STF, new MachineOperand(*dst), new MachineOperand(*dst)));
+}
+
+PhiInstruction::PhiInstruction(Operand *dst, BasicBlock *insert_bb) : Instruction(PHI, insert_bb)
+{
+    operands.push_back(dst);
+    // if (dst->getDef() == nullptr)
+    //     dst->setDef(this);
+    addr = dst;
+}
+
+PhiInstruction::~PhiInstruction()
+{
+    if (addr != nullptr)
+    {
+        // addr->setDef(nullptr);
+        if (addr->usersNum() == 0)
+            delete addr;
+    }
+}
+
+void PhiInstruction::output() const
+{
+    fprintf(yyout, "  %s = phi %s ", operands[0]->toStr().c_str(), operands[0]->getType()->toStr().c_str());
+    fprintf(stderr, "  %s = phi %s ", operands[0]->toStr().c_str(), operands[0]->getType()->toStr().c_str());
+    if (srcs.empty())
+    {
+        fprintf(stderr, "\n");
+        return;
+    }
+    auto it = srcs.begin();
+    fprintf(yyout, "[ %s , %%B%d ]", it->second->toStr().c_str(), it->first->getNo());
+    fprintf(stderr, "[ %s , %%B%d ]", it->second->toStr().c_str(), it->first->getNo());
+    it++;
+    for (; it != srcs.end(); it++)
+    {
+        fprintf(yyout, ", ");
+        fprintf(stderr, ", ");
+        fprintf(yyout, "[ %s , %%B%d ]", it->second->toStr().c_str(), it->first->getNo());
+        fprintf(stderr, "[ %s , %%B%d ]", it->second->toStr().c_str(), it->first->getNo());
+    }
+    fprintf(yyout, "\n");
+    fprintf(stderr, "\n");
+}
+
+void PhiInstruction::updateDst(Operand *new_dst)
+{
+    operands[0] = new_dst;
+    new_dst->setDef(this);
+}
+
+void PhiInstruction::addEdge(BasicBlock *block, Operand *src)
+{
+    operands.push_back(src);
+    srcs[block] = src;
+    src->addUse(this);
+}
+
+std::vector<Operand *> Instruction::replaceAllUsesWith(Operand *replVal)
+{
+    if (operands.empty())
+        return std::vector<Operand *>();
+    std::vector<Operand *> freeList;
+    for (auto &userInst : operands[0]->getUse())
+    {
+        auto &uses = userInst->getOperands();
+        for (size_t i = 1; i != uses.size(); i++)
+            if (uses[i]->getEntry() == operands[0]->getEntry())
+            {
+                if (userInst->isPhi())
+                {
+                    auto &srcs = ((PhiInstruction *)userInst)->getSrcs();
+                    for (auto &src : srcs)
+                    {
+                        if (src.second == uses[i])
+                            src.second = replVal;
+                    }
+                }
+                freeList.push_back(uses[i]);
+                uses[i]->removeUse(userInst);
+                uses[i] = replVal;
+                replVal->addUse(userInst);
+            }
+    }
+    return freeList;
 }

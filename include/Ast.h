@@ -45,13 +45,13 @@ public:
 class ExprNode : public Node
 {
 protected:
-    bool isCond;
     SymbolEntry *symbolEntry;
+    bool isCond;
     Operand *dst; // The result of the subtree is stored into dst.
     Type *type;
 
 public:
-    ExprNode(SymbolEntry *symbolEntry) : isCond(false), symbolEntry(symbolEntry) {};
+    ExprNode(SymbolEntry *symbolEntry) : symbolEntry(symbolEntry), isCond(false){};
     Operand *getOperand() { return dst; };
     SymbolEntry *getSymPtr() { return symbolEntry; };
     bool isConde() const { return isCond; };

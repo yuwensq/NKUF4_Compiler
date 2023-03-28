@@ -19,11 +19,10 @@ protected:
         ARRAY,
         FLOAT
     };
-    int size;
 
 public:
-    Type(int kind, int size = 0) : kind(kind), size(size){};
-    virtual ~Type(){};
+    Type(int kind) : kind(kind) {}
+    virtual ~Type() {}
     virtual std::string toStr() = 0;
     bool isInt() const { return kind == INT; };
     bool isBool() const { return kind == BOOL; };
@@ -32,36 +31,42 @@ public:
     bool isPtr() const { return kind == PTR; };
     bool isArray() const { return kind == ARRAY; };
     bool isFloat() const { return kind == FLOAT; };
-    int getKind() const { return kind; };
-    int getSize() const { return size; };
+    int getKind() const { return kind; }
+    virtual int getSize() const { return 0; }
+    virtual bool isConst() {return false;}
+    virtual bool isStr() const {return false;}
 };
 
 class IntType : public Type
 {
 private:
+    int size;
     bool constant;
 
 public:
-    IntType(int size, bool constant = false) : Type(size == 1 ? Type::BOOL : Type::INT, size), constant(constant){};
+    IntType(int size, bool constant = false) : Type(size == 1 ? Type::BOOL : Type::INT), size(size), constant(constant) {}
     std::string toStr();
-    bool isConst() const { return constant; };
+    bool isConst() const { return constant; }
+    int getSize() const { return size; }
 };
 
 class FloatType : public Type
 {
 private:
+    int size;
     bool constant;
 
 public:
-    FloatType(int size, bool constant = false) : Type(Type::FLOAT, size), constant(constant){};
+    FloatType(int size, bool constant = false) : Type(Type::FLOAT), size(size), constant(constant){};
     std::string toStr();
-    bool isConst() const { return constant; };
+    bool isConst() const { return constant; }
+    int getSize() const { return size; }
 };
 
 class VoidType : public Type
 {
 public:
-    VoidType() : Type(Type::VOID){};
+    VoidType() : Type(Type::VOID) {}
     std::string toStr();
 };
 
@@ -78,8 +83,9 @@ public:
     {
         this->paramsType = paramsType;
     };
-    std::vector<Type *> getParamsType() { return paramsType; };
+    std::vector<Type *> getParamsType() { return paramsType; }
     std::string toStr();
+    int getSize() const { return returnType->getSize(); }
 };
 
 class PointerType : public Type
@@ -91,10 +97,10 @@ public:
     PointerType(Type *valueType) : Type(Type::PTR)
     {
         this->valueType = valueType;
-        this->size = 32;
     };
     std::string toStr();
-    Type *getType() const { return valueType; };
+    Type *getType() const { return valueType; }
+    int getSize() const { return 32; }
 };
 
 class TypeSystem
@@ -122,6 +128,7 @@ private:
     // 数组的索引范围
     std::vector<int> indexs;
     Type *baseType;
+    int size;
 
 public:
     ArrayType(std::vector<int> indexs, Type *baseType = TypeSystem::intType) : Type(Type::ARRAY), indexs(indexs), baseType(baseType)
@@ -134,17 +141,24 @@ public:
         this->size *= 32;
     };
     std::string toStr();
-    std::vector<int> getIndexs() { return indexs; };
-    Type *getBaseType() { return baseType; };
-    bool isConst()
-    {
-        bool result = false;
-        if (baseType->isInt())
-            result = ((IntType *)baseType)->isConst();
-        else if (baseType->isFloat())
-            result = ((FloatType *)baseType)->isConst();
-        return result;
-    };
+    std::vector<int> getIndexs() { return indexs; }
+    Type *getBaseType() { return baseType; }
+    int getSize() const { return size; }
+    bool isConst() { return baseType->isConst(); }
+};
+
+class StringType : public Type {
+private:
+    std::string a;
+    size_t len;
+
+public:
+    StringType(std::string a) : Type(7), a(a), len(a.length()-1) {}
+    std::string toStr() {return "[" + std::to_string(len) + " x i8]";}
+    bool isConstType() {return true;}
+    size_t getLength() {return len;}
+    std::string get() {return a;}
+    bool isStr() const {return true;}
 };
 
 #endif
