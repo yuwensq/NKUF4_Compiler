@@ -779,9 +779,9 @@ void MachineUnit::PrintGlobalDecl()
     std::vector<SymbolEntry *> constVar;
     for (auto se : global_vars)
     {
-        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst()) ||
-            (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst()) ||
-            (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
+        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst())
+            || (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst())
+            || (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
         {
             constVar.push_back(se);
         }
@@ -925,6 +925,7 @@ void MachineUnit::output()
      * 2. Traverse all the function in func_list to print assembly code;
      * 3. Don't forget print bridge label at the end of assembly code!! */
     fprintf(yyout, "\t.arch armv8-a\n");
+    fprintf(yyout, "\t.fpu vfpv2\n");
     fprintf(yyout, "\t.arch_extension crc\n");
     fprintf(yyout, "\t.arm\n");
     PrintGlobalDecl();
@@ -933,3 +934,5 @@ void MachineUnit::output()
         iter->output();
     printLTORG();
 }
+
+

@@ -8,6 +8,7 @@
 #include "MachinePeepHole.h"
 #include "MachineStraight.h"
 #include "SymbolTable.h"
+#include "SimplifyCFG.h"
 using namespace std;
 
 Ast ast;
@@ -90,6 +91,12 @@ int main(int argc, char *argv[])
     ast.typeCheck();
     ast.genCode(&unit);
     Log("中间代码生成成功\n");
+
+    SimplifyCFG scfg(&unit);
+    scfg.pass();
+
+    Log("IR优化成功\n");/**/
+
     if (dump_ir)
         unit.output();
     unit.genMachineCode(&mUnit);

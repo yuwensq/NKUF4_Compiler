@@ -765,7 +765,7 @@ void DeclStmt::genCode()
             std::vector<int> indexs = ((ArrayType *)se->getType())->getIndexs();
             int size = se->getType()->getSize() / TypeSystem::intType->getSize();
             std::vector<Operand *> offs;
-            for (int j = 0; j < indexs.size(); j++)
+            for (size_t j = 0; j < indexs.size(); j++)
             {
                 offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
             }
