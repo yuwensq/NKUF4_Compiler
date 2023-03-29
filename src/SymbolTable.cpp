@@ -1,5 +1,6 @@
 #include "SymbolTable.h"
 #include "Operand.h"
+#include "debug.h"
 #include "Type.h"
 #include <iostream>
 #include <utility>
@@ -71,6 +72,7 @@ IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int s
     }
     addr = nullptr;
     initial = false;
+    Log("%d", initial);
 }
 
 void IdentifierSymbolEntry::setValue(double value)

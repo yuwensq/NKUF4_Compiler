@@ -7,6 +7,7 @@
 #include "LinearScan.h"
 #include "MachinePeepHole.h"
 #include "MachineStraight.h"
+#include "SymbolTable.h"
 using namespace std;
 
 Ast ast;
