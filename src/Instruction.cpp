@@ -401,7 +401,7 @@ void ZextInstruction::output() const
     }
     else
     {
-
+        std::cout << 1;
         fprintf(yyout, "  %s = zext i32 %s to i1\n", dst.c_str(), src.c_str());
     }
 }
