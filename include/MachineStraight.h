@@ -9,11 +9,11 @@ class MachineStraight
 private:
     MachineUnit *unit;
     std::map<int, std::pair<MachineBlock *, MachineBlock *>> blk2blk;
+    void getSlimBlock();
+    void removeSlimBlock();
 
 public:
     MachineStraight(MachineUnit *unit) : unit(unit) {}
-    void getSlimBlock();
-    void removeSlimBlock();
     void pass();
 };
 

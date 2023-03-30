@@ -22,6 +22,9 @@ public:
     bool isLoad() const { return instType == LOAD; };
     bool isStore() const { return instType == STORE; };
     bool isPhi() const { return instType == PHI; };
+    bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
+    bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
+    bool isBinary() const { return instType == BINARY; };
     void setParent(BasicBlock *);
     void setNext(Instruction *);
     void setPrev(Instruction *);
@@ -35,9 +38,10 @@ public:
     MachineOperand *genMachineLabel(int block_no);
     MachineOperand *immToVReg(MachineOperand *, MachineBlock *);
     virtual void genMachineCode(AsmBuilder *) = 0;
-    std::vector<Operand*>& getOperands() { return operands; }
-    Operand* getDef() { return operands[0]; }
+    std::vector<Operand *> &getOperands() { return operands; }
+    virtual Operand *getDef() { return nullptr; }
     std::vector<Operand *> replaceAllUsesWith(Operand *); // Mem2Reg
+    int getOpCode() const { return opcode; }
 
 protected:
     unsigned instType;
@@ -82,6 +86,7 @@ public:
     ~AllocaInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 
 private:
     SymbolEntry *se;
@@ -94,6 +99,7 @@ public:
     ~LoadInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 };
 
 class StoreInstruction : public Instruction
@@ -122,6 +128,7 @@ public:
         OR,
         MOD
     };
+    Operand *getDef() { return operands[0]; };
 
 private:
     bool floatVersion;
@@ -143,6 +150,7 @@ public:
         LE,
         G
     };
+    Operand *getDef() { return operands[0]; };
 
 private:
     bool floatVersion;
@@ -187,6 +195,7 @@ public:
     ~CallInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 
 private:
     SymbolEntry *func;
@@ -207,6 +216,7 @@ public:
     XorInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 };
 
 class ZextInstruction : public Instruction // bool转为int
@@ -215,6 +225,7 @@ public:
     ZextInstruction(Operand *dst, Operand *src, bool b2i = false, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 
 private:
     bool b2i;
@@ -226,6 +237,7 @@ public:
     GepInstruction(Operand *dst, Operand *base, std::vector<Operand *> offs, BasicBlock *insert_bb = nullptr, bool type2 = false);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 
 private:
     bool type2 = false;
@@ -237,6 +249,7 @@ public:
     F2IInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 };
 
 class I2FInstruction : public Instruction
@@ -245,6 +258,7 @@ public:
     I2FInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; };
 };
 
 class PhiInstruction : public Instruction
@@ -263,6 +277,7 @@ public:
     std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; };
 
     void genMachineCode(AsmBuilder *){};
+    Operand *getDef() { return operands[0]; };
 };
 
 #endif
