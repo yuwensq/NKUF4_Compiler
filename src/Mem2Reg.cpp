@@ -29,7 +29,8 @@ void Mem2Reg::insertPhiInstruction(Function* function) {
         if (!i->isAlloc())
             break;
         auto alloca = (AllocaInstruction*)i;
-        if (!alloca->getEntry()->getType()->isArray())
+        if (!alloca->getEntry()->getType()->isArray()
+         && !alloca->getEntry()->getType()->isPtr())
             allocaIns.push_back(alloca);
     }
     vector<BasicBlock*> worklist;
