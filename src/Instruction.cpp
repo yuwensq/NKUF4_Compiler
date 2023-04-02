@@ -1247,12 +1247,6 @@ void PhiInstruction::output() const
     fprintf(stderr, "\n");
 }
 
-void PhiInstruction::updateDst(Operand *new_dst)
-{
-    operands[0] = new_dst;
-    new_dst->setDef(this);
-}
-
 void PhiInstruction::addEdge(BasicBlock *block, Operand *src)
 {
     operands.push_back(src);
@@ -1262,29 +1256,31 @@ void PhiInstruction::addEdge(BasicBlock *block, Operand *src)
 
 std::vector<Operand *> Instruction::replaceAllUsesWith(Operand *replVal)
 {
-    if (operands.empty())
+    auto def = getDef();
+    if (def == nullptr)
         return std::vector<Operand *>();
     std::vector<Operand *> freeList;
-    for (auto &userInst : operands[0]->getUse())
+    for (auto userInst : def->getUse())
     {
-        auto &uses = userInst->getOperands();
-        for (size_t i = 1; i != uses.size(); i++)
-            if (uses[i]->getEntry() == operands[0]->getEntry())
+        for (auto &&i : userInst->getUse())
+        {
+            if (i->getEntry() == def->getEntry())
             {
                 if (userInst->isPhi())
                 {
                     auto &srcs = ((PhiInstruction *)userInst)->getSrcs();
                     for (auto &src : srcs)
                     {
-                        if (src.second == uses[i])
+                        if (src.second == i)
                             src.second = replVal;
                     }
                 }
-                freeList.push_back(uses[i]);
-                uses[i]->removeUse(userInst);
-                uses[i] = replVal;
+                freeList.push_back(i);
+                i->removeUse(userInst);
+                i = replVal;
                 replVal->addUse(userInst);
             }
+        }
     }
     return freeList;
 }

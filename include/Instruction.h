@@ -36,8 +36,12 @@ public:
     MachineOperand *immToVReg(MachineOperand *, MachineBlock *);
     virtual void genMachineCode(AsmBuilder *) = 0;
     std::vector<Operand*>& getOperands() { return operands; }
-    Operand* getDef() { return operands[0]; }
+
+    virtual Operand* getDef() { return nullptr; }
+    virtual std::vector<Operand*> getUse() { return {}; }
     std::vector<Operand *> replaceAllUsesWith(Operand *); // Mem2Reg
+    virtual void replaceUse(Operand*, Operand*) {}
+    virtual void replaceDef(Operand*) {}
 
 protected:
     unsigned instType;
@@ -82,6 +86,13 @@ public:
     ~AllocaInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    SymbolEntry *getEntry() { return se; }
+    Operand* getDef() { return operands[0]; }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 
 private:
     SymbolEntry *se;
@@ -94,6 +105,20 @@ public:
     ~LoadInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
 };
 
 class StoreInstruction : public Instruction
@@ -103,6 +128,18 @@ public:
     ~StoreInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    std::vector<Operand*> getUse() { return {operands[0], operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[0] == old) {
+            operands[0]->removeUse(this);
+            operands[0] = rep;
+            rep->addUse(this);
+        } else if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
 };
 
 class BinaryInstruction : public Instruction
@@ -122,6 +159,24 @@ public:
         OR,
         MOD
     };
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1], operands[2]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        } else if (operands[2] == old) {
+            operands[2]->removeUse(this);
+            operands[2] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 
 private:
     bool floatVersion;
@@ -143,6 +198,24 @@ public:
         LE,
         G
     };
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1], operands[2]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        } else if (operands[2] == old) {
+            operands[2]->removeUse(this);
+            operands[2] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 
 private:
     bool floatVersion;
@@ -174,6 +247,14 @@ public:
     void setFalseBranch(BasicBlock *);
     BasicBlock *getFalseBranch();
     void genMachineCode(AsmBuilder *);
+    std::vector<Operand*> getUse() { return {operands[0]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[0] == old) {
+            operands[0]->removeUse(this);
+            operands[0] = rep;
+            rep->addUse(this);
+        }
+    }
 
 protected:
     BasicBlock *true_branch;
@@ -187,6 +268,31 @@ public:
     ~CallInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() {
+        std::vector<Operand*> vec;
+        for (auto it = operands.begin() + 1; it != operands.end(); it++)
+            vec.push_back(*it);
+        return vec;
+    }
+    void replaceDef(Operand* rep) {
+        if (operands[0]) {
+            operands[0]->setDef(nullptr);
+            operands[0] = rep;
+            operands[0]->setDef(this);
+        }
+    }
+    void replaceUse(Operand* old, Operand* rep) {
+        for (size_t i = 1; i < operands.size(); i++)
+        {
+            if (operands[i] == old)
+            {
+                operands[i]->removeUse(this);
+                operands[i] = rep;
+                rep->addUse(this);
+            }
+        }
+    }
 
 private:
     SymbolEntry *func;
@@ -199,6 +305,21 @@ public:
     ~RetInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    std::vector<Operand*> getUse() { if (operands.size()) return {operands[0]}; else return {}; }
+    void replaceDef(Operand* rep) {
+        if (operands.size()) {
+            operands[0]->setDef(nullptr);
+            operands[0] = rep;
+            operands[0]->setDef(this);
+        }
+    }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands.size() && operands[0] == old) {
+            operands[0]->removeUse(this);
+            operands[0] = rep;
+            rep->addUse(this);
+        }
+    }
 };
 
 class XorInstruction : public Instruction // not指令
@@ -207,6 +328,20 @@ public:
     XorInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 };
 
 class ZextInstruction : public Instruction // bool转为int
@@ -215,6 +350,20 @@ public:
     ZextInstruction(Operand *dst, Operand *src, bool b2i = false, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 
 private:
     bool b2i;
@@ -226,6 +375,25 @@ public:
     GepInstruction(Operand *dst, Operand *base, std::vector<Operand *> offs, BasicBlock *insert_bb = nullptr, bool type2 = false);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1], operands[2]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+        else if (operands[2] == old) {
+            operands[2]->removeUse(this);
+            operands[2] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 
 private:
     bool type2 = false;
@@ -237,6 +405,20 @@ public:
     F2IInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 };
 
 class I2FInstruction : public Instruction
@@ -245,6 +427,20 @@ public:
     I2FInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     void output() const;
     void genMachineCode(AsmBuilder *);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 };
 
 class PhiInstruction : public Instruction
@@ -257,12 +453,36 @@ public:
     PhiInstruction(Operand *dst, BasicBlock *insert_bb = nullptr);
     ~PhiInstruction();
     void output() const;
-    void updateDst(Operand *);
     void addEdge(BasicBlock *block, Operand *src);
     Operand *getAddr() { return addr; };
     std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; };
 
-    void genMachineCode(AsmBuilder *){};
+    void genMachineCode(AsmBuilder *) {}
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() {
+        std::vector<Operand*> vec;
+        for (auto& ope : operands)
+            if (ope != operands[0])
+                vec.push_back(ope);
+        return vec;
+    }
+    void replaceUse(Operand* old, Operand* rep) {
+        for (auto& it : srcs) {
+            if (it.second == old) {
+                it.second->removeUse(this);
+                it.second = rep;
+                rep->addUse(this);
+            }
+        }
+        for (auto it = operands.begin() + 1; it != operands.end(); it++)
+            if (*it == old)
+                *it = rep;
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 };
 
 #endif

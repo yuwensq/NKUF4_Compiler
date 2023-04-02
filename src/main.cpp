@@ -3,12 +3,12 @@
 #include <unistd.h>
 #include "Ast.h"
 #include "Unit.h"
+#include "SymbolTable.h"
 #include "MachineCode.h"
 #include "LinearScan.h"
 #include "MachinePeepHole.h"
 #include "MachineStraight.h"
-#include "SymbolTable.h"
-#include "SimplifyCFG.h"
+#include "Mem2Reg.h"
 using namespace std;
 
 Ast ast;
@@ -92,8 +92,8 @@ int main(int argc, char *argv[])
     ast.genCode(&unit);
     Log("中间代码生成成功\n");
 
-    SimplifyCFG scfg(&unit);
-    scfg.pass();
+    Mem2Reg m2r(&unit);
+    //m2r.pass(); Only IR supported
 
     Log("IR优化成功\n");/**/
 

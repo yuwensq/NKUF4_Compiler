@@ -1056,6 +1056,47 @@ void FunctionDef::genCode()
             }
         }
     }
+    // 把ret后面的指令清掉
+    for (auto it = func->begin(); it != func->end(); it++)
+    {
+        auto block = *it;
+        bool flag = false;
+        for (auto i = block->begin(); i != block->end(); i = i->getNext())
+        {
+            if (flag)
+            {
+                block->remove(i);
+                delete i;
+                continue;
+            }
+            flag = i->isRet();
+        }
+        if (flag)
+        {
+            while (block->succ_begin() != block->succ_end())
+            {
+                auto b = *(block->succ_begin());
+                block->removeSucc(b);
+                b->removePred(block);
+            }
+        }
+    }
+    while (true)
+    {
+        bool flag = false;
+        for (auto it = func->begin(); it != func->end(); it++)
+        {
+            auto block = *it;
+            if (block == func->getEntry()) continue;
+            if (block->getNumOfPred() == 0)
+            {
+                delete block;
+                flag = true;
+                break;
+            }
+        }
+        if (!flag) break;
+    }
 }
 
 // typeCheck代码区

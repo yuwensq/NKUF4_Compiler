@@ -33,7 +33,7 @@ public:
     bool isFloat() const { return kind == FLOAT; };
     int getKind() const { return kind; }
     virtual int getSize() const { return 0; }
-    virtual bool isConst() {return false;}
+    virtual bool isConst() const {return false;}
     virtual bool isStr() const {return false;}
 };
 
@@ -144,7 +144,7 @@ public:
     std::vector<int> getIndexs() { return indexs; }
     Type *getBaseType() { return baseType; }
     int getSize() const { return size; }
-    bool isConst() { return baseType->isConst(); }
+    bool isConst() const { return baseType->isConst(); }
 };
 
 class StringType : public Type {
