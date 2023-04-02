@@ -85,26 +85,30 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
         bool isFloat = op1.constVal->getType()->isFloat();
         double v1 = op1.constVal->getValue();
         double v2 = op2.constVal->getValue();
+        float fv1 = static_cast<float>(v1);
+        float fv2 = static_cast<float>(v2);
+        int iv1 = static_cast<int>(v1);
+        int iv2 = static_cast<int>(v2);
         double resV = 0;
         if (dynamic_cast<BinaryInstruction *>(inst) != nullptr)
         {
             switch (inst->getOpCode())
             {
             case BinaryInstruction::ADD:
-                resV = (isFloat ? float(v1) + float(v2) : int(v1) + int(v2));
+                resV = static_cast<double>(isFloat ? fv1 + fv2 : iv1 + iv2);
                 break;
             case BinaryInstruction::SUB:
-                resV = (isFloat ? float(v1) - float(v2) : int(v1) - int(v2));
+                resV = static_cast<double>(isFloat ? fv1 - fv2 : iv1 - iv2);
                 break;
             case BinaryInstruction::MUL:
-                resV = (isFloat ? float(v1) * float(v2) : int(v1) * int(v2));
+                resV = static_cast<double>(isFloat ? fv1 * fv2 : iv1 * iv2);
                 break;
             case BinaryInstruction::DIV: // 这里用不用处理除零异常呢？
-                resV = (isFloat ? float(v1) / float(v2) : int(v1) / int(v2));
+                resV = static_cast<double>(isFloat ? fv1 / fv2 : iv1 / iv2);
                 break;
             case BinaryInstruction::MOD:
                 Assert(!isFloat, "Mod运算的操作数为float");
-                resV = int(v1) % int(v2);
+                resV = static_cast<double>(iv1 % iv2);
                 break;
             default:
                 Assert(false, "未识别的操作");
@@ -117,22 +121,22 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
             switch (inst->getOpCode())
             {
             case CmpInstruction::E:
-                resV = (isFloat ? float(v1) == float(v2) : int(v1) == int(v2));
+                resV = static_cast<double>(isFloat ? fv1 == fv2 : iv1 == iv2);
                 break;
             case CmpInstruction::NE:
-                resV = (isFloat ? float(v1) != float(v2) : int(v1) != int(v2));
+                resV = static_cast<double>(isFloat ? fv1 != fv2 : iv1 != iv2);
                 break;
             case CmpInstruction::G:
-                resV = (isFloat ? float(v1) > float(v2) : int(v1) > int(v2));
+                resV = static_cast<double>(isFloat ? fv1 > fv2 : iv1 > iv2);
                 break;
             case CmpInstruction::GE:
-                resV = (isFloat ? float(v1) >= float(v2) : int(v1) >= int(v2));
+                resV = static_cast<double>(isFloat ? fv1 >= fv2 : iv1 >= iv2);
                 break;
             case CmpInstruction::L:
-                resV = (isFloat ? float(v1) < float(v2) : int(v1) < int(v2));
+                resV = static_cast<double>(isFloat ? fv1 < fv2 : iv1 < iv2);
                 break;
             case CmpInstruction::LE:
-                resV = (isFloat ? float(v1) <= float(v2) : int(v1) <= int(v2));
+                resV = static_cast<double>(isFloat ? fv1 <= fv2 : iv1 <= iv2);
                 break;
             default:
                 Assert(false, "未识别的操作");
@@ -191,41 +195,144 @@ static Lattice constFold(Lattice op1, Instruction *inst)
     return res;
 }
 
-static void addUseOfInst(Instruction *inst, State newState, State oldState)
+static bool isDifferent(Lattice &a, Lattice &b)
 {
+    // 状态不同显然不同
+    if (a.state != b.state)
+        return true;
+    // 状态相同，如果都是常数，还要判断具体的值是否相等
+    if (a.state != CON)
+        return false;
+    Assert(a.constVal->getType() == b.constVal->getType(), "作比较的两个格的const值类型不同");
+    double valA = a.constVal->getValue();
+    double valB = b.constVal->getValue();
+    if (a.constVal->getType()->isInt())
+        return static_cast<int>(valA) != static_cast<int>(valB);
+    else if (a.constVal->getType()->isFloat())
+        return static_cast<float>(valA) != static_cast<float>(valB);
+    else
+        Assert(false, "意料之外的const类型");
+    assert(false);
+}
+
+static void addUseOfInst(Instruction *inst)
+{
+    Assert(inst->getDef(), "传入指令类型不对");
+    auto useList = inst->getDef()->getUse();
+    for (auto ins : useList)
+    {
+        ssaWorkList.push(ins);
+    }
 }
 
 static void handleInst(Instruction *inst)
 {
-    State oldState = (inst->getDef() != nullptr ? operandState[inst->getDef()].state : TOP);
+    auto bb = inst->getParent();
+    Lattice oldLattic;
+    if (inst->getDef())
+        oldLattic = operandState[inst->getDef()];
     if (inst->isBinaryCal())
     {
         Lattice op1 = getLatticeOfOp(inst->getOperands()[1]);
         Lattice op2 = getLatticeOfOp(inst->getOperands()[2]);
         Lattice res = constFold(op1, op2, inst);
         operandState[inst->getDef()] = res;
-        addUseOfInst(inst, res.state, oldState);
+        if (isDifferent(res, oldLattic))
+            addUseOfInst(inst);
     }
     else if (inst->isUnaryCal())
     {
         Lattice op1 = getLatticeOfOp(inst->getOperands()[1]);
         Lattice res = constFold(op1, inst);
         operandState[inst->getDef()] = res;
-        addUseOfInst(inst, res.state, oldState);
+        if (isDifferent(res, oldLattic))
+            addUseOfInst(inst);
     }
     else if (inst->isPhi())
     {
+        Lattice res = operandState[inst->getDef()];
+        for (auto pa : static_cast<PhiInstruction *>(inst)->getSrcs())
+        {
+            if (edgeColor.count(std::make_pair(pa.first, bb)) != 0)
+            {
+                res = intersect(res, getLatticeOfOp(pa.second));
+            }
+        }
+        if (isDifferent(res, oldLattic))
+            addUseOfInst(inst);
     }
     else if (inst->isCond())
     {
+        Lattice condState = getLatticeOfOp(inst->getOperands()[0]);
+        // 条件是常数
+        if (condState.state == CON)
+        {
+            // 为真
+            if (condState.constVal->getValue())
+            {
+                cfgWorkList.push(std::make_pair(bb, static_cast<CondBrInstruction *>(inst)->getTrueBranch()));
+            }
+            // 为假
+            else
+            {
+                cfgWorkList.push(std::make_pair(bb, static_cast<CondBrInstruction *>(inst)->getFalseBranch()));
+            }
+        }
+        else
+        {
+            cfgWorkList.push(std::make_pair(bb, static_cast<CondBrInstruction *>(inst)->getTrueBranch()));
+            cfgWorkList.push(std::make_pair(bb, static_cast<CondBrInstruction *>(inst)->getFalseBranch()));
+        }
     }
     else if (inst->isUncond())
     {
+        cfgWorkList.push(std::make_pair(bb, static_cast<UncondBrInstruction *>(inst)->getBranch()));
     }
+    Assert(false, "剩下的指令不用处理了吧，数组相关的也算不出来常量吧");
 }
 
-static void replaceWithConst()
+static void replaceWithConst(std::vector<BasicBlock *> &blks)
 {
+    std::vector<Instruction *> removeList;
+    for (auto bb : blks)
+    {
+        removeList.clear();
+        auto inst = bb->begin();
+        while (inst != bb->end())
+        {
+            if (inst->getDef() && operandState[inst->getDef()].state == CON)
+            {
+                // 结果为常数的inst
+                removeList.push_back(inst);
+            }
+            if (dynamic_cast<CondBrInstruction *>(inst) != nullptr && operandState[inst->getOperands()[0]].state == CON)
+            {
+                // 这个指令可以替换为一条UnCondBr指令
+                // 为真
+                if (operandState[inst->getOperands()[0]].constVal->getValue())
+                {
+                }
+                // 为假
+                else
+                {
+                }
+            }
+            std::vector<Operand *> &ops = inst->getOperands();
+            for (int i = 0; i < ops.size(); i++)
+            {
+                Lattice l = getLatticeOfOp(ops[i]);
+                if (!ops[i]->getEntry()->isConstant() && l.state == CON)
+                {
+                    ops[i] = new Operand(l.constVal);
+                }
+            }
+            inst = inst->getNext();
+        }
+        for (auto rInst : removeList)
+        {
+            bb->remove(rInst);
+        }
+    }
 }
 
 static void sccpInFunc(Function *func)
@@ -293,7 +400,7 @@ static void sccpInFunc(Function *func)
         }
     }
 
-    replaceWithConst();
+    replaceWithConst(blks);
 }
 
 void IRSparseCondConstProp::pass()
