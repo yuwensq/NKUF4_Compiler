@@ -552,12 +552,33 @@ void BinaryExpr::genCode()
     }
 }
 
+/***
+ * 这个函数用来简化---a，这种形式的unaryexpr，level为嵌套的层数，uexpr为
+ * 当前处理的子表达式，递归处理
+ */
+ExprNode *UnaryExpr::fold(UnaryExpr *uexpr, int *level)
+{
+    auto subExpr = dynamic_cast<UnaryExpr *>(uexpr->expr);
+    if (subExpr != nullptr && subExpr->op == uexpr->op)
+    {
+        (*level)++;
+        return fold(subExpr, level);
+    }
+    else
+        return uexpr->expr;
+}
+
 void UnaryExpr::genCode()
 {
+    int level = 1;
+    // 这里为了不破坏原来的结构，搞一个expr暂存一下，别和成员变量搞混了
+    auto expr = fold(this, &level);
     expr->genCode();
     if (op == SUB)
     {
-        if (expr->getType()->isInt())
+        if (level % 2 == 0)
+            this->dst = expr->getOperand();
+        else if (expr->getType()->isInt())
             new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), expr->getOperand(), now_bb);
         else if (expr->getType()->isFloat())
             new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), expr->getOperand(), now_bb);
@@ -566,15 +587,18 @@ void UnaryExpr::genCode()
     {
         if (expr->getType()->isInt())
         {
-            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
+            new CmpInstruction((level % 2 == 0 ? CmpInstruction::NE : CmpInstruction::E), dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
         }
         else if (expr->getType()->isFloat())
         {
-            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
+            new CmpInstruction((level % 2 == 0 ? CmpInstruction::NE : CmpInstruction::E), dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
         }
         else
         {
-            new XorInstruction(dst, expr->getOperand(), now_bb);
+            if (level % 2 == 0)
+                this->dst = expr->getOperand();
+            else
+                new XorInstruction(dst, expr->getOperand(), now_bb);
         }
         if (isCond)
         {
@@ -745,9 +769,9 @@ void DeclStmt::genCode()
         Instruction *alloca;
         Operand *addr;
         addr = new Operand(new TemporarySymbolEntry(new PointerType(se->getType()), SymbolTable::getLabel()));
-        alloca = new AllocaInstruction(addr, se); // allocate space for local id in function stack.
-        entry->insertFront(alloca, se->getType()->isArray());               // allocate instructions should be inserted into the begin of the entry block.
-        se->setAddr(addr);                        // set the addr operand in symbol entry so that we can use it in subsequent code generation.
+        alloca = new AllocaInstruction(addr, se);             // allocate space for local id in function stack.
+        entry->insertFront(alloca, se->getType()->isArray()); // allocate instructions should be inserted into the begin of the entry block.
+        se->setAddr(addr);                                    // set the addr operand in symbol entry so that we can use it in subsequent code generation.
         if (expr)
         {
             expr->genCode();
@@ -1087,7 +1111,8 @@ void FunctionDef::genCode()
         for (auto it = func->begin(); it != func->end(); it++)
         {
             auto block = *it;
-            if (block == func->getEntry()) continue;
+            if (block == func->getEntry())
+                continue;
             if (block->getNumOfPred() == 0)
             {
                 delete block;
@@ -1095,7 +1120,8 @@ void FunctionDef::genCode()
                 break;
             }
         }
-        if (!flag) break;
+        if (!flag)
+            break;
     }
 }
 

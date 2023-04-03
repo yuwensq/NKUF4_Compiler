@@ -364,7 +364,7 @@ LINECOMMENT \/\/[^\n]*
     if(dump_tokens)
         DEBUG_FOR_LAB4(string("NUMBER\t") + string(yytext));
     chars += strlen(yytext);
-    yylval.inttype = atoi(yytext);
+    yylval.inttype = double(atoi(yytext));
     return INTEGER;
 }
 {OCTAL} {

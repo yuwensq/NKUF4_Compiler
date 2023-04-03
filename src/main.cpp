@@ -9,6 +9,8 @@
 #include "MachinePeepHole.h"
 #include "MachineStraight.h"
 #include "Mem2Reg.h"
+#include "SimplifyCFG.h"
+#include "IRSparseCondConstProp.h"
 using namespace std;
 
 Ast ast;
@@ -93,7 +95,10 @@ int main(int argc, char *argv[])
     Log("中间代码生成成功\n");
 
     Mem2Reg m2r(&unit);
+    IRSparseCondConstProp sccp(&unit);
+    SimplifyCFG scfg(&unit);
     m2r.pass(); //Only IR supported
+    sccp.pass();
 
     Log("IR优化成功\n");/**/
 

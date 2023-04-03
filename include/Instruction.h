@@ -22,6 +22,7 @@ public:
     bool isLoad() const { return instType == LOAD; };
     bool isStore() const { return instType == STORE; };
     bool isPhi() const { return instType == PHI; };
+    bool isCall() const { return instType == CALL; };
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
     bool isBinary() const { return instType == BINARY; };

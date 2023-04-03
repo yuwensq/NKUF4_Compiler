@@ -98,6 +98,7 @@ class UnaryExpr : public ExprNode
 private:
     int op;
     ExprNode *expr;
+    ExprNode *fold(UnaryExpr *, int *);
 
 public:
     enum
@@ -332,7 +333,7 @@ public:
     void output(int level);
     void typeCheck();
     void genCode();
-    void setInitArray(ExprNode **exprArray) ;
+    void setInitArray(ExprNode **exprArray);
     Id *getId() { return id; };
 };
 

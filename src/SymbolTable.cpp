@@ -102,7 +102,6 @@ IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int s
     }
     addr = nullptr;
     initial = false;
-    Log("%d", initial);
 }
 
 void IdentifierSymbolEntry::setValue(double value)

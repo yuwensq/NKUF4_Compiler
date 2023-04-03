@@ -49,20 +49,22 @@ void Function::output() const
     std::list<BasicBlock *> q;
     q.push_back(entry);
     v.insert(entry);
-    while (!q.empty())
-    {
-        auto bb = q.front();
-        q.pop_front();
-        bb->output();
-        for (auto succ = bb->succ_begin(); succ != bb->succ_end(); succ++)
-        {
-            if (v.find(*succ) == v.end())
-            {
-                v.insert(*succ);
-                q.push_back(*succ);
-            }
-        }
-    }
+    for (int i = 0; i < block_list.size(); i++)
+        block_list[i]->output();
+    // while (!q.empty())
+    // {
+    //     auto bb = q.front();
+    //     q.pop_front();
+    //     bb->output();
+    //     for (auto succ = bb->succ_begin(); succ != bb->succ_end(); succ++)
+    //     {
+    //         if (v.find(*succ) == v.end())
+    //         {
+    //             v.insert(*succ);
+    //             q.push_back(*succ);
+    //         }
+    //     }
+    // }
     fprintf(yyout, "}\n");
 }
 
