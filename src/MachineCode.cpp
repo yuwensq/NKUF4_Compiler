@@ -610,7 +610,7 @@ MachineFunction::MachineFunction(MachineUnit *p, SymbolEntry *sym_ptr)
     addSavedRegs(14);
 };
 
-unsigned long long MachineBlock::inst_num = 0;
+unsigned long long MachineBlock::inst_num = 0ull;
 
 void MachineBlock::insertBefore(MachineInstruction *insertee, MachineInstruction *pin)
 {

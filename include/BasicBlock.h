@@ -45,6 +45,11 @@ public:
     int getNumOfPred() const { return pred.size(); };
     int getNumOfSucc() const { return succ.size(); };
     void genMachineCode(AsmBuilder *);
+
+public:
+    int order;
+    std::set<BasicBlock*> domFrontier;
+
 };
 
 #endif
