@@ -376,23 +376,29 @@ public:
     void output() const;
     void genMachineCode(AsmBuilder *);
     Operand* getDef() { return operands[0]; }
-    std::vector<Operand*> getUse() { return {operands[1], operands[2]}; }
-    void replaceUse(Operand* old, Operand* rep) {
-        if (operands[1] == old) {
-            operands[1]->removeUse(this);
-            operands[1] = rep;
-            rep->addUse(this);
-        }
-        else if (operands[2] == old) {
-            operands[2]->removeUse(this);
-            operands[2] = rep;
-            rep->addUse(this);
-        }
+    std::vector<Operand*> getUse() {
+        std::vector<Operand*> vec;
+        for (auto it = operands.begin() + 1; it != operands.end(); it++)
+            vec.push_back(*it);
+        return vec;
     }
     void replaceDef(Operand* rep) {
-        operands[0]->setDef(nullptr);
-        operands[0] = rep;
-        operands[0]->setDef(this);
+        if (operands[0]) {
+            operands[0]->setDef(nullptr);
+            operands[0] = rep;
+            operands[0]->setDef(this);
+        }
+    }
+    void replaceUse(Operand* old, Operand* rep) {
+        for (size_t i = 1; i < operands.size(); i++)
+        {
+            if (operands[i] == old)
+            {
+                operands[i]->removeUse(this);
+                operands[i] = rep;
+                rep->addUse(this);
+            }
+        }
     }
 
 private:
