@@ -34,7 +34,7 @@ std::set<std::pair<BasicBlock *, BasicBlock *>> edgeColor;
 
 /***
  * 获取操作数状态
-*/
+ */
 static Lattice getLatticeOfOp(Operand *ope)
 {
     Assert(ope != nullptr, "ope不应为空");
@@ -54,7 +54,7 @@ static Lattice getLatticeOfOp(Operand *ope)
 
 /**
  * 格的求交操作，用于phi指令状态的更新
-*/
+ */
 static Lattice intersect(Lattice op1, Lattice op2)
 {
     Lattice res;
@@ -85,7 +85,7 @@ static Lattice intersect(Lattice op1, Lattice op2)
 
 /***
  * 二元指令判断是否可以常量折叠
-*/
+ */
 static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
 {
     Lattice res;
@@ -149,37 +149,37 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
             case CmpInstruction::E:
                 if (isFloat)
                     resV = (fv1 == fv2);
-                else    
+                else
                     resV = (iv1 == iv2);
                 break;
             case CmpInstruction::NE:
                 if (isFloat)
                     resV = (fv1 != fv2);
-                else    
+                else
                     resV = (iv1 != iv2);
                 break;
             case CmpInstruction::G:
                 if (isFloat)
                     resV = (fv1 > fv2);
-                else    
+                else
                     resV = (iv1 > iv2);
                 break;
             case CmpInstruction::GE:
                 if (isFloat)
                     resV = (fv1 >= fv2);
-                else    
+                else
                     resV = (iv1 >= iv2);
                 break;
             case CmpInstruction::L:
                 if (isFloat)
                     resV = (fv1 < fv2);
-                else    
+                else
                     resV = (iv1 < iv2);
                 break;
             case CmpInstruction::LE:
                 if (isFloat)
                     resV = (fv1 <= fv2);
-                else    
+                else
                     resV = (iv1 <= iv2);
                 break;
             default:
@@ -204,7 +204,7 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
 
 /***
  * 一元指令判断是否可以常量折叠
-*/
+ */
 static Lattice constFold(Lattice op1, Instruction *inst)
 {
     Lattice res;
@@ -244,7 +244,7 @@ static Lattice constFold(Lattice op1, Instruction *inst)
 
 /***
  * 判断两个格是否相同，用来判断指令状态是否改变
-*/
+ */
 static bool isDifferent(Lattice &a, Lattice &b)
 {
     // 状态不同显然不同
@@ -267,7 +267,7 @@ static bool isDifferent(Lattice &a, Lattice &b)
 
 /***
  * 一个指令状态改变，把用它的指令都加到处理队列中
-*/
+ */
 static void addUseOfInst(Instruction *inst)
 {
     Assert(inst->getDef(), "传入指令类型不对");
@@ -281,7 +281,7 @@ static void addUseOfInst(Instruction *inst)
 /***
  * 根据不同指令的类型判断是否可以进行常量折叠
  * phi指令是一个格的交操作
-*/
+ */
 static void handleInst(Instruction *inst)
 {
     auto bb = inst->getParent();
@@ -359,7 +359,7 @@ static void handleInst(Instruction *inst)
 
 /**
  * 常量传播完后，将寄存器替换为常量，以及简化控制流
-*/
+ */
 static void replaceWithConst(Function *func)
 {
     std::vector<Instruction *> removeList;
@@ -429,7 +429,7 @@ static void replaceWithConst(Function *func)
 
 /***
  * 进行一个函数内的常量传播
-*/
+ */
 static void sccpInFunc(Function *func)
 {
     // 清一下数据结构，不同函数之间应该也不会有啥共用的
@@ -496,12 +496,66 @@ static void sccpInFunc(Function *func)
             }
         }
     }
-
     replaceWithConst(func);
 }
 
-static void reomveDeadBlock() {
-
+/***
+ * 移除死的无法走到的基本块
+ */
+static void reomveDeadBlock(Function *func)
+{
+    // 先bfs一遍看看哪些基本块可以走到
+    std::queue<BasicBlock *> q;
+    std::unordered_set<BasicBlock *> color;
+    std::vector<BasicBlock *> removeList;
+    std::vector<BasicBlock *> phiRemoveList;
+    BasicBlock *bb = nullptr;
+    q.push(func->getEntry());
+    while (!q.empty())
+    {
+        bb = q.front();
+        q.pop();
+        color.insert(bb);
+        for (auto succ = bb->succ_begin(); succ != bb->succ_end(); succ++)
+        {
+            if (color.find(*succ) != color.end())
+                continue;
+            q.push(*succ);
+        }
+    }
+    for (auto it = func->begin(); it != func->end(); it++)
+    {
+        bb = *it;
+        if (color.find(bb) == color.end())
+        {
+            removeList.push_back(bb);
+            continue;
+        }
+        auto inst = bb->begin();
+        while (inst != bb->end())
+        {
+            // phi只会在基本块首部出现
+            if (!inst->isPhi())
+                break;
+            phiRemoveList.clear();
+            auto &pairs = static_cast<PhiInstruction *>(inst)->getSrcs();
+            for (auto pa : pairs)
+            {
+                if (color.find(pa.first) == color.end())
+                    phiRemoveList.push_back(pa.first);
+            }
+            for (auto phiRB : phiRemoveList) {
+                pairs.erase(phiRB);
+                bb->removePred(phiRB);
+                phiRB->removeSucc(bb);
+            }
+            inst = inst->getNext();
+        }
+    }
+    for (auto bb : removeList)
+    {
+        func->remove(bb);
+    }
 }
 
 void IRSparseCondConstProp::pass()
@@ -509,5 +563,6 @@ void IRSparseCondConstProp::pass()
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         sccpInFunc(*func);
+        reomveDeadBlock(*func);
     }
 }
