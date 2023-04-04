@@ -441,7 +441,7 @@ static void sccpInFunc(Function *func)
         {
             auto pai = cfgWorkList.front();
             cfgWorkList.pop();
-            if (edgeColor.count(pai) != 0)
+            if (edgeColor.find(pai) != edgeColor.end())
                 continue;
             edgeColor.insert(pai);
             auto inst = pai.second->begin();
@@ -459,7 +459,7 @@ static void sccpInFunc(Function *func)
             auto bb = inst->getParent();
             for (auto preBB = bb->pred_begin(); preBB != bb->pred_end(); preBB++)
             {
-                if (edgeColor.count({*preBB, bb}) != 0)
+                if (edgeColor.find({*preBB, bb}) != edgeColor.end())
                 {
                     handleInst(inst);
                     // inst->output();

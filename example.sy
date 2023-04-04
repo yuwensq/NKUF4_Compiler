@@ -1,4 +1,0 @@
-int main() {
-    float i = --1e1;
-  return 0;
-}

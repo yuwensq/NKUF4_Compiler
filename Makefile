@@ -28,7 +28,7 @@ OUTPUT_LL = $(addsuffix .ll, $(basename $(TESTCASE)))
 OUTPUT_BIN = $(addsuffix .bin, $(basename $(TESTCASE)))
 OUTPUT_LOG = $(addsuffix .log, $(basename $(TESTCASE)))
 
-.phony:all app run gdb test clean clean-all clean-test clean-app llvmir gccasm run1 ll run2 lltest llrun1 
+.phony:all app run gdb test clean clean-all clean-test clean-app llvmir gccasm run1 ll run2 lltest llrun1 count
 
 all:app
 
@@ -229,3 +229,9 @@ lltest:app
 	echo "\033[1;33mTotal: $(TESTCASE_NUM)\t\033[1;32mAccept: $${success}\t\033[1;31mFail: $$(($(TESTCASE_NUM) - $${success}))\033[0m"
 	[ $(TESTCASE_NUM) = $${success} ] && echo "\033[5;32mAll Accepted. Congratulations!\033[0m"
 	:
+
+COUNT_SHELL_LL := $(shell find ./test -name "*.ll" | xargs grep -ve "^$$" | wc -l)
+COUNT_SHELL_S := $(shell find ./test -name "*.s" | xargs grep -ve "^$$" | wc -l)
+
+count:
+	@echo "ir code: $(COUNT_SHELL_LL) lines\nasm code: $(COUNT_SHELL_S) lines"
