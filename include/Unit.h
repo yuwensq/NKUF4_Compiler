@@ -2,6 +2,8 @@
 #define __UNIT_H__
 
 #include <vector>
+#include <map>
+#include <unordered_set>
 #include <assert.h>
 #include "Function.h"
 #include "Type.h"
@@ -17,7 +19,9 @@ private:
     // 全局变量
     std::vector<SymbolEntry *> global_vars;
     // 运行时函数
-    std::vector<SymbolEntry *> declare_list;
+    std::unordered_set<SymbolEntry *> declare_list;
+    // 这个用来记录每个函数符号表项对应的函数，用于方便的根据se找到对应的函数
+    std::map<SymbolEntry *, Function *> se2func;
 
 public:
     Unit() = default;
@@ -30,14 +34,9 @@ public:
     reverse_iterator rbegin() { return func_list.rbegin(); };
     reverse_iterator rend() { return func_list.rend(); };
     void addGlobalVar(SymbolEntry *se) { global_vars.push_back(se); };
-    void insertDeclare(SymbolEntry *se)
-    {
-        if (std::find(declare_list.begin(), declare_list.end(), se) == declare_list.end())
-        {
-            declare_list.push_back(se);
-        }
-    };
-    void printInitValOfArray(ArrayType*, double*, int) const;
+    void insertDeclare(SymbolEntry *se) { declare_list.insert(se); };
+    void printInitValOfArray(ArrayType *, double *, int) const;
+    Function *se2Func(SymbolEntry *se);
     void genMachineCode(MachineUnit *munit);
 };
 

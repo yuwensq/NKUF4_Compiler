@@ -45,6 +45,26 @@ void Unit::printInitValOfArray(ArrayType *type, double *initVal, int startPos) c
     delete type; // 以后要注意释放内存了
 }
 
+/***
+ * 由于没有在语法分析的时候建立se2func这个map，这里在
+ * 查询se2func的时候逐步填充其内容
+*/
+Function *Unit::se2Func(SymbolEntry *se)
+{
+    if (se2func.find(se) != se2func.end())
+        goto END;
+    for (auto func : func_list)
+    {
+        if (func->getSymPtr() == se)
+        {
+            se2func[se] = func;
+            break;
+        }
+    }
+END:
+    return se2func[se];
+}
+
 void Unit::output() const
 {
     // 先打印全局变量

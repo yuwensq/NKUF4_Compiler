@@ -15,13 +15,13 @@ SymbolEntry::SymbolEntry(Type *type, int kind)
 bool SymbolEntry::setNext(SymbolEntry *se)
 {
     SymbolEntry *s = this;
-    long unsigned int cnt = ((FunctionType *)(se->getType()))->getParamsType().size();
-    if (cnt == ((FunctionType *)(s->getType()))->getParamsType().size())
-        return false;
+    // long unsigned int cnt = ((FunctionType *)(se->getType()))->getParamsType().size();
+    // if (cnt == ((FunctionType *)(s->getType()))->getParamsType().size())
+    //     return false;
     while (s->getNext())
     {
-        if (cnt == ((FunctionType *)(s->getType()))->getParamsType().size())
-            return false;
+        // if (cnt == ((FunctionType *)(s->getType()))->getParamsType().size())
+        //     return false;
         s = s->getNext();
     }
     s->next = se;
@@ -52,8 +52,8 @@ std::string ConstantSymbolEntry::toStr()
     else if (type->isFloat())
     {
         float fvalue = value;
-        void* p = &fvalue;
-        bool precise = !(*(uint8_t*)p);
+        void *p = &fvalue;
+        bool precise = !(*(uint8_t *)p);
         double dvalue = fvalue;
         p = &dvalue;
         if (precise)
@@ -64,28 +64,28 @@ std::string ConstantSymbolEntry::toStr()
         else
         {
             buffer.setf(std::ios::uppercase);
-            buffer << "0x" << std::hex << (*(uint64_t*)p);
+            buffer << "0x" << std::hex << (*(uint64_t *)p);
         }
     }
     return buffer.str();
 
-//     std::ostringstream buffer;
-//     if (type->isInt())
-//         buffer << (int)value;
-//     else if (type->isFloat())
-//     {
-//         // 浮点数麻烦，直接打印16进制得了
-//         /* 终于找到了
-//         AFAIK just printing a decimal float works. If you
-// really want a hexadecimal encoding, just reinterpret the
-// floating-point number as an integer and print in hexadecimal; an "LLVM
-// float" is just an IEEE float printed in hexadecimal.
-//         */
-//         double fv = (float)value;
-//         uint64_t v = reinterpret_cast<uint64_t &>(fv);
-//         buffer << "0x" << std::hex << v;
-//     }
-//     return buffer.str();
+    //     std::ostringstream buffer;
+    //     if (type->isInt())
+    //         buffer << (int)value;
+    //     else if (type->isFloat())
+    //     {
+    //         // 浮点数麻烦，直接打印16进制得了
+    //         /* 终于找到了
+    //         AFAIK just printing a decimal float works. If you
+    // really want a hexadecimal encoding, just reinterpret the
+    // floating-point number as an integer and print in hexadecimal; an "LLVM
+    // float" is just an IEEE float printed in hexadecimal.
+    //         */
+    //         double fv = (float)value;
+    //         uint64_t v = reinterpret_cast<uint64_t &>(fv);
+    //         buffer << "0x" << std::hex << v;
+    //     }
+    //     return buffer.str();
 }
 
 IdentifierSymbolEntry::IdentifierSymbolEntry(Type *type, std::string name, int scope, bool sysy, int argNum) : SymbolEntry(type, SymbolEntry::VARIABLE), name(name), sysy(sysy)
@@ -202,7 +202,32 @@ void SymbolTable::install(std::string name, SymbolEntry *entry)
         if (this->symbolTable.find(name) != this->symbolTable.end())
         {
             SymbolEntry *se = this->symbolTable[name];
-            if (se->getType()->isFunc())
+            bool hasSame = false;
+            while (se && se->getType()->isFunc())
+            {
+                // 这里要判断两个函数的参数是否完全一致，如果一致，没必要再存了
+                FunctionType *func1 = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(entry)->getType());
+                FunctionType *func2 = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(se)->getType());
+                if (func1->getParamsType().size() != func2->getParamsType().size())
+                {
+                    se = se->getNext();
+                    continue;
+                }
+                auto it1 = func1->getParamsType().begin();
+                auto it2 = func2->getParamsType().begin();
+                for (; it1 != func1->getParamsType().end(); it1++, it2++)
+                {
+                    if ((*it1)->getKind() != (*it2)->getKind())
+                    {
+                        se = se->getNext();
+                        continue;
+                    }
+                }
+                hasSame = true;
+                return;
+            }
+            se = this->symbolTable[name];
+            if (se->getType()->isFunc() && hasSame == false)
             {
                 se->setNext(entry);
                 return;
