@@ -751,17 +751,33 @@ void DeclStmt::genCode()
         unit.addGlobalVar(se);
         if (se->getType()->isArray())
         {
+        	if (exprArray == nullptr)
+        	{
+        		se->setArrayValue(nullptr);
+        	}
+            else {
             int size = se->getType()->getSize() / TypeSystem::intType->getSize();
-            double *arrayValue = new double[size];
+            double *arrayValue = new double[size] {};
             se->setArrayValue(arrayValue);
             for (int i = 0; i < size; i++)
             {
-                if (exprArray && exprArray[i])
+                if (exprArray[i])
                     arrayValue[i] = exprArray[i]->getValue();
-                else
-                    arrayValue[i] = 0;
-            }
+            }}
         }
+        // if (se->getType()->isArray())
+        // {
+        //     int size = se->getType()->getSize() / TypeSystem::intType->getSize();
+        //     double *arrayValue = new double[size];
+        //     se->setArrayValue(arrayValue);
+        //     for (int i = 0; i < size; i++)
+        //     {
+        //         if (exprArray && exprArray[i])
+        //             arrayValue[i] = exprArray[i]->getValue();
+        //         else
+        //             arrayValue[i] = 0;
+        //     }
+        // }
     }
     else
     {
