@@ -43,9 +43,64 @@ void PureFunctionAnalyser::analyseCallRelation()
 #endif
 }
 
-bool PureFunctionAnalyser::analyseFuncByStoreAndSysy(Function *)
+bool PureFunctionAnalyser::srcIsLocal(Operand *op, std::string &name)
 {
-    TODO();
+    bool res = true;
+    name = "";
+    if (op->getEntry()->isVariable())
+    {
+        // 本身就是一个变量
+        // store i32 1, i32* @b, align 4
+        auto se = static_cast<IdentifierSymbolEntry *>(op->getEntry());
+        name = se->getName();
+        res = false;
+    }
+    else
+    {
+        // store i32 %t4, i32* %t8, align 4
+        // or
+        // %t6 = call i32 @getarray(i32* %t5)
+        auto inst = op->getDef();
+        while (dynamic_cast<GepInstruction *>(inst) != nullptr)
+        {
+            inst = inst->getOperands()[1]->getDef();
+        }
+        if (!inst->isAlloc())
+        {
+        }
+    }
+    return res;
+}
+
+bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
+{
+    bool isPure = true;
+    std::string name = "";
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        auto inst = (*bb)->begin();
+        while (inst != (*bb)->end())
+        {
+            if (inst->isCall())
+            {
+                auto se = static_cast<IdentifierSymbolEntry *>(static_cast<CallInstruction *>(inst)->getFunc());
+                if (se->isSysy() && (se->getName() == "getarray" || se->getName() == "getfarray"))
+                {
+                    isPure = false;
+                    bool isLocal = srcIsLocal(inst->getOperands()[1], name);
+                    if (!isLocal)
+                    {
+                        funcChangeGlobalVars[func].insert(name);
+                    }
+                }
+            }
+            else if (inst->isStore())
+            {
+            }
+            inst = inst->getNext();
+        }
+    }
+    return isPure;
 }
 
 void PureFunctionAnalyser::analyseFunc()
@@ -55,11 +110,17 @@ void PureFunctionAnalyser::analyseFunc()
     std::queue<Function *> unPureList;
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
-        if (!analyseFuncByStoreAndSysy(*func))
+        if (!analyseFuncWithoutCallee(*func))
         {
+            // funcIsPure[*func] = false;
             unPureList.push(*func);
         }
+        else
+        {
+            // funcIsPure[*func] = true;
+        }
     }
+    TODO();
     while (!unPureList.empty())
     {
         auto func = unPureList.front();

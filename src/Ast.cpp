@@ -672,6 +672,14 @@ void Id::genCode()
             offs.push_back(tmp->getOperand());
             tmp = (ExprNode *)tmp->getNext();
         }
+        if (this->isPointer)
+        {
+            // 作为函数参数传递指针
+            // 生成一条gep指令返回就行
+            offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
+            new GepInstruction(dst, base, offs, now_bb, true);
+            return;
+        }
         if (((ArrayType *)((PointerType *)se->getType())->getType())->getBaseType()->isInt())
             addr = new Operand(new TemporarySymbolEntry(new PointerType(TypeSystem::intType), SymbolTable::getLabel()));
         else if (((ArrayType *)((PointerType *)se->getType())->getType())->getBaseType()->isFloat())

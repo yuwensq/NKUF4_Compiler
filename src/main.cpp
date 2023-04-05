@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     SimplifyCFG scfg(&unit);
 
     // 目前调试用，后边删了
-    PureFunctionAnalyser p(&unit);
+    // PureFunctionAnalyser p(&unit);
 
     m2r.pass(); //Only IR supported
     sccp.pass();

@@ -163,15 +163,10 @@ public:
             if (indexs.size() <= 0)
             { // 如果索引和数组定义时候的维度一致，是引用某个数组元素
                 if (((ArrayType *)se->getType())->getBaseType()->isInt())
-                {
                     this->type = TypeSystem::intType;
-                    temp = new TemporarySymbolEntry(TypeSystem::intType, SymbolTable::getLabel());
-                }
                 else if (((ArrayType *)se->getType())->getBaseType()->isFloat())
-                {
                     this->type = TypeSystem::floatType;
-                    temp = new TemporarySymbolEntry(TypeSystem::floatType, SymbolTable::getLabel());
-                }
+                temp = new TemporarySymbolEntry(this->type, SymbolTable::getLabel());
             }
             else
             { // 索引个数小于数组定义时候的维度，应该作为函数参数传递，传递的是一个指针
@@ -196,15 +191,32 @@ public:
             }
             else
             {
-                if (arrType->getBaseType()->isInt())
+                std::vector<int> indexs = arrType->getIndexs();
+                indexs.push_back(0);
+                ExprNode *expr = index;
+                while (expr)
                 {
-                    this->type = TypeSystem::intType;
-                    temp = new TemporarySymbolEntry(TypeSystem::intType, SymbolTable::getLabel());
+                    expr = (ExprNode *)expr->getNext();
+                    indexs.erase(indexs.begin());
                 }
-                else if (arrType->getBaseType()->isFloat())
+                if (indexs.size())
                 {
-                    this->type = TypeSystem::floatType;
-                    temp = new TemporarySymbolEntry(TypeSystem::floatType, SymbolTable::getLabel());
+                    // 应该是作为指针传给其他函数了
+                    isPointer = true;
+                    indexs.erase(indexs.end() - 1);
+                    if (arrType->getBaseType()->isInt())
+                        this->type = new PointerType(new ArrayType(indexs, TypeSystem::intType));
+                    else if (arrType->getBaseType()->isFloat())
+                        this->type = new PointerType(new ArrayType(indexs, TypeSystem::floatType));
+                    temp = new TemporarySymbolEntry(this->type, SymbolTable::getLabel());
+                }
+                else
+                {
+                    if (arrType->getBaseType()->isInt())
+                        this->type = TypeSystem::intType;
+                    else if (arrType->getBaseType()->isFloat())
+                        this->type = TypeSystem::floatType;
+                    temp = new TemporarySymbolEntry(this->type, SymbolTable::getLabel());
                 }
             }
             Assert(temp, "temp不应为null\n");
