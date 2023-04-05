@@ -85,11 +85,21 @@ void Unit::output() const
         }
         else
         {
-            double *initValue = se->getArrayValue();
-            fprintf(yyout, "%s = global ", se->toStr().c_str());
-            printInitValOfArray(new ArrayType(*((ArrayType *)se->getType())), initValue, 0);
-            fprintf(yyout, ", align 4\n");
-            // fprintf(yyout, "%s = global %s zeroinitializer, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str());
+            auto initValue = se->getArrayValue();
+            if (initValue == nullptr)
+            {
+                fprintf(yyout, "%s = global %s zeroinitializer, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str());
+            }
+            else
+            {
+                fprintf(yyout, "%s = global ", se->toStr().c_str());
+                printInitValOfArray(new ArrayType(*((ArrayType *)se->getType())), initValue, 0);
+                fprintf(yyout, ", align 4\n");
+            }
+            // double *initValue = se->getArrayValue();
+            // fprintf(yyout, "%s = global ", se->toStr().c_str());
+            // printInitValOfArray(new ArrayType(*((ArrayType *)se->getType())), initValue, 0);
+            // fprintf(yyout, ", align 4\n");
         }
     }
     // 再打印函数

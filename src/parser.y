@@ -421,12 +421,12 @@ VarDef
             indexs.push_back(expr->getValue());
             expr = (ExprNode*)expr->getNext();
         }
-        Type *arrType = new ArrayType(indexs, recentVarType);
+        auto arrType = new ArrayType(indexs, recentVarType);
         se = new IdentifierSymbolEntry(arrType, $1, identifiers->getLevel());
         $<se>$ = se;
         identifiers->install($1, se);
-        initArray = new ExprNode*[arrType->getSize() / TypeSystem::intType->getSize()];
-        memset(initArray, 0, sizeof(ExprNode*) * (arrType->getSize() / TypeSystem::intType->getSize()));
+        initArray = new ExprNode*[arrType->getSize() / arrType->getBaseType()->getSize()] {};
+//        memset(initArray, 0, sizeof(ExprNode*) * (arrType->getSize() / TypeSystem::intType->getSize()));
         idx = 0;
         std::stack<std::vector<int>>().swap(dimesionStack); // 这一句的作用就是清空栈
         dimesionStack.push(indexs);
@@ -491,7 +491,7 @@ ConstDef
             indexs.push_back(expr->getValue());
             expr = (ExprNode*)expr->getNext();
         }
-        Type *arrType = nullptr;
+        ArrayType *arrType = nullptr;
         if (recentVarType->isInt())
             arrType = new ArrayType(indexs, TypeSystem::constIntType);
         else if (recentVarType->isFloat())
@@ -500,8 +500,8 @@ ConstDef
         se = new IdentifierSymbolEntry(arrType, $1, identifiers->getLevel());
         $<se>$ = se;
         identifiers->install($1, se);
-        initArray = new ExprNode*[arrType->getSize() / TypeSystem::intType->getSize()];
-        memset(initArray, 0, sizeof(ExprNode*) * (arrType->getSize() / TypeSystem::intType->getSize()));
+        initArray = new ExprNode*[arrType->getSize() / arrType->getBaseType()->getSize()] {};
+//        memset(initArray, 0, sizeof(ExprNode*) * (arrType->getSize() / TypeSystem::intType->getSize()));
         idx = 0;
         std::stack<std::vector<int>>().swap(dimesionStack); // 这一句的作用就是清空栈
         dimesionStack.push(indexs);
