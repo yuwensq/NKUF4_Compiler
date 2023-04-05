@@ -312,10 +312,7 @@ public:
     }
     std::vector<Operand *> getUse()
     {
-        std::vector<Operand *> vec;
-        for (auto it = operands.begin() + 1; it != operands.end(); it++)
-            vec.push_back(*it);
-        return vec;
+        return std::vector<Operand *>(operands.begin()+1, operands.end());
     }
     void replaceDef(Operand *rep)
     {
@@ -448,10 +445,7 @@ public:
     }
     std::vector<Operand *> getUse()
     {
-        std::vector<Operand *> vec;
-        for (auto it = operands.begin() + 1; it != operands.end(); it++)
-            vec.push_back(*it);
-        return vec;
+        return std::vector<Operand *>(operands.begin()+1, operands.end());
     }
     void replaceDef(Operand *rep)
     {
