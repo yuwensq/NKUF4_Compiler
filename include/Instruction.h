@@ -305,6 +305,7 @@ public:
     ~CallInstruction();
     void output() const;
     void genMachineCode(AsmBuilder *);
+    SymbolEntry *getFunc() { return func; };
     Operand *getDef()
     {
         return operands[0];

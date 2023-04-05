@@ -124,6 +124,7 @@ public:
     IdentifierSymbolEntry(Type *type, std::string name, int scope, bool sysy = false, int argNum = 0);
     virtual ~IdentifierSymbolEntry(){};
     std::string toStr();
+    std::string getName() { return name; };
     bool isGlobal() const { return scope == GLOBAL; };
     bool isParam() const { return scope == PARAM; };
     bool isLocal() const { return scope >= LOCAL; };
