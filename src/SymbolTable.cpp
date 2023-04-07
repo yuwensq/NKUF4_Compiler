@@ -206,22 +206,23 @@ void SymbolTable::install(std::string name, SymbolEntry *entry)
             while (se && se->getType()->isFunc())
             {
                 // 这里要判断两个函数的参数是否完全一致，如果一致，没必要再存了
-                FunctionType *func1 = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(entry)->getType());
-                FunctionType *func2 = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(se)->getType());
+                auto func1 = dynamic_cast<FunctionType *>(entry->getType());
+                auto func2 = dynamic_cast<FunctionType *>(se->getType());
                 if (func1->getParamsType().size() != func2->getParamsType().size())
                 {
                     se = se->getNext();
                     continue;
                 }
-                auto it1 = func1->getParamsType().begin();
                 auto it2 = func2->getParamsType().begin();
-                for (; it1 != func1->getParamsType().end(); it1++, it2++)
+                for (auto &i1 : func1->getParamsType())
                 {
-                    if ((*it1)->getKind() != (*it2)->getKind())
+                    // 能不能改成 if (i1->getKind() != (*it2++)->getKind())
+                    if (i1->getKind() != (*it2)->getKind())
                     {
                         se = se->getNext();
                         continue;
                     }
+                    it2++;
                 }
                 hasSame = true;
                 return;
