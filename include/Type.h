@@ -83,7 +83,7 @@ public:
     {
         this->paramsType = paramsType;
     };
-    std::vector<Type *> getParamsType() { return paramsType; }
+    std::vector<Type *>& getParamsType() { return paramsType; }
     std::string toStr();
     int getSize() const { return returnType->getSize(); }
 };
