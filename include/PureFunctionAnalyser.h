@@ -51,6 +51,7 @@ public:
      * 判断一个函数是否是纯函数
      */
     bool isPure(Function *func);
+    std::set<std::string> &getStoreGlobalVar(Function* func);
 };
 
 #endif

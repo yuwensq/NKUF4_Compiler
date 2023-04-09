@@ -12,6 +12,7 @@
 #include "SimplifyCFG.h"
 #include "IRSparseCondConstProp.h"
 #include "PureFunctionAnalyser.h"
+#include "IRComSubExprElim.h"
 using namespace std;
 
 Ast ast;
@@ -97,13 +98,12 @@ int main(int argc, char *argv[])
 
     Mem2Reg m2r(&unit);
     IRSparseCondConstProp sccp(&unit);
-    SimplifyCFG scfg(&unit);
+    IRComSubExprElim cse(&unit);
 
     m2r.pass(); //Only IR supported
-    // sccp.pass();
+    sccp.pass();
+    cse.pass();
 
-    // 目前调试用，后边删了
-    PureFunctionAnalyser p(&unit);
 
     Log("IR优化成功\n");/**/
 

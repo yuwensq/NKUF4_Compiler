@@ -176,3 +176,8 @@ bool PureFunctionAnalyser::isPure(Function *func)
         return funcIsPure[func];
     return false;
 }
+
+std::set<std::string> &PureFunctionAnalyser::getStoreGlobalVar(Function *func)
+{
+    return funcChangeGlobalVars[func];
+}
