@@ -1,0 +1,9 @@
+int a;
+int x() {
+    a = a + 1;
+    x();
+}
+
+int main() {
+    x();
+}

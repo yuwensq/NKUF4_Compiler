@@ -2,7 +2,7 @@
 #include "debug.h"
 #include <queue>
 
-// #define PUREFUNCDEBUG
+#define PUREFUNCDEBUG
 
 void PureFunctionAnalyser::analyseCallRelation()
 {
@@ -37,12 +37,15 @@ void PureFunctionAnalyser::analyseCallRelation()
         for (auto callee : pa.second)
         {
             auto calleeName = callee->getSymPtr()->toStr();
-            Log("\t%s", calleeName.c_str());
+            Log("    %s", calleeName.c_str());
         }
     }
 #endif
 }
 
+/***
+ * 函数返回false，表示源头是全局或者函数参数
+ */
 bool PureFunctionAnalyser::srcIsLocal(Operand *op, std::string &name)
 {
     bool res = true;
@@ -60,13 +63,19 @@ bool PureFunctionAnalyser::srcIsLocal(Operand *op, std::string &name)
         // store i32 %t4, i32* %t8, align 4
         // or
         // %t6 = call i32 @getarray(i32* %t5)
-        auto inst = op->getDef();
-        while (dynamic_cast<GepInstruction *>(inst) != nullptr)
+        while (dynamic_cast<GepInstruction *>(op->getDef()) != nullptr)
         {
-            inst = inst->getOperands()[1]->getDef();
+            op = op->getDef()->getUse()[0];
         }
-        if (!inst->isAlloc())
-        {
+        // 如果是操作了全局数组，就是这种情况
+        if (op->getEntry()->isVariable()) {
+            auto se = static_cast<IdentifierSymbolEntry*>(op->getEntry());
+            name = se->getName();
+            res = false;
+        }
+        // 这种是操作了函数参数
+        else if (dynamic_cast<AllocaInstruction*>(op->getDef()) == nullptr) {
+            res = false;
         }
     }
     return res;
@@ -78,17 +87,17 @@ bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
     std::string name = "";
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
-        auto inst = (*bb)->begin();
-        while (inst != (*bb)->end())
+        for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
         {
+            bool isLocal = true;
             if (inst->isCall())
             {
                 auto se = static_cast<IdentifierSymbolEntry *>(static_cast<CallInstruction *>(inst)->getFunc());
+                // memset用考虑吗，不用吧，memset好像只用于局部数组的初始化
                 if (se->isSysy() && (se->getName() == "getarray" || se->getName() == "getfarray"))
                 {
-                    isPure = false;
-                    bool isLocal = srcIsLocal(inst->getOperands()[1], name);
-                    if (!isLocal)
+                    isLocal = srcIsLocal(inst->getOperands()[1], name);
+                    if (!isLocal && name.size() > 0)
                     {
                         funcChangeGlobalVars[func].insert(name);
                     }
@@ -96,8 +105,14 @@ bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
             }
             else if (inst->isStore())
             {
+                isLocal = srcIsLocal(inst->getOperands()[0], name);
+                if (!isLocal && name.size() > 0)
+                {
+                    funcChangeGlobalVars[func].insert(name);
+                }
             }
-            inst = inst->getNext();
+            if (!isLocal)
+                isPure = false;
         }
     }
     return isPure;
@@ -110,24 +125,43 @@ void PureFunctionAnalyser::analyseFunc()
     std::queue<Function *> unPureList;
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
-        if (!analyseFuncWithoutCallee(*func))
+        funcIsPure[*func] = analyseFuncWithoutCallee(*func);
+        if (!funcIsPure[*func])
         {
-            // funcIsPure[*func] = false;
             unPureList.push(*func);
         }
-        else
-        {
-            // funcIsPure[*func] = true;
-        }
     }
-    TODO();
     while (!unPureList.empty())
     {
         auto func = unPureList.front();
         unPureList.pop();
         // 该函数的每个caller也都不纯了，对他们的状态进行更新并入队列
-        TODO();
+        for (auto callerFunc : caller[func])
+        {
+            bool updateCaller = false;
+            if (funcIsPure[callerFunc])
+                updateCaller = true;
+            funcIsPure[callerFunc] = false;
+            for (auto globalVar : funcChangeGlobalVars[func])
+            {
+                if (funcChangeGlobalVars[callerFunc].find(globalVar) == funcChangeGlobalVars[callerFunc].end())
+                {
+                    funcChangeGlobalVars[callerFunc].insert(globalVar);
+                    updateCaller = true;
+                }
+            }
+            if (updateCaller)
+                unPureList.push(callerFunc);
+        }
     }
+#ifdef PUREFUNCDEBUG
+    for (auto func = unit->begin(); func != unit->end(); func++)
+    {
+        Log("%s %d", static_cast<IdentifierSymbolEntry *>((*func)->getSymPtr())->getName().c_str(), funcIsPure[*func]);
+        for (auto globalVar : funcChangeGlobalVars[*func])
+            Log("    %s", globalVar.c_str());
+    }
+#endif
 }
 
 PureFunctionAnalyser::PureFunctionAnalyser(Unit *unit)

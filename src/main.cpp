@@ -99,12 +99,11 @@ int main(int argc, char *argv[])
     IRSparseCondConstProp sccp(&unit);
     SimplifyCFG scfg(&unit);
 
-    // 目前调试用，后边删了
-    // PureFunctionAnalyser p(&unit);
-
     m2r.pass(); //Only IR supported
-    sccp.pass();
+    // sccp.pass();
 
+    // 目前调试用，后边删了
+    PureFunctionAnalyser p(&unit);
 
     Log("IR优化成功\n");/**/
 
