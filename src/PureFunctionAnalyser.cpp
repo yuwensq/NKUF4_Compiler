@@ -193,7 +193,8 @@ void PureFunctionAnalyser::analyseFunc()
             bool updateCaller = false;
             auto callerFunc = callerPa.first;
             auto callerInst = callerPa.second;
-            for (auto argNum : changeArgNumber[func]) {
+            for (auto argNum : changeArgNumber[func])
+            {
                 auto op = callerInst->getUse()[argNum];
                 isLocal = srcIsLocal(op, name);
                 if (!isLocal)
@@ -291,4 +292,10 @@ bool PureFunctionAnalyser::changeAArray(Function *func)
 std::set<std::string> &PureFunctionAnalyser::getStoreGlobalVar(Function *func)
 {
     return funcChangeGlobalVars[func];
+}
+
+std::set<int> &PureFunctionAnalyser::getChangeArgNum(Function *func)
+{
+    // TODO: insert return statement here
+    return changeArgNumber[func];
 }

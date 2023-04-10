@@ -544,7 +544,8 @@ static void reomveDeadBlock(Function *func)
                 if (color.find(pa.first) == color.end())
                     phiRemoveList.push_back(pa.first);
             }
-            for (auto phiRB : phiRemoveList) {
+            for (auto phiRB : phiRemoveList)
+            {
                 pairs.erase(phiRB);
                 bb->removePred(phiRB);
                 phiRB->removeSucc(bb);
@@ -560,6 +561,7 @@ static void reomveDeadBlock(Function *func)
 
 void IRSparseCondConstProp::pass()
 {
+    
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         sccpInFunc(*func);

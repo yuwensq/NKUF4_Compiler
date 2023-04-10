@@ -57,6 +57,7 @@ public:
     bool isPure(Function *func);
     bool changeAArray(Function *func);
     std::set<std::string> &getStoreGlobalVar(Function *func);
+    std::set<int> &getChangeArgNum(Function *func);
 };
 
 #endif

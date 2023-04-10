@@ -23,6 +23,7 @@ public:
     bool isStore() const { return instType == STORE; };
     bool isPhi() const { return instType == PHI; };
     bool isCall() const { return instType == CALL; };
+    bool isGep() const { return instType == GEP; };
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
     bool isBinary() const { return instType == BINARY; };
@@ -47,6 +48,7 @@ public:
     virtual void replaceUse(Operand *, Operand *) {}
     virtual void replaceDef(Operand *) {}
     int getOpCode() const { return opcode; }
+    int getType() const { return instType; }
 
 protected:
     unsigned instType;
@@ -312,7 +314,7 @@ public:
     }
     std::vector<Operand *> getUse()
     {
-        return std::vector<Operand *>(operands.begin()+1, operands.end());
+        return std::vector<Operand *>(operands.begin() + 1, operands.end());
     }
     void replaceDef(Operand *rep)
     {
@@ -445,7 +447,7 @@ public:
     }
     std::vector<Operand *> getUse()
     {
-        return std::vector<Operand *>(operands.begin()+1, operands.end());
+        return std::vector<Operand *>(operands.begin() + 1, operands.end());
     }
     void replaceDef(Operand *rep)
     {
