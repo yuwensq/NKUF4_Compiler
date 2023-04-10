@@ -74,6 +74,7 @@ public:
     SymbolEntry *getSymPtr() { return sym_ptr; };
     void addParam(Operand *param) { params.push_back(param); }
     void genMachineCode(AsmBuilder *);
+    int getParamNumber(Operand *param);
 
 public:
     TreeNode *DFSTreeRoot;

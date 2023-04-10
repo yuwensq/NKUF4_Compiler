@@ -66,19 +66,19 @@ void Function::output() const
     fprintf(yyout, "}\n");
 }
 
-void Function::genMachineCode(AsmBuilder* builder) 
+void Function::genMachineCode(AsmBuilder *builder)
 {
     auto cur_unit = builder->getUnit();
     auto cur_func = new MachineFunction(cur_unit, this->sym_ptr);
     builder->setFunction(cur_func);
-    std::map<BasicBlock*, MachineBlock*> map;
-    for(auto block : block_list)
+    std::map<BasicBlock *, MachineBlock *> map;
+    for (auto block : block_list)
     {
         block->genMachineCode(builder);
         map[block] = builder->getBlock();
     }
     // Add pred and succ for every block
-    for(auto block : block_list)
+    for (auto block : block_list)
     {
         auto mblock = map[block];
         for (auto pred = block->pred_begin(); pred != block->pred_end(); pred++)
@@ -89,27 +89,42 @@ void Function::genMachineCode(AsmBuilder* builder)
     cur_unit->InsertFunc(cur_func);
 }
 
+int Function::getParamNumber(Operand *param)
+{
+    int i = 0;
+    for (auto pa : params)
+    {
+        if (pa == param)
+            return i;
+        i++;
+    }
+    return 0;
+}
 
 int TreeNode::Num = 0;
-void Function::computeDFSTree() {
+void Function::computeDFSTree()
+{
     TreeNode::Num = 0;
     int len = block_list.size();
     preOrder2DFS.resize(len);
-    bool* visited = new bool[len]{};
+    bool *visited = new bool[len]{};
     DFSTreeRoot = new TreeNode(entry);
     preOrder2DFS[DFSTreeRoot->num] = DFSTreeRoot;
     search(DFSTreeRoot, visited);
     delete[] visited;
 }
 
-void Function::search(TreeNode* node, bool* visited) {
+void Function::search(TreeNode *node, bool *visited)
+{
     int n = getIndex(node->block);
     visited[n] = true;
     auto block = block_list[n];
-    for (auto it = block->succ_begin(); it != block->succ_end(); it++) {
+    for (auto it = block->succ_begin(); it != block->succ_end(); it++)
+    {
         int idx = getIndex(*it);
-        if (!visited[idx]) {
-            TreeNode* child = new TreeNode(*it);
+        if (!visited[idx])
+        {
+            TreeNode *child = new TreeNode(*it);
             preOrder2DFS[child->num] = child;
             child->parent = node;
             node->addChild(child);
@@ -118,9 +133,11 @@ void Function::search(TreeNode* node, bool* visited) {
     }
 }
 
-int Function::eval(int v, int* ancestors) {
+int Function::eval(int v, int *ancestors)
+{
     int a = ancestors[v];
-    while (a != -1 && ancestors[a] != -1) {
+    while (a != -1 && ancestors[a] != -1)
+    {
         if (sdoms[v] > sdoms[a])
             v = a;
         a = ancestors[a];
@@ -128,19 +145,23 @@ int Function::eval(int v, int* ancestors) {
     return v;
 }
 
-void Function::computeSdom() {
+void Function::computeSdom()
+{
     int len = block_list.size();
     sdoms.resize(len);
     // TODO：
-    int* ancestors = new int[len];
-    for (int i = 0; i < len; i++) {
+    int *ancestors = new int[len];
+    for (int i = 0; i < len; i++)
+    {
         sdoms[i] = i;
         ancestors[i] = -1;
     }
-    for (auto it = preOrder2DFS.rbegin(); (*it)->block != entry; it++) {
+    for (auto it = preOrder2DFS.rbegin(); (*it)->block != entry; it++)
+    {
         auto block = (*it)->block;
         int s = block->order;
-        for (auto it1 = block->pred_begin(); it1 != block->pred_end(); it1++) {
+        for (auto it1 = block->pred_begin(); it1 != block->pred_end(); it1++)
+        {
             int z = eval((*it1)->order, ancestors);
             if (sdoms[z] < sdoms[s])
                 sdoms[s] = sdoms[z];
@@ -150,19 +171,22 @@ void Function::computeSdom() {
     delete[] ancestors;
 }
 
-int Function::LCA(int i, int j) {
-    TreeNode* n1 = preOrder2dom[i];
-    TreeNode* n2 = preOrder2dom[j];
+int Function::LCA(int i, int j)
+{
+    TreeNode *n1 = preOrder2dom[i];
+    TreeNode *n2 = preOrder2dom[j];
     int h1 = n1->getHeight();
     int h2 = n2->getHeight();
-    if (h1 > h2) {
+    if (h1 > h2)
+    {
         swap(h1, h2);
         swap(n1, n2);
     }
     int h = h2 - h1;
     for (int i = 0; i < h; i++)
         n2 = n2->parent;
-    while (n1 && n2) {
+    while (n1 && n2)
+    {
         if (n1 == n2)
             return n1->num;
         n1 = n1->parent;
@@ -171,30 +195,37 @@ int Function::LCA(int i, int j) {
     return -1;
 }
 
-void Function::computeIdom() {
+void Function::computeIdom()
+{
     int len = block_list.size();
     idoms.resize(len);
     domTreeRoot = new TreeNode(entry, 0);
     preOrder2dom.resize(len);
     preOrder2dom[entry->order] = domTreeRoot;
     idoms[entry->order] = 0;
-    for (auto it = preOrder2DFS.begin() + 1; it != preOrder2DFS.end(); it++) {
+    for (auto it = preOrder2DFS.begin() + 1; it != preOrder2DFS.end(); it++)
+    {
         int p = LCA((*it)->parent->num, sdoms[(*it)->num]);
         idoms[(*it)->num] = p;
         auto parent = preOrder2dom[p];
-        TreeNode* node = new TreeNode((*it)->block, 0);
+        TreeNode *node = new TreeNode((*it)->block, 0);
         node->parent = parent;
         parent->addChild(node);
         preOrder2dom[(*it)->num] = node;
     }
 }
 
-void Function::computeDomFrontier() {
-    for (auto block : block_list) {
-        if (block->getNumOfPred() >= 2) {
-            for (auto it = block->pred_begin(); it != block->pred_end(); it++) {
+void Function::computeDomFrontier()
+{
+    for (auto block : block_list)
+    {
+        if (block->getNumOfPred() >= 2)
+        {
+            for (auto it = block->pred_begin(); it != block->pred_end(); it++)
+            {
                 int runner = (*it)->order;
-                while (runner != idoms[block->order]) {
+                while (runner != idoms[block->order])
+                {
                     preOrder2DFS[runner]->block->domFrontier.insert(block);
                     runner = idoms[runner];
                 }
