@@ -2,8 +2,6 @@
 
 extern FILE *yyout;
 
-Operand *t12;
-
 IRComSubExprElim::IRComSubExprElim(Unit *unit)
 {
     this->unit = unit;
@@ -27,7 +25,7 @@ void IRComSubExprElim::insertLoadAfterStore()
                 {
                     auto loadInst = new LoadInstruction(new Operand(new TemporarySymbolEntry(inst->getUse()[1]->getEntry()->getType(), SymbolTable::getLabel())), inst->getUse()[0], nullptr);
                     (*bb)->insertBefore(loadInst, inst->getNext());
-                    addedLoad.push_back(std::make_pair(loadInst, inst->getUse()[1]));
+                    addedLoad.push_back(std::make_pair(inst, loadInst));
                     inst = loadInst;
                 }
             }
@@ -39,8 +37,8 @@ void IRComSubExprElim::removeLoadAfterStore()
 {
     for (auto pa : addedLoad)
     {
-        auto loadInst = pa.first;
-        auto loadSrc = pa.second;
+        auto loadInst = pa.second;
+        auto loadSrc = pa.first->getUse()[1];
         if (loadSrc == nullptr)
         {
             loadInst->output();
@@ -287,28 +285,8 @@ bool IRComSubExprElim::globalCSE(Function *)
 
 void IRComSubExprElim::pass()
 {
+    addedLoad.clear();
     insertLoadAfterStore();
-    for (auto func = unit->begin(); func != unit->end(); func++)
-    {
-        for (auto bb = (*func)->begin(); bb != (*func)->end(); bb++)
-        {
-            for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
-            {
-                if ((*inst).getDef() && (*inst).getDef()->getEntry()->isTemporary())
-                {
-                    if (static_cast<TemporarySymbolEntry *>((*inst).getDef()->getEntry())->getLabel() == 12)
-                    {
-                        t12 = inst->getDef();
-
-                        // for (auto useInst : t12->getUse())
-                        // {
-                        //     useInst->output();
-                        // }
-                    }
-                }
-            }
-        }
-    }
     doCSE();
     removeLoadAfterStore();
 }

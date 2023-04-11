@@ -103,8 +103,7 @@ int main(int argc, char *argv[])
     m2r.pass(); //Only IR supported
     sccp.pass();
     cse.pass();
-    // sccp.pass();
-
+    sccp.pass();
 
     Log("IR优化成功\n");/**/
 

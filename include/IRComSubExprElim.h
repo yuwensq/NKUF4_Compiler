@@ -9,7 +9,7 @@ class IRComSubExprElim
 private:
     Unit *unit;
     PureFunctionAnalyser *pfa;
-    std::vector<std::pair<Instruction *, Operand *>> addedLoad;
+    std::vector<std::pair<Instruction *, Instruction*>> addedLoad;
 
     void insertLoadAfterStore();
     void removeLoadAfterStore();
