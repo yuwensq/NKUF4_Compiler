@@ -1,5 +1,7 @@
 #include "IRComSubExprElim.h"
 
+#define IRCSEDEBUG
+
 extern FILE *yyout;
 
 IRComSubExprElim::IRComSubExprElim(Unit *unit)
@@ -190,37 +192,40 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
 
 bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
 {
-    if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
-        return false;
-    auto ops1 = inst1->getUse();
-    auto ops2 = inst2->getUse();
-    if (ops1.size() != ops2.size())
-        return false;
-    auto op2 = ops2.begin();
-    for (auto op1 : ops1)
-    {
-        auto se1 = op1->getEntry();
-        auto se2 = (*op2)->getEntry();
-        if (se1->isConstant() && se2->isConstant())
-        {
-            if (se1->getType()->isFloat() && se2->getType()->isFloat())
-            {
-                if (static_cast<float>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<float>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
-                    return false;
-            }
-            else if (se1->getType()->isInt() && se2->getType()->isInt())
-            {
-                if (static_cast<int>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<int>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
-                    return false;
-            }
-            else
-                return false;
-        }
-        else if (op1 != (*op2))
-            return false;
-        op2++;
-    }
-    return true;
+    Expr expr1(inst1);
+    Expr expr2(inst2);
+    return expr1 == expr2;
+    // if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
+    //     return false;
+    // auto ops1 = inst1->getUse();
+    // auto ops2 = inst2->getUse();
+    // if (ops1.size() != ops2.size())
+    //     return false;
+    // auto op2 = ops2.begin();
+    // for (auto op1 : ops1)
+    // {
+    //     auto se1 = op1->getEntry();
+    //     auto se2 = (*op2)->getEntry();
+    //     if (se1->isConstant() && se2->isConstant())
+    //     {
+    //         if (se1->getType()->isFloat() && se2->getType()->isFloat())
+    //         {
+    //             if (static_cast<float>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<float>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
+    //                 return false;
+    //         }
+    //         else if (se1->getType()->isInt() && se2->getType()->isInt())
+    //         {
+    //             if (static_cast<int>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<int>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
+    //                 return false;
+    //         }
+    //         else
+    //             return false;
+    //     }
+    //     else if (op1 != (*op2))
+    //         return false;
+    //     op2++;
+    // }
+    // return true;
 }
 
 bool IRComSubExprElim::skip(Instruction *inst)
@@ -262,7 +267,7 @@ bool IRComSubExprElim::localCSE(Function *func)
             if (preInst != nullptr)
             {
                 // 这里遇到了一个奇奇怪怪的bug，非要这样才可以
-                std::vector<Instruction*> uses(inst->getDef()->getUse());
+                std::vector<Instruction *> uses(inst->getDef()->getUse());
                 result = false;
                 for (auto useInst : uses)
                 {
@@ -277,16 +282,196 @@ bool IRComSubExprElim::localCSE(Function *func)
     return result;
 }
 
-bool IRComSubExprElim::globalCSE(Function *)
+/**
+ * 这个函数写的也比较简单
+ */
+bool IRComSubExprElim::isKilled(Instruction *inst)
 {
+    Instruction *sucInst = nullptr;
+    auto bb = inst->getParent();
+    for (sucInst = inst->getNext(); sucInst != bb->end(); sucInst = sucInst->getNext())
+    {
+        if (inst->isLoad() && invalidate(sucInst, inst))
+            return true;
+    }
+    return false;
+}
+
+void IRComSubExprElim::calGenAndKill(Function *func)
+{
+    // 参考链接https://eternalsakura13.com/2018/08/08/optimize/
+    // 先算gen和找到所有的expr
+    Log("start genkill");
+    std::vector<int> removeExpr;
+    int sum = 0;
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
+        {
+            sum++;
+            Log("%d", sum);
+            // 如果遇到了一条store或call，可能把已经gen的load指令给kill了
+            if (inst->isStore() || inst->isCall())
+            {
+                removeExpr.clear();
+                for (auto &index : genBB[*bb])
+                {
+                    if (exprVec[index].inst->isLoad() && invalidate(inst, exprVec[index].inst))
+                    {
+                        removeExpr.push_back(index);
+                    }
+                }
+                for (auto &index : removeExpr)
+                    genBB[*bb].erase(index);
+            }
+            if (skip(inst))
+                continue;
+            Expr expr(inst);
+            auto it = find(exprVec.begin(), exprVec.end(), expr);
+            int ind = it - exprVec.begin();
+            if (it == exprVec.end())
+            {
+                exprVec.push_back(expr);
+            }
+            // 如果是一个load指令，要看看之后会不会有store或者call指令把这个load指令给kill掉
+            // if (inst->isLoad() && isKilled(inst))
+            //     continue;
+            genBB[*bb].insert(ind);
+            // 从genBB中删除和inst->getDef相关的表达式
+            removeExpr.clear();
+            for (auto &index : genBB[*bb])
+            {
+                auto useOps = exprVec[index].inst->getUse();
+                auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
+                if (pos != useOps.end())
+                    removeExpr.push_back(index);
+            }
+            for (auto &index : removeExpr)
+                genBB[*bb].erase(index);
+        }
+    }
+    sum = 0;
+    // 接下来算kill
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
+        {
+            sum++;
+            Log("%d", sum);
+            // 碰到了store或call指令，就把他们能kill的load指令加到killBB中
+            if (inst->isStore() || inst->isCall())
+            {
+                Log("  %d", exprVec.size());
+                for (auto i = 0; i < exprVec.size(); i++)
+                {
+                    if (!exprVec[i].inst->isLoad())
+                        continue;
+                    if (invalidate(inst, exprVec[i].inst))
+                        killBB[*bb].insert(i);
+                }
+                continue;
+            }
+            if (!skip(inst))
+            {
+                Expr expr(inst);
+                int ind = find(exprVec.begin(), exprVec.end(), expr) - exprVec.end();
+                killBB[*bb].erase(ind);
+                for (auto index = 0; index < exprVec.size(); index++)
+                {
+                    auto useOps = exprVec[index].inst->getUse();
+                    auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
+                    if (pos != useOps.end())
+                        killBB[*bb].insert(index);
+                }
+            }
+        }
+    }
+    Log("fin genkill");
+}
+
+std::set<int> IRComSubExprElim::intersection(std::set<int> &a, std::set<int> &b)
+{
+    std::vector<int> res;
+    res.resize(std::min(a.size(), b.size()));
+    auto lastPos = std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), res.begin());
+    return std::set<int>(res.begin(), lastPos);
+}
+
+void IRComSubExprElim::calInAndOut(Function *func)
+{
+    // 准备个U
+    Log("start inout");
+    std::set<int> U;
+    for (int i = 0; i < exprVec.size(); i++)
+        U.insert(i);
+    auto entry = func->getEntry();
+    inBB[entry].clear();
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+        outBB[*bb] = U; // 这里直接用等号不会出错吧
+    bool outChanged = true;
+    int sum = 0;
+    while (outChanged)
+    {
+        sum++;
+        Log("%d", sum);
+        outChanged = false;
+        for (auto bb = func->begin(); bb != func->end(); bb++)
+        {
+            // 先计算in
+            if (*bb != entry)
+            {
+                std::set<int> in = U;
+                for (auto preB = (*bb)->pred_begin(); preB != (*bb)->pred_end(); preB++)
+                {
+                    in = intersection(outBB[*preB], in);
+                }
+                inBB[*bb] = in;
+            }
+            // 再计算out
+            std::set<int> midDif;
+            std::set<int> out;
+            std::set_difference(inBB[*bb].begin(), inBB[*bb].end(), killBB[*bb].begin(), killBB[*bb].end(), inserter(midDif, midDif.begin()));
+            std::set_union(genBB[*bb].begin(), genBB[*bb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
+            if (out != outBB[*bb])
+                outChanged = true;
+            outBB[*bb] = out;
+        }
+    }
+    Log("fin inout");
+}
+
+bool IRComSubExprElim::globalCSE(Function *func)
+{   
+    exprVec.clear();
+    genBB.clear();
+    killBB.clear();
+    inBB.clear();
+    outBB.clear();
     bool result = true;
+    calGenAndKill(func);
+    calInAndOut(func);
+#ifdef IRCSEDEBUG
+
+#endif
     return result;
+}
+
+void IRComSubExprElim::clearData()
+{
+    addedLoad.clear();
+    exprVec.clear();
+    genBB.clear();
+    killBB.clear();
+    inBB.clear();
+    outBB.clear();
 }
 
 void IRComSubExprElim::pass()
 {
-    addedLoad.clear();
+    Log("公共子表达式删除开始");
+    clearData();
     insertLoadAfterStore();
     doCSE();
     removeLoadAfterStore();
+    Log("公共子表达式删除结束\n");
 }
