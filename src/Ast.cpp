@@ -16,6 +16,7 @@ extern Unit unit;
 extern FILE *yyout;
 int Node::counter = 0;
 IRBuilder *Node::builder = nullptr;
+bool llvm_memset_func;
 
 // 构造函数之类的代码区
 
@@ -33,6 +34,20 @@ void Node::setNext(Node *node)
         n = n->getNext();
     }
     n->next = node;
+}
+
+void installMemset(Function* func)
+{
+    if (!llvm_memset_func)
+    {
+        llvm_memset_func = true;
+        auto func_type = new FunctionType(
+            TypeSystem::voidType, 
+            {TypeSystem::int8PtrType, TypeSystem::int8Type, TypeSystem::intType, TypeSystem::boolType});
+        auto funcSE = new IdentifierSymbolEntry(func_type, "llvm.memset.p0i8.i32", 0, true);
+        globals->install("llvm.memset.p0i8.i32", funcSE);
+        unit.insertDeclare(funcSE);
+    }
 }
 
 BinaryExpr::BinaryExpr(SymbolEntry *se, int op, ExprNode *expr1, ExprNode *expr2) : ExprNode(se), op(op), expr1(expr1), expr2(expr2)
@@ -552,33 +567,12 @@ void BinaryExpr::genCode()
     }
 }
 
-/***
- * 这个函数用来简化---a，这种形式的unaryexpr，level为嵌套的层数，uexpr为
- * 当前处理的子表达式，递归处理
- */
-ExprNode *UnaryExpr::fold(UnaryExpr *uexpr, int *level)
-{
-    auto subExpr = dynamic_cast<UnaryExpr *>(uexpr->expr);
-    if (subExpr != nullptr && subExpr->op == uexpr->op)
-    {
-        (*level)++;
-        return fold(subExpr, level);
-    }
-    else
-        return uexpr->expr;
-}
-
 void UnaryExpr::genCode()
 {
-    int level = 1;
-    // 这里为了不破坏原来的结构，搞一个expr暂存一下，别和成员变量搞混了
-    auto expr = fold(this, &level);
     expr->genCode();
     if (op == SUB)
     {
-        if (level % 2 == 0)
-            this->dst = expr->getOperand();
-        else if (expr->getType()->isInt())
+        if (expr->getType()->isInt())
             new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), expr->getOperand(), now_bb);
         else if (expr->getType()->isFloat())
             new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), expr->getOperand(), now_bb);
@@ -587,18 +581,15 @@ void UnaryExpr::genCode()
     {
         if (expr->getType()->isInt())
         {
-            new CmpInstruction((level % 2 == 0 ? CmpInstruction::NE : CmpInstruction::E), dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
+            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
         }
         else if (expr->getType()->isFloat())
         {
-            new CmpInstruction((level % 2 == 0 ? CmpInstruction::NE : CmpInstruction::E), dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
+            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
         }
         else
         {
-            if (level % 2 == 0)
-                this->dst = expr->getOperand();
-            else
-                new XorInstruction(dst, expr->getOperand(), now_bb);
+            new XorInstruction(dst, expr->getOperand(), now_bb);
         }
         if (isCond)
         {
@@ -671,14 +662,6 @@ void Id::genCode()
             tmp->genCode();
             offs.push_back(tmp->getOperand());
             tmp = (ExprNode *)tmp->getNext();
-        }
-        if (this->isPointer)
-        {
-            // 作为函数参数传递指针
-            // 生成一条gep指令返回就行
-            offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
-            new GepInstruction(dst, base, offs, now_bb, true);
-            return;
         }
         if (((ArrayType *)((PointerType *)se->getType())->getType())->getBaseType()->isInt())
             addr = new Operand(new TemporarySymbolEntry(new PointerType(TypeSystem::intType), SymbolTable::getLabel()));
@@ -762,8 +745,7 @@ void DeclStmt::genCode()
         	if (exprArray == nullptr)
         	{
         		se->setArrayValue(nullptr);
-        	}
-            else {
+        	} else {
             int size = se->getType()->getSize() / TypeSystem::intType->getSize();
             double *arrayValue = new double[size] {};
             se->setArrayValue(arrayValue);
@@ -773,19 +755,6 @@ void DeclStmt::genCode()
                     arrayValue[i] = exprArray[i]->getValue();
             }}
         }
-        // if (se->getType()->isArray())
-        // {
-        //     int size = se->getType()->getSize() / TypeSystem::intType->getSize();
-        //     double *arrayValue = new double[size];
-        //     se->setArrayValue(arrayValue);
-        //     for (int i = 0; i < size; i++)
-        //     {
-        //         if (exprArray && exprArray[i])
-        //             arrayValue[i] = exprArray[i]->getValue();
-        //         else
-        //             arrayValue[i] = 0;
-        //     }
-        // }
     }
     else
     {
@@ -793,9 +762,9 @@ void DeclStmt::genCode()
         Instruction *alloca;
         Operand *addr;
         addr = new Operand(new TemporarySymbolEntry(new PointerType(se->getType()), SymbolTable::getLabel()));
-        alloca = new AllocaInstruction(addr, se);             // allocate space for local id in function stack.
-        entry->insertFront(alloca, se->getType()->isArray()); // allocate instructions should be inserted into the begin of the entry block.
-        se->setAddr(addr);                                    // set the addr operand in symbol entry so that we can use it in subsequent code generation.
+        alloca = new AllocaInstruction(addr, se); // allocate space for local id in function stack.
+        entry->insertFront(alloca, se->getType()->isArray());               // allocate instructions should be inserted into the begin of the entry block.
+        se->setAddr(addr);                        // set the addr operand in symbol entry so that we can use it in subsequent code generation.
         if (expr)
         {
             expr->genCode();
@@ -808,6 +777,18 @@ void DeclStmt::genCode()
         }
         if (se->getType()->isArray() && exprArray) // 如果数组有初始化
         {
+            auto bitcast_dst = new Operand(new TemporarySymbolEntry(TypeSystem::int8PtrType, SymbolTable::getLabel()));
+            installMemset(now_func);
+            auto funcSE = globals->lookup("llvm.memset.p0i8.i32");
+            if (funcSE == nullptr) std::cout << "'llvm.memset' installing failed." << std::endl;
+            new BitcastInstruction(bitcast_dst, addr, now_bb);
+            std::vector<Operand*> operands = {
+                bitcast_dst,
+                new Operand(new ConstantSymbolEntry(TypeSystem::int8Type, 0)),
+                new Operand(new ConstantSymbolEntry(TypeSystem::intType, se->getType()->getSize() >> 3)),
+                new Operand(new ConstantSymbolEntry(TypeSystem::boolType, 0)),
+            };
+            new CallInstruction(nullptr, funcSE, operands, now_bb);
             Type *eleType = ((ArrayType *)se->getType())->getBaseType();
             Type *baseType = eleType->isFloat() ? TypeSystem::floatType : TypeSystem::intType;
             std::vector<int> indexs = ((ArrayType *)se->getType())->getIndexs();
@@ -820,55 +801,21 @@ void DeclStmt::genCode()
             indexs = ((ArrayType *)se->getType())->getIndexs();
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
-            // 调用memset函数版本的数组初始化，因为没有在ir中加memset函数，只用中间代码的话会报错
-            // std::vector<Operand *> rParams;
-            // rParams.push_back(ele_addr);
-            // rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
-            // rParams.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, size * 4)));
-            // new CallInstruction(nullptr, globals->lookup("memset"), rParams, now_bb);
-            // int stride = 0;
-            // for (int i = 0; i < size; i++)
-            // {
-            //     if (exprArray[i])
-            //     {
-            //         if (i != 0) {
-            //             Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, stride));
-            //             Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
-            //             new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
-            //             ele_addr = next_addr;
-            //             stride = 0;
-            //         }
-            //         exprArray[i]->genCode();
-            //         new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
-            //     }
-            //     stride++;
-            //     // new BinaryInstruction(BinaryInstruction::ADD, ele_addr, ele_addr, step, now_bb);
-            // }
             Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, 1));
             for (int i = 0; i < size; i++)
             {
+                if (exprArray[i])
+                {
                 if (i != 0)
                 {
                     Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
                     new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
                     ele_addr = next_addr;
                 }
-                if (exprArray[i])
-                {
                     exprArray[i]->genCode();
                     new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
                 }
-                else
-                {
-                    new StoreInstruction(ele_addr, new Operand(new ConstantSymbolEntry(baseType, 0)), now_bb);
-                }
             }
-            // for (int i = 0; i < size; i++) {
-            //     if (exprArray[i]) {
-            //         std::cout  << i << " " << exprArray[i]->getSymPtr()->toStr() << " ";
-            //     }
-            // }
-            // std::cout << std::endl;
         }
     }
     // 这里要看看下一个有没有
@@ -1135,8 +1082,7 @@ void FunctionDef::genCode()
         for (auto it = func->begin(); it != func->end(); it++)
         {
             auto block = *it;
-            if (block == func->getEntry())
-                continue;
+            if (block == func->getEntry()) continue;
             if (block->getNumOfPred() == 0)
             {
                 delete block;
@@ -1144,8 +1090,7 @@ void FunctionDef::genCode()
                 break;
             }
         }
-        if (!flag)
-            break;
+        if (!flag) break;
     }
 }
 
