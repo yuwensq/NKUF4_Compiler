@@ -801,19 +801,25 @@ void DeclStmt::genCode()
             indexs = ((ArrayType *)se->getType())->getIndexs();
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
-            Operand *step = new Operand(new ConstantSymbolEntry(TypeSystem::intType, 1));
+            auto step = 1ull;
             for (int i = 0; i < size; i++)
             {
                 if (exprArray[i])
                 {
-                if (i != 0)
-                {
-                    Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
-                    new GepInstruction(next_addr, ele_addr, {step}, now_bb, true);
-                    ele_addr = next_addr;
-                }
+                    if (i != 0)
+                    {
+                        Operand *next_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
+                        new GepInstruction(next_addr, ele_addr, {new Operand(new ConstantSymbolEntry(TypeSystem::intType, step))}, now_bb, true);
+                        step = 1;
+                        ele_addr = next_addr;
+                    }
                     exprArray[i]->genCode();
                     new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
+                }
+                else
+                {
+                    if (i != 0)
+                        step++;
                 }
             }
         }
