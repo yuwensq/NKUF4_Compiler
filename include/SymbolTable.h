@@ -129,6 +129,7 @@ public:
     bool isParam() const { return scope == PARAM; };
     bool isLocal() const { return scope >= LOCAL; };
     bool isSysy() const { return sysy; }
+    std::string getName() const { return name; }
     int getScope() const { return scope; };
     void setAddr(Operand *addr) { this->addr = addr; };
     Operand *getAddr() { return addr; };
