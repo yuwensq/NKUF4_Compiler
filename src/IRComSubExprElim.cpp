@@ -1,6 +1,6 @@
 #include "IRComSubExprElim.h"
 
-#define IRCSEDEBUG
+// #define IRCSEDEBUG
 
 extern FILE *yyout;
 
@@ -62,7 +62,6 @@ void IRComSubExprElim::doCSE()
         bool result1 = false, result2 = false;
         while (!result1 || !result2)
         {
-
             result1 = localCSE(*func);
             result2 = globalCSE(*func);
         }
@@ -71,6 +70,7 @@ void IRComSubExprElim::doCSE()
 
 Instruction *IRComSubExprElim::getSrc(Operand *op, std::string &name)
 {
+    std::vector<Instruction *> geps;
     Instruction *res = nullptr;
     name = "";
     if (op->getEntry()->isVariable())
@@ -87,6 +87,12 @@ Instruction *IRComSubExprElim::getSrc(Operand *op, std::string &name)
         // %t6 = call i32 @getarray(i32* %t5)
         while (dynamic_cast<GepInstruction *>(op->getDef()) != nullptr)
         {
+            if (gep2Alloc.find(op->getDef()) != gep2Alloc.end())
+            {
+                res = gep2Alloc[op->getDef()];
+                return res;
+            }
+            geps.push_back(op->getDef());
             op = op->getDef()->getUse()[0];
         }
         // 如果是操作了全局数组，就是这种情况
@@ -97,7 +103,14 @@ Instruction *IRComSubExprElim::getSrc(Operand *op, std::string &name)
         }
         // 局部变量或者函数参数，返回源头指令
         else
+        {
             res = op->getDef();
+            if (res->isAlloc())
+            {
+                for (auto gep : geps)
+                    gep2Alloc[gep] = res;
+            }
+        }
     }
     return res;
 }
@@ -192,40 +205,37 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
 
 bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
 {
-    Expr expr1(inst1);
-    Expr expr2(inst2);
-    return expr1 == expr2;
-    // if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
-    //     return false;
-    // auto ops1 = inst1->getUse();
-    // auto ops2 = inst2->getUse();
-    // if (ops1.size() != ops2.size())
-    //     return false;
-    // auto op2 = ops2.begin();
-    // for (auto op1 : ops1)
-    // {
-    //     auto se1 = op1->getEntry();
-    //     auto se2 = (*op2)->getEntry();
-    //     if (se1->isConstant() && se2->isConstant())
-    //     {
-    //         if (se1->getType()->isFloat() && se2->getType()->isFloat())
-    //         {
-    //             if (static_cast<float>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<float>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
-    //                 return false;
-    //         }
-    //         else if (se1->getType()->isInt() && se2->getType()->isInt())
-    //         {
-    //             if (static_cast<int>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<int>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
-    //                 return false;
-    //         }
-    //         else
-    //             return false;
-    //     }
-    //     else if (op1 != (*op2))
-    //         return false;
-    //     op2++;
-    // }
-    // return true;
+    if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
+        return false;
+    auto ops1 = inst1->getUse();
+    auto ops2 = inst2->getUse();
+    if (ops1.size() != ops2.size())
+        return false;
+    auto op2 = ops2.begin();
+    for (auto op1 : ops1)
+    {
+        auto se1 = op1->getEntry();
+        auto se2 = (*op2)->getEntry();
+        if (se1->isConstant() && se2->isConstant())
+        {
+            if (se1->getType()->isFloat() && se2->getType()->isFloat())
+            {
+                if (static_cast<float>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<float>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
+                    return false;
+            }
+            else if (se1->getType()->isInt() && se2->getType()->isInt())
+            {
+                if (static_cast<int>(static_cast<ConstantSymbolEntry *>(se1)->getValue()) != static_cast<int>(static_cast<ConstantSymbolEntry *>(se2)->getValue()))
+                    return false;
+            }
+            else
+                return false;
+        }
+        else if (op1 != (*op2))
+            return false;
+        op2++;
+    }
+    return true;
 }
 
 bool IRComSubExprElim::skip(Instruction *inst)
@@ -247,8 +257,8 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
     {
         if (inst->isLoad() && invalidate(preInst, inst))
             return nullptr;
-        if (isSameExpr(preInst, inst))
-            return preInst;
+        // if (isSameExpr(preInst, inst))
+        //     return preInst;
     }
     return nullptr;
 }
@@ -287,11 +297,11 @@ bool IRComSubExprElim::localCSE(Function *func)
  */
 bool IRComSubExprElim::isKilled(Instruction *inst)
 {
-    Instruction *sucInst = nullptr;
+    Instruction *preInst = nullptr;
     auto bb = inst->getParent();
-    for (sucInst = inst->getNext(); sucInst != bb->end(); sucInst = sucInst->getNext())
+    for (preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
     {
-        if (inst->isLoad() && invalidate(sucInst, inst))
+        if (inst->isLoad() && invalidate(preInst, inst))
             return true;
     }
     return false;
@@ -303,13 +313,13 @@ void IRComSubExprElim::calGenAndKill(Function *func)
     // 先算gen和找到所有的expr
     Log("start genkill");
     std::vector<int> removeExpr;
-    int sum = 0;
+    // int sum = 0;
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
         for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
         {
-            sum++;
-            Log("%d", sum);
+            // sum++;
+            // Log("%d", sum);
             // 如果遇到了一条store或call，可能把已经gen的load指令给kill了
             if (inst->isStore() || inst->isCall())
             {
@@ -322,7 +332,11 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                     }
                 }
                 for (auto &index : removeExpr)
+                {
                     genBB[*bb].erase(index);
+                    expr2Op[*bb].erase(index);
+                }
+                continue;
             }
             if (skip(inst))
                 continue;
@@ -333,31 +347,38 @@ void IRComSubExprElim::calGenAndKill(Function *func)
             {
                 exprVec.push_back(expr);
             }
+            ins2Expr[inst] = ind;
             // 如果是一个load指令，要看看之后会不会有store或者call指令把这个load指令给kill掉
             // if (inst->isLoad() && isKilled(inst))
             //     continue;
             genBB[*bb].insert(ind);
+            expr2Op[*bb][ind] = inst->getDef();
+            /*
+                一个基本块内不会出现这种 t1 = t2 + t3
+                                       t2 = ...
+                所以这里，之后gen的表达式不会kill掉已经gen的表达式
+            */
             // 从genBB中删除和inst->getDef相关的表达式
-            removeExpr.clear();
-            for (auto &index : genBB[*bb])
-            {
-                auto useOps = exprVec[index].inst->getUse();
-                auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
-                if (pos != useOps.end())
-                    removeExpr.push_back(index);
-            }
-            for (auto &index : removeExpr)
-                genBB[*bb].erase(index);
+            // removeExpr.clear();
+            // for (auto &index : genBB[*bb])
+            // {
+            //     auto useOps = exprVec[index].inst->getUse();
+            //     auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
+            //     if (pos != useOps.end())
+            //         removeExpr.push_back(index);
+            // }
+            // for (auto &index : removeExpr)
+            //     genBB[*bb].erase(index);
         }
     }
-    sum = 0;
+    // sum = 0;
     // 接下来算kill
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
         for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
         {
-            sum++;
-            Log("%d", sum);
+            // sum++;
+            // Log("%d", sum);
             // 碰到了store或call指令，就把他们能kill的load指令加到killBB中
             if (inst->isStore() || inst->isCall())
             {
@@ -369,13 +390,14 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                     if (invalidate(inst, exprVec[i].inst))
                         killBB[*bb].insert(i);
                 }
-                continue;
             }
-            if (!skip(inst))
+            if (inst->getDef() != nullptr)
             {
-                Expr expr(inst);
-                int ind = find(exprVec.begin(), exprVec.end(), expr) - exprVec.end();
-                killBB[*bb].erase(ind);
+                if (!skip(inst))
+                {
+                    int ind = ins2Expr[inst];
+                    killBB[*bb].erase(ind);
+                }
                 for (auto index = 0; index < exprVec.size(); index++)
                 {
                     auto useOps = exprVec[index].inst->getUse();
@@ -409,11 +431,11 @@ void IRComSubExprElim::calInAndOut(Function *func)
     for (auto bb = func->begin(); bb != func->end(); bb++)
         outBB[*bb] = U; // 这里直接用等号不会出错吧
     bool outChanged = true;
-    int sum = 0;
+    // int sum = 0;
     while (outChanged)
     {
-        sum++;
-        Log("%d", sum);
+        // sum++;
+        // Log("%d", sum);
         outChanged = false;
         for (auto bb = func->begin(); bb != func->end(); bb++)
         {
@@ -440,9 +462,28 @@ void IRComSubExprElim::calInAndOut(Function *func)
     Log("fin inout");
 }
 
+void IRComSubExprElim::removeGlobalCSE(Function *func)
+{
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
+        {
+            if (skip(inst))
+                continue;
+            if (inBB[*bb].count(ins2Expr[inst]) != 0) {
+                if (inst->isLoad() && isKilled(inst))
+                    continue;
+                
+            }
+        }
+    }
+}
+
 bool IRComSubExprElim::globalCSE(Function *func)
-{   
+{
     exprVec.clear();
+    ins2Expr.clear();
+    expr2Op.clear();
     genBB.clear();
     killBB.clear();
     inBB.clear();
@@ -450,8 +491,43 @@ bool IRComSubExprElim::globalCSE(Function *func)
     bool result = true;
     calGenAndKill(func);
     calInAndOut(func);
+    removeGlobalCSE(func);
 #ifdef IRCSEDEBUG
-
+    fprintf(yyout, "all expr\n");
+    for (auto index = 0; index < exprVec.size(); index++)
+    {
+        fprintf(yyout, "%d ", index);
+        exprVec[index].inst->output();
+    }
+    fprintf(yyout, "gen per bb\n");
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*bb)->getNo());
+        for (auto index : genBB[*bb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nkill per bb\n");
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*bb)->getNo());
+        for (auto index : killBB[*bb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nin per bb");
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*bb)->getNo());
+        for (auto index : inBB[*bb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nout per bb\n");
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*bb)->getNo());
+        for (auto index : outBB[*bb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\n");
 #endif
     return result;
 }
@@ -459,6 +535,7 @@ bool IRComSubExprElim::globalCSE(Function *func)
 void IRComSubExprElim::clearData()
 {
     addedLoad.clear();
+    gep2Alloc.clear();
     exprVec.clear();
     genBB.clear();
     killBB.clear();
@@ -470,6 +547,7 @@ void IRComSubExprElim::pass()
 {
     Log("公共子表达式删除开始");
     clearData();
+    // 这个加load可能会导致变慢
     insertLoadAfterStore();
     doCSE();
     removeLoadAfterStore();

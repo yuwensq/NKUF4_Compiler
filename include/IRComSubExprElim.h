@@ -3,6 +3,7 @@
 
 #include "Unit.h"
 #include "PureFunctionAnalyser.h"
+#include <unordered_map>
 
 struct Expr
 {
@@ -54,10 +55,14 @@ class IRComSubExprElim
 private:
     Unit *unit;
     PureFunctionAnalyser *pfa;
+    std::unordered_map<Instruction *, Instruction *> gep2Alloc; // 这个变量用来加速getSrc函数
     std::vector<std::pair<Instruction *, Instruction *>> addedLoad;
 
     std::vector<Expr> exprVec;
+    std::map<Instruction*, int> ins2Expr;
     std::map<BasicBlock *, std::set<int>> genBB;
+    // 这个变量结合genBB使用，记录一个基本块中gen的表达式的结果寄存器
+    std::map<BasicBlock *, std::map<int, Operand *>> expr2Op;
     std::map<BasicBlock *, std::set<int>> killBB;
     std::map<BasicBlock *, std::set<int>> inBB;
     std::map<BasicBlock *, std::set<int>> outBB;
@@ -104,6 +109,10 @@ private:
      * 数据流分析，计算每个基本块的in集合和out集合
      */
     void calInAndOut(Function *);
+    /**
+     * 计算完gen kill in out之后就可以删除全局公共子表达式了
+     */
+    void removeGlobalCSE(Function *);
     /***
      * 对一个函数进行全局公共子表达式删除，
      * 返回true表示已经收敛，一趟下去没有发现可以删除的

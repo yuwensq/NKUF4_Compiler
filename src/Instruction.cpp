@@ -1347,7 +1347,7 @@ std::vector<Operand *> Instruction::replaceAllUsesWith(Operand *replVal)
             {
                 if (userInst->isPhi())
                 {
-                    auto &srcs = ((PhiInstruction *)userInst)->getEdges();
+                    auto &srcs = ((PhiInstruction *)userInst)->getSrcs();
                     for (auto &src : srcs)
                     {
                         if (src.second == i)
