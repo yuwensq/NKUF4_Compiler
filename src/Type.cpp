@@ -5,18 +5,22 @@
 #include <iostream>
 
 IntType TypeSystem::commonInt = IntType(32);
-IntType TypeSystem::commonBool = IntType(1);
-FloatType TypeSystem::commonFloat = FloatType(32);
 VoidType TypeSystem::commonVoid = VoidType();
+FloatType TypeSystem::commonFloat = FloatType(32);
+IntType TypeSystem::commonBool = IntType(1);
 IntType TypeSystem::commonConstInt = IntType(32, true);
 FloatType TypeSystem::commonConstFloat = FloatType(32, true);
+IntType TypeSystem::byteInt = IntType(8);
+PointerType TypeSystem::byteIntPtr = PointerType(&byteInt);
 
-Type *TypeSystem::intType = &commonInt;
-Type *TypeSystem::floatType = &commonFloat;
-Type *TypeSystem::voidType = &commonVoid;
-Type *TypeSystem::boolType = &commonBool;
+Type* TypeSystem::intType = &commonInt;
+Type* TypeSystem::voidType = &commonVoid;
+Type* TypeSystem::floatType = &commonFloat;
+Type* TypeSystem::boolType = &commonBool;
 Type *TypeSystem::constIntType = &commonConstInt;
 Type *TypeSystem::constFloatType = &commonConstFloat;
+Type* TypeSystem::int8Type = &byteInt;
+Type* TypeSystem::int8PtrType = &byteIntPtr;
 
 std::string IntType::toStr()
 {
