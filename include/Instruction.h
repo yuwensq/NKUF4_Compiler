@@ -70,6 +70,7 @@ protected:
         ALLOCA,
         XOR,
         ZEXT,
+        BITCAST,
         GEP,
         FPTSI,
         SITFP,
