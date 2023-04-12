@@ -107,19 +107,22 @@ class TypeSystem
 {
 private:
     static IntType commonInt;
-    static IntType commonBool;
     static FloatType commonFloat;
     static VoidType commonVoid;
+    static IntType commonBool;
     static IntType commonConstInt;
     static FloatType commonConstFloat;
-
+    static IntType byteInt;
+    static PointerType byteIntPtr;
 public:
     static Type *intType;
-    static Type *floatType;
+    static Type* floatType;
     static Type *voidType;
-    static Type *boolType;
+    static Type* boolType;
     static Type *constIntType;
-    static Type *constFloatType;
+    static Type* constFloatType;
+    static Type* int8Type;
+    static Type* int8PtrType;
 };
 
 class ArrayType : public Type

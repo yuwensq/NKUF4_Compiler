@@ -70,6 +70,7 @@ protected:
         ALLOCA,
         XOR,
         ZEXT,
+        BITCAST,
         GEP,
         FPTSI,
         SITFP,
@@ -433,6 +434,32 @@ public:
 
 private:
     bool b2i;
+};
+
+class BitcastInstruction : public Instruction
+{
+    Operand* dst;
+    Operand* src;
+public:
+    BitcastInstruction(Operand* dst, Operand* src, BasicBlock* insert_bb = nullptr);
+    ~BitcastInstruction();
+    Operand* getSrc() {return src;}
+    void output() const;
+    void genMachineCode(AsmBuilder*);
+    Operand* getDef() { return operands[0]; }
+    std::vector<Operand*> getUse() { return {operands[1]}; }
+    void replaceUse(Operand* old, Operand* rep) {
+        if (operands[1] == old) {
+            operands[1]->removeUse(this);
+            operands[1] = rep;
+            rep->addUse(this);
+        }
+    }
+    void replaceDef(Operand* rep) {
+        operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
 };
 
 class GepInstruction : public Instruction

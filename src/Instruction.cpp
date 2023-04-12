@@ -401,7 +401,7 @@ void ZextInstruction::output() const
     }
     else
     {
-        std::cout << 1;
+
         fprintf(yyout, "  %s = zext i32 %s to i1\n", dst.c_str(), src.c_str());
     }
 }
@@ -853,7 +853,59 @@ void CondBrInstruction::genMachineCode(AsmBuilder *builder)
 
 void CallInstruction::genMachineCode(AsmBuilder *builder)
 {
-    auto cur_block = builder->getBlock();
+    auto cur_block = builder->getBlock();    
+    
+    auto funcSE = (IdentifierSymbolEntry*)(this->func);
+    if (funcSE->getName() == "llvm.memset.p0i8.i32")
+    {
+        MachineOperand *operand;
+        MachineInstruction *cur_inst;
+        // std::cout << "llvm" << std::endl;
+        auto r0 = genMachineReg(0);
+        auto r1 = genMachineReg(1);
+        auto r2 = genMachineReg(2);
+        auto int8Ptr = operands[1];
+        auto bitcast = (BitcastInstruction*)(int8Ptr->getDef());
+        {
+            auto arraySE = (TemporarySymbolEntry*)(bitcast->getSrc()->getEntry());
+            int offset = arraySE->getOffset();
+            operand = genMachineVReg();
+            auto fp = genMachineReg(11);
+            if (offset > -255 && offset < 255)
+            {
+                cur_block->InsertInst(new BinaryMInstruction(
+                    cur_block, BinaryMInstruction::ADD, r0, fp, genMachineImm(offset)));
+            }
+            else
+            {
+                cur_inst = new LoadMInstruction(
+                    cur_block, LoadMInstruction::LDR, operand, genMachineImm(offset));
+                operand = new MachineOperand(*operand);
+                cur_block->InsertInst(cur_inst);
+                cur_block->InsertInst(new BinaryMInstruction(
+                    cur_block, BinaryMInstruction::ADD, r0, fp, operand));
+            }
+        }
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, r1, genMachineImm(0)));
+        auto len = genMachineOperand(operands[3]);
+        if (len->isImm() && len->getVal() > 255)
+        {
+            operand = genMachineVReg();
+            cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::LDR, operand, len);
+            operand = new MachineOperand(*operand);
+            cur_block->InsertInst(cur_inst);
+        }
+        else
+        {
+            operand = len;
+        }
+        cur_block->InsertInst(new MovMInstruction(
+            cur_block, MovMInstruction::MOV, r2, operand));
+        cur_block->InsertInst(new BranchMInstruction(
+            cur_block, BranchMInstruction::BL, new MachineOperand("@memset")));
+        return;
+    }
+
     // 先把不是浮点数的放到r0-r3里
     size_t i;
     int sum = 0;
@@ -1096,6 +1148,33 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, base));
 }
 
+BitcastInstruction::BitcastInstruction(Operand* dst, Operand* src, BasicBlock* insert_bb) : Instruction(BITCAST, insert_bb), dst(dst), src(src) {
+    operands.push_back(dst);
+    operands.push_back(src);
+    dst->setDef(this);
+    src->addUse(this);
+}
+
+BitcastInstruction::~BitcastInstruction() {
+    operands[0]->setDef(nullptr);
+    if (operands[0]->usersNum() == 0)
+        delete operands[0];
+    operands[1]->removeUse(this);
+}
+
+void BitcastInstruction::output() const {
+    std::string dst = operands[0]->toStr();
+    std::string src = operands[1]->toStr();
+    std::string dst_type = operands[0]->getType()->toStr();
+    std::string src_type = operands[1]->getType()->toStr();
+    fprintf(yyout, "  %s = bitcast %s %s to %s\n", dst.c_str(), src_type.c_str(), src.c_str(), dst_type.c_str());
+}
+
+void BitcastInstruction::genMachineCode(AsmBuilder *)
+{
+    //
+}
+
 GepInstruction::GepInstruction(Operand *dst, Operand *base, std::vector<Operand *> offs, BasicBlock *insert_bb, bool type2) : Instruction(GEP, insert_bb), type2(type2)
 {
     operands.push_back(dst);
@@ -1268,7 +1347,7 @@ std::vector<Operand *> Instruction::replaceAllUsesWith(Operand *replVal)
             {
                 if (userInst->isPhi())
                 {
-                    auto &srcs = ((PhiInstruction *)userInst)->getSrcs();
+                    auto &srcs = ((PhiInstruction *)userInst)->getEdges();
                     for (auto &src : srcs)
                     {
                         if (src.second == i)
