@@ -569,8 +569,9 @@ public:
     ~PhiInstruction();
     void output() const;
     void addEdge(BasicBlock *block, Operand *src);
-    Operand *getAddr() { return addr; };
-    std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; };
+    Operand *getAddr() { return addr; }
+    Operand *getEdge(BasicBlock *block) { return (srcs.find(block) != srcs.end()) ? srcs[block] : nullptr; }
+    std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
 
     void genMachineCode(AsmBuilder *)
     {
