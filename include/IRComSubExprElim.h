@@ -9,7 +9,7 @@ struct Expr
 {
     Instruction *inst;
     std::set<Instruction *> srcs;
-    Expr(Instruction *inst) : inst(inst) { srcs.insert(inst); };
+    Expr(Instruction *inst) : inst(inst){};
     // 定义这个用来调用find函数
     bool operator==(const Expr &other) const
     {
@@ -59,13 +59,16 @@ private:
     std::vector<std::pair<Instruction *, Instruction *>> addedLoad;
 
     std::vector<Expr> exprVec;
-    std::map<Instruction*, int> ins2Expr;
-    std::map<BasicBlock *, std::set<int>> genBB;
+    // 指令to表达式
+    std::map<Instruction *, int> ins2Expr;
     // 这个变量结合genBB使用，记录一个基本块中gen的表达式的结果寄存器
     std::map<BasicBlock *, std::map<int, Operand *>> expr2Op;
+    std::map<BasicBlock *, std::set<int>> genBB;
     std::map<BasicBlock *, std::set<int>> killBB;
     std::map<BasicBlock *, std::set<int>> inBB;
     std::map<BasicBlock *, std::set<int>> outBB;
+    std::map<BasicBlock *, std::map<int, std::set<std::pair<BasicBlock *, Operand *>>>> inBBOp;
+    std::map<BasicBlock *, std::map<int, Operand *>> outBBOp;
 
     void insertLoadAfterStore();
     void removeLoadAfterStore();
@@ -112,7 +115,7 @@ private:
     /**
      * 计算完gen kill in out之后就可以删除全局公共子表达式了
      */
-    void removeGlobalCSE(Function *);
+    bool removeGlobalCSE(Function *);
     /***
      * 对一个函数进行全局公共子表达式删除，
      * 返回true表示已经收敛，一趟下去没有发现可以删除的

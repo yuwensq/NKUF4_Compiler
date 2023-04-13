@@ -257,8 +257,8 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
     {
         if (inst->isLoad() && invalidate(preInst, inst))
             return nullptr;
-        // if (isSameExpr(preInst, inst))
-        //     return preInst;
+        if (isSameExpr(preInst, inst))
+            return preInst;
     }
     return nullptr;
 }
@@ -383,6 +383,8 @@ void IRComSubExprElim::calGenAndKill(Function *func)
             if (inst->isStore() || inst->isCall())
             {
                 Log("  %d", exprVec.size());
+                // 这里这样写是不是有点慢呀，可不可以搞一个vector存所有的load表达式，后边
+                // 如果超时了，可以优化一下这里
                 for (auto i = 0; i < exprVec.size(); i++)
                 {
                     if (!exprVec[i].inst->isLoad())
@@ -398,13 +400,19 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                     int ind = ins2Expr[inst];
                     killBB[*bb].erase(ind);
                 }
-                for (auto index = 0; index < exprVec.size(); index++)
+                // 这两种写法是不是等价呀，不过上边这种更快
+                for (auto useInst : inst->getDef()->getUse())
                 {
-                    auto useOps = exprVec[index].inst->getUse();
-                    auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
-                    if (pos != useOps.end())
-                        killBB[*bb].insert(index);
+                    if (!skip(useInst))
+                        killBB[*bb].insert(ins2Expr[useInst]);
                 }
+                // for (auto index = 0; index < exprVec.size(); index++)
+                // {
+                //     auto useOps = exprVec[index].inst->getUse();
+                //     auto pos = find(useOps.begin(), useOps.end(), inst->getDef());
+                //     if (pos != useOps.end())
+                //         killBB[*bb].insert(index);
+                // }
             }
         }
     }
@@ -431,11 +439,11 @@ void IRComSubExprElim::calInAndOut(Function *func)
     for (auto bb = func->begin(); bb != func->end(); bb++)
         outBB[*bb] = U; // 这里直接用等号不会出错吧
     bool outChanged = true;
-    // int sum = 0;
+    int sum = 0;
     while (outChanged)
     {
-        // sum++;
-        // Log("%d", sum);
+        sum++;
+        Log("%d", sum);
         outChanged = false;
         for (auto bb = func->begin(); bb != func->end(); bb++)
         {
@@ -462,7 +470,7 @@ void IRComSubExprElim::calInAndOut(Function *func)
     Log("fin inout");
 }
 
-void IRComSubExprElim::removeGlobalCSE(Function *func)
+bool IRComSubExprElim::removeGlobalCSE(Function *func)
 {
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
@@ -470,13 +478,31 @@ void IRComSubExprElim::removeGlobalCSE(Function *func)
         {
             if (skip(inst))
                 continue;
-            if (inBB[*bb].count(ins2Expr[inst]) != 0) {
-                if (inst->isLoad() && isKilled(inst))
-                    continue;
-                
-            }
+            int index = ins2Expr[inst];
+            Expr &expr = exprVec[index];
+            // 如果一个基本块gen了一个表达式，且in里没有这个表达式或kill了这个表达式，
+            // 对应的指令就是这个表达式的源头定值
+            bool genInst = genBB[*bb].find(index) != genBB[*bb].end();
+            bool notInInst = inBB[*bb].find(index) == inBB[*bb].end();
+            bool killInst = killBB[*bb].find(index) != killBB[*bb].end();
+            if (genInst && (notInInst || killInst))
+                expr.srcs.insert(inst);
         }
     }
+    // for (auto bb = func->begin(); bb != func->end(); bb++)
+    // {
+    //     for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
+    //     {
+    //         if (skip(inst))
+    //             continue;
+    //         if (inBB[*bb].count(ins2Expr[inst]) != 0)
+    //         {
+    //             if (inst->isLoad() && isKilled(inst))
+    //                 continue;
+    //         }
+    //     }
+    // }
+    return true;
 }
 
 bool IRComSubExprElim::globalCSE(Function *func)
@@ -488,10 +514,12 @@ bool IRComSubExprElim::globalCSE(Function *func)
     killBB.clear();
     inBB.clear();
     outBB.clear();
+    inBBOp.clear();
+    outBBOp.clear();
     bool result = true;
     calGenAndKill(func);
     calInAndOut(func);
-    removeGlobalCSE(func);
+    result = removeGlobalCSE(func);
 #ifdef IRCSEDEBUG
     fprintf(yyout, "all expr\n");
     for (auto index = 0; index < exprVec.size(); index++)
