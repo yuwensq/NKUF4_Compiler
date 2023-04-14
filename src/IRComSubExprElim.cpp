@@ -59,12 +59,8 @@ void IRComSubExprElim::doCSE()
 {
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
-        bool result1 = false, result2 = false;
-        while (!result1 || !result2)
-        {
-            result1 = localCSE(*func);
-            result2 = globalCSE(*func);
-        }
+        while (!localCSE(*func) || !globalCSE(*func))
+            ;
     }
 }
 
@@ -105,7 +101,7 @@ Instruction *IRComSubExprElim::getSrc(Operand *op, std::string &name)
         else
         {
             res = op->getDef();
-            if (res->isAlloc())
+            if (res && res->isAlloc())
             {
                 for (auto gep : geps)
                     gep2Alloc[gep] = res;
@@ -265,6 +261,9 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
 
 bool IRComSubExprElim::localCSE(Function *func)
 {
+    static int round = 0;
+    round++;
+    Log("局部子表达式删除开始，round%d\n", round);
     bool result = true;
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
@@ -289,6 +288,7 @@ bool IRComSubExprElim::localCSE(Function *func)
             }
         }
     }
+    Log("局部子表达式删除结束，round%d\n", round);
     return result;
 }
 
@@ -382,7 +382,7 @@ void IRComSubExprElim::calGenAndKill(Function *func)
             // 碰到了store或call指令，就把他们能kill的load指令加到killBB中
             if (inst->isStore() || inst->isCall())
             {
-                Log("  %d", exprVec.size());
+                // Log("  %d", exprVec.size());
                 // 这里这样写是不是有点慢呀，可不可以搞一个vector存所有的load表达式，后边
                 // 如果超时了，可以优化一下这里
                 for (auto i = 0; i < exprVec.size(); i++)
@@ -439,11 +439,11 @@ void IRComSubExprElim::calInAndOut(Function *func)
     for (auto bb = func->begin(); bb != func->end(); bb++)
         outBB[*bb] = U; // 这里直接用等号不会出错吧
     bool outChanged = true;
-    int sum = 0;
+    // int sum = 0;
     while (outChanged)
     {
-        sum++;
-        Log("%d", sum);
+        // sum++;
+        // Log("%d", sum);
         outChanged = false;
         for (auto bb = func->begin(); bb != func->end(); bb++)
         {
@@ -472,23 +472,100 @@ void IRComSubExprElim::calInAndOut(Function *func)
 
 bool IRComSubExprElim::removeGlobalCSE(Function *func)
 {
+    bool result = true;
+    bool outChanged = true;
+    while (outChanged)
+    {
+        outChanged = false;
+        for (auto bb = func->begin(); bb != func->end(); bb++)
+        {
+            std::set<std::pair<int, Operand *>> newOutBBOp;
+            for (auto &outExpr : outBB[*bb])
+            {
+                // 如果In无，则用新的，如果In有，且kill，则用新的
+                if (inBB[*bb].find(outExpr) == inBB[*bb].end() || killBB[*bb].find(outExpr) != killBB[*bb].end())
+                {
+                    newOutBBOp.insert(std::make_pair(outExpr, expr2Op[*bb][outExpr]));
+                }
+            }
+            // 如果一个基本块有多个前驱，就算他In里面有许多表达式，我们也不要了，因为要生成phi指令
+            // 这里，只在只有一个前驱基本块的情况下继承
+            if ((*bb)->pred_end() - (*bb)->pred_begin() == 1)
+            {
+                auto preBB = *(*bb)->pred_begin();
+                for (auto &inExpr : outBBOp[preBB])
+                {
+                    if (killBB[*bb].find(inExpr.first) == killBB[*bb].end())
+                    {
+                        newOutBBOp.insert(std::make_pair(inExpr.first, inExpr.second));
+                    }
+                }
+            }
+            if (newOutBBOp != outBBOp[*bb])
+            {
+                outChanged = true;
+                outBBOp[*bb] = newOutBBOp;
+            }
+        }
+    }
+#ifdef IRCSEDEBUG
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
+        Log("B%d\n", (*bb)->getNo());
+        for (auto &pa : outBBOp[*bb])
+        {
+            Log("    %d %s", pa.first, pa.second->toStr().c_str());
+        }
+    }
+#endif
+    for (auto bb = func->begin(); bb != func->end(); bb++)
+    {
+        bool onlyOnePred = ((*bb)->pred_end() - (*bb)->pred_begin() == 1);
+        // 多个前驱的话还要加phi指令，不要了
+        if (!onlyOnePred)
+            continue;
+        auto preBB = *(*bb)->pred_begin();
+        std::map<int, Operand *> preBBOutOp;
+        for (auto &pa : outBBOp[preBB])
+        {
+            preBBOutOp[pa.first] = pa.second;
+        }
         for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
         {
             if (skip(inst))
                 continue;
-            int index = ins2Expr[inst];
-            Expr &expr = exprVec[index];
-            // 如果一个基本块gen了一个表达式，且in里没有这个表达式或kill了这个表达式，
-            // 对应的指令就是这个表达式的源头定值
-            bool genInst = genBB[*bb].find(index) != genBB[*bb].end();
-            bool notInInst = inBB[*bb].find(index) == inBB[*bb].end();
-            bool killInst = killBB[*bb].find(index) != killBB[*bb].end();
-            if (genInst && (notInInst || killInst))
-                expr.srcs.insert(inst);
+            bool inInst = (preBBOutOp.find(ins2Expr[inst]) != preBBOutOp.end());
+            if (!inInst || (inst->isLoad() && isKilled(inst)))
+                continue;
+            // 找到了，可以删除
+            result = false;
+            std::vector<Instruction *> uses(inst->getDef()->getUse());
+            for (auto useInst : uses)
+            {
+                useInst->replaceUse(inst->getDef(), preBBOutOp[ins2Expr[inst]]);
+            }
+            auto preInst = inst->getPrev();
+            (*bb)->remove(inst);
+            inst = preInst;
         }
     }
+    // for (auto bb = func->begin(); bb != func->end(); bb++)
+    // {
+    //     for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
+    //     {
+    //         if (skip(inst))
+    //             continue;
+    //         int index = ins2Expr[inst];
+    //         Expr &expr = exprVec[index];
+    //         // 如果一个基本块gen了一个表达式，且in里没有这个表达式或kill了这个表达式，
+    //         // 对应的指令就是这个表达式的源头定值
+    //         bool genInst = genBB[*bb].find(index) != genBB[*bb].end();
+    //         bool notInInst = inBB[*bb].find(index) == inBB[*bb].end();
+    //         bool killInst = killBB[*bb].find(index) != killBB[*bb].end();
+    //         if (genInst && (notInInst || killInst))
+    //             expr.srcs.insert(inst);
+    //     }
+    // }
     // for (auto bb = func->begin(); bb != func->end(); bb++)
     // {
     //     for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
@@ -502,11 +579,14 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
     //         }
     //     }
     // }
-    return true;
+    return result;
 }
 
 bool IRComSubExprElim::globalCSE(Function *func)
 {
+    static int round = 0;
+    round++;
+    Log("全局子表达式删除开始，round%d\n", round);
     exprVec.clear();
     ins2Expr.clear();
     expr2Op.clear();
@@ -557,6 +637,7 @@ bool IRComSubExprElim::globalCSE(Function *func)
     }
     fprintf(yyout, "\n");
 #endif
+    Log("全局子表达式删除结束，round%d\n", round);
     return result;
 }
 
@@ -569,6 +650,10 @@ void IRComSubExprElim::clearData()
     killBB.clear();
     inBB.clear();
     outBB.clear();
+    ins2Expr.clear();
+    expr2Op.clear();
+    inBBOp.clear();
+    outBBOp.clear();
 }
 
 void IRComSubExprElim::pass()

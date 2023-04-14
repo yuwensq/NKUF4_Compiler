@@ -68,7 +68,7 @@ private:
     std::map<BasicBlock *, std::set<int>> inBB;
     std::map<BasicBlock *, std::set<int>> outBB;
     std::map<BasicBlock *, std::map<int, std::set<std::pair<BasicBlock *, Operand *>>>> inBBOp;
-    std::map<BasicBlock *, std::map<int, Operand *>> outBBOp;
+    std::map<BasicBlock *, std::set<std::pair<int, Operand *>>> outBBOp;
 
     void insertLoadAfterStore();
     void removeLoadAfterStore();
