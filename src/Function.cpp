@@ -281,3 +281,103 @@ void Function::computeDomFrontier()
         }
     }
 }
+
+void Function::de_phi()
+{
+    std::map<BasicBlock *, std::vector<Instruction *>> pcopy;
+    auto blocks = std::vector<BasicBlock *>(this->begin(), this->end());
+    // Critical Edge Splitting Algorithm for making non-conventional SSA form conventional
+    for (auto bb : blocks)
+    {
+        if (!bb->begin()->isPhi())
+            continue;
+        auto preds = std::vector<BasicBlock *>(bb->pred_begin(), bb->pred_end());
+        for (auto &pred : preds)
+        {
+            if (pred->getNumOfSucc() > 1)
+            {
+                BasicBlock *splitBlock = new BasicBlock(this);
+
+                CondBrInstruction *branch = (CondBrInstruction *)(pred->rbegin());
+                if (branch->getTrueBranch() == bb)
+                    branch->setTrueBranch(splitBlock);
+                else
+                    branch->setFalseBranch(splitBlock);
+                pred->addSucc(splitBlock);
+                pred->removeSucc(bb);
+                splitBlock->addPred(pred);
+                
+                new UncondBrInstruction(bb, splitBlock);
+                splitBlock->addSucc(bb);
+                bb->addPred(splitBlock);
+                bb->removePred(pred);
+                for (auto i = bb->begin(); i != bb->end() && i->isPhi(); i = i->getNext())
+                {
+                    auto def = i->getDef();
+                    auto src = ((PhiInstruction *)i)->getEdge(pred);
+                    src->removeUse(i);
+                    pcopy[splitBlock].push_back(new BinaryInstruction(
+                        BinaryInstruction::ADD, def, src, new Operand(new ConstantSymbolEntry(def->getType(), 0))));
+                }
+            }
+            else
+            {
+                for (auto i = bb->begin(); i != bb->end() && i->isPhi(); i = i->getNext())
+                {
+                    auto def = i->getDef();
+                    auto src = ((PhiInstruction *)i)->getEdge(pred);
+                    src->removeUse(i);
+                    pcopy[pred].push_back(new BinaryInstruction(
+                        BinaryInstruction::ADD, def, src, new Operand(new ConstantSymbolEntry(def->getType(), 0))));
+                }
+            }
+        }
+        while (bb->begin() != bb->end())
+        {
+            auto i = bb->begin();
+            if (!i->isPhi()) break;
+            bb->remove(i);
+        }
+    }
+    
+    for (auto &&[block, ins] : pcopy)
+    {
+        set<Operand*> defs;
+        for (auto &in : ins)
+            defs.insert(in->getDef());
+        vector<Instruction*> temp;
+        for (auto it = ins.begin(); it != ins.end();)
+        {
+            if (defs.count((*it)->getUse()[0]) == 0)
+            {
+                temp.push_back(*it);
+                it = ins.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+        for (auto &in : ins)
+        {
+            bool flag = false;
+            auto def = in->getDef();
+            for (auto it = temp.begin(); it != temp.end(); it++)
+            {
+                if ((*it)->getUse()[0] == def)
+                {
+                    temp.insert(it + 1, in);
+                    flag = true;
+                    break;
+                }
+            }
+            if (flag)
+                continue;
+            temp.insert(temp.begin(), in);
+        }
+        auto endIns = block->rbegin();
+        for (auto &in : temp)
+            block->insertBefore(in, endIns);
+    }
+}
+
