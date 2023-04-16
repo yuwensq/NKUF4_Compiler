@@ -4,6 +4,7 @@
 #include <vector>
 #include "BasicBlock.h"
 #include "Instruction.h"
+#include "ParamHandler.h"
 using namespace std;
 
 void Mem2Reg::pass() {
@@ -19,6 +20,8 @@ void Mem2Reg::pass() {
         // 这个会导致r0-r3被覆盖
         cleanAddZeroIns(*it);
     }
+    auto ph = new ParamHandler(unit);
+    ph->pass();
 }
 
 void Mem2Reg::insertPhiInstruction(Function* function) {

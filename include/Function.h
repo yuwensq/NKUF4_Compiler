@@ -56,10 +56,10 @@ private:
     SymbolEntry *sym_ptr;
     BasicBlock *entry;
     Unit *parent;
-    std::vector<Operand *> params; // 存函数的参数
-    std::vector<Instruction*> callPreds; //调用了当前函数的那些call指令
-    bool recur; //表征是否有递归调用
-    int critical = -1; //表征函数是否关键,-1表示没有被标识
+    std::vector<Operand *> params;        // 存函数的参数
+    std::vector<Instruction *> callPreds; // 调用了当前函数的那些call指令
+    bool recur;                           // 表征是否有递归调用
+    int critical = -1;                    // 表征函数是否关键,-1表示没有被标识
 
 public:
     Function(Unit *, SymbolEntry *);
@@ -76,10 +76,11 @@ public:
     reverse_iterator rend() { return block_list.rend(); };
     SymbolEntry *getSymPtr() { return sym_ptr; };
     void addParam(Operand *param) { params.push_back(param); }
+    std::vector<Operand*> &getParams() { return params; }
     void genMachineCode(AsmBuilder *);
     int getParamNumber(Operand *param);
-    void addCallPred(Instruction* in);
-    std::vector<Instruction*> getCallPred() {return callPreds; };
+    void addCallPred(Instruction *in);
+    std::vector<Instruction *> getCallPred() { return callPreds; };
     int getCritical();
 
 public:
@@ -106,7 +107,7 @@ public:
     void computeIdom();
     void computeDomFrontier();
     TreeNode *getDomNode(BasicBlock *b) { return preOrder2dom[b->order]; }
-    
+
     void de_phi();
 };
 

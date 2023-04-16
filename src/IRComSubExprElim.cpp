@@ -261,6 +261,7 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
 
 bool IRComSubExprElim::localCSE(Function *func)
 {
+    // return true;
     static int round = 0;
     round++;
     Log("局部子表达式删除开始，round%d\n", round);

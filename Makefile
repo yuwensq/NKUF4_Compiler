@@ -40,7 +40,7 @@ $(PARSER):$(BISON)
 
 $(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp
 	@mkdir -p $(OBJ_PATH)
-	@clang++ $(CFLAGS)  -c -o $@ $<
+	@clang++ $(CFLAGS) -c -o $@ $<
 
 $(BINARY):$(OBJ)
 	@clang++ -O0 -g -Wall -Werror -o  $@ $^

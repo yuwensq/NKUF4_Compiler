@@ -13,6 +13,7 @@
 #include "IRSparseCondConstProp.h"
 #include "PureFunctionAnalyser.h"
 #include "IRComSubExprElim.h"
+#include "PhiElim.h"
 using namespace std;
 
 Ast ast;
@@ -85,12 +86,15 @@ int main(int argc, char *argv[])
     Mem2Reg m2r(&unit);
     IRSparseCondConstProp sccp(&unit);
     IRComSubExprElim cse(&unit);
+    PhiElimination pe(&unit);
 
     m2r.pass(); //Only IR supported
     sccp.pass();
     cse.pass();
-    sccp.pass();
+    // sccp.pass();
+    pe.pass();
 
+    
     Log("IR优化成功\n");/**/
 
     if (dump_ir)
@@ -101,7 +105,7 @@ int main(int argc, char *argv[])
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
     mst.pass();
-    mph.pass();
+    // mph.pass();
 
     Log("目标代码优化成功\n");
 
