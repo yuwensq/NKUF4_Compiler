@@ -81,6 +81,12 @@ void BasicBlock::removeSucc(BasicBlock *bb)
     succ.erase(it);
 }
 
+void BasicBlock::cleanAllSucc() {
+    for (auto i : succ)
+        i->removePred(this);
+    std::vector<BasicBlock*>().swap(succ);
+}
+
 void BasicBlock::addPred(BasicBlock *bb)
 {
     pred.push_back(bb);

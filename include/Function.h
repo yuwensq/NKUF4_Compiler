@@ -79,9 +79,11 @@ public:
     std::vector<Operand*> &getParams() { return params; }
     void genMachineCode(AsmBuilder *);
     int getParamNumber(Operand *param);
-    void addCallPred(Instruction *in);
-    std::vector<Instruction *> getCallPred() { return callPreds; };
+    void addCallPred(Instruction* in);
+    void removeCallPred(Instruction* in);
+    std::vector<Instruction*> getCallPred() {return callPreds; };
     int getCritical();
+    BasicBlock* getMarkBranch(BasicBlock* block);
 
 public:
     TreeNode *DFSTreeRoot;
@@ -107,6 +109,11 @@ public:
     void computeIdom();
     void computeDomFrontier();
     TreeNode *getDomNode(BasicBlock *b) { return preOrder2dom[b->order]; }
+    void computeRDF();
+    void computeRDFSTree(BasicBlock* exit);
+    void computeRSdom(BasicBlock* exit);
+    void computeRIdom(BasicBlock* exit);
+    void reverseSearch(TreeNode* node, bool* visited);
 
     void de_phi();
 };

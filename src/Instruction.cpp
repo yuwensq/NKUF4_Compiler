@@ -359,6 +359,7 @@ CallInstruction::CallInstruction(Operand *dst, SymbolEntry *func, std::vector<Op
         operand->addUse(this);
     }
     this->func = func;
+    this->funcAddPred();
 }
 
 void CallInstruction::funcAddPred() {

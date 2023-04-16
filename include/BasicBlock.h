@@ -31,6 +31,7 @@ public:
     bool predEmpty() const { return pred.empty(); };
     void addSucc(BasicBlock *);
     void removeSucc(BasicBlock *);
+    void cleanAllSucc();
     void addPred(BasicBlock *);
     void removePred(BasicBlock *);
     int getNo() { return no; };
