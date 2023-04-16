@@ -4,9 +4,12 @@
 #include "Unit.h"
 
 class DeadCodeElimination {
-    Unit* unit;
 
-   public:
+private:
+    Unit* unit;
+    std::vector<Instruction*> worklist; //关键指令
+
+public:
     DeadCodeElimination(Unit* unit) : unit(unit){};
     void initalize(Function* function);
     void mark(Function* function);

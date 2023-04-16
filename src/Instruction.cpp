@@ -458,7 +458,7 @@ void ZextInstruction::output() const
         fprintf(yyout, "  %s = zext i32 %s to i1\n", dst.c_str(), src.c_str());
     }
 }
-MachineOperand *Instruction::genMachineOperand(Operand *ope, AsmBuilder *builder = nullptr)
+MachineOperand *Instruction::genMOperand(Operand *ope, AsmBuilder *builder = nullptr)
 {
     auto se = ope->getEntry();
     MachineOperand *mope = nullptr;

@@ -106,7 +106,12 @@ public:
     void computeIdom();
     void computeDomFrontier();
     TreeNode *getDomNode(BasicBlock *b) { return preOrder2dom[b->order]; }
-    
+    void computeRDF();
+    void computeRDFSTree(BasicBlock* exit);
+    void computeRSdom(BasicBlock* exit);
+    void computeRIdom(BasicBlock* exit);
+    void reverseSearch(TreeNode* node, bool* visited);
+
     void de_phi();
 };
 
