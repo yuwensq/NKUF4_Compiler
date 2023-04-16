@@ -41,11 +41,15 @@ void IRComSubExprElim::removeLoadAfterStore()
     {
         auto loadInst = pa.second;
         auto loadSrc = pa.first->getUse()[1];
-        if (loadSrc == nullptr)
-        {
-            loadInst->output();
+        Assert(loadSrc != nullptr, "啊嘞");
+        // 如果是函数参数，这条load就先留着吧，如果改了可能r寄存器被覆盖
+        if (static_cast<TemporarySymbolEntry*>(loadSrc->getEntry())->isParam())
             continue;
-        }
+        // if (loadSrc == nullptr)
+        // {
+        //     loadInst->output();
+        //     continue;
+        // }
         auto allUseInst = std::vector<Instruction *>(loadInst->getDef()->getUse());
         for (auto inst : allUseInst)
         {

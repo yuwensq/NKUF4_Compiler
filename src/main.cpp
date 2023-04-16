@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     sccp.pass();
-    // pe.pass();
+    pe.pass();
 
     
     Log("IR优化成功\n");/**/
