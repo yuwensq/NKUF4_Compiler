@@ -2,6 +2,7 @@
 #include "Unit.h"
 #include "Type.h"
 #include <list>
+#include "PureFunctionAnalyser.h"
 
 using namespace std;
 extern FILE *yyout;
@@ -10,6 +11,7 @@ Function::Function(Unit *u, SymbolEntry *s)
 {
     u->insertFunc(this);
     entry = new BasicBlock(this);
+    ((IdentifierSymbolEntry*)s)->setFunction(this);
     sym_ptr = s;
     parent = u;
 }
@@ -99,6 +101,52 @@ int Function::getParamNumber(Operand *param)
         i++;
     }
     return 0;
+}
+
+void Function::addCallPred(Instruction* in) 
+{
+    assert(in->isCall());
+    auto func = in->getParent()->getParent();
+    //递归调用
+    if (func == this)
+        recur = true;
+    this->callPreds.push_back(in);
+}
+
+int Function::getCritical()
+{
+    if(critical!=-1) return critical;
+    auto pureFunc = new PureFunctionAnalyser(parent);
+    bool ispure = pureFunc->isPure(this);
+    if(!ispure)
+    {
+        critical = 1;
+        return critical;
+    }
+    else
+    {   
+        for (auto block : block_list) {
+            for (auto it = block->begin(); it != block->end(); it = it->getNext()) {
+                //这个函数调用了critical的函数
+                if (it->isCall()) {
+                    IdentifierSymbolEntry* funcSE =(IdentifierSymbolEntry*)(((CallInstruction*)it)->getFunc());
+                    if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
+                        critical = 1;
+                        return critical;
+                    } else {
+                        ispure = pureFunc->isPure(funcSE->getFunction());
+                        if(!ispure)
+                        {
+                            critical = 1;
+                            return critical;
+                        }
+                    }
+                }
+            }
+        }
+        critical = 0;
+        return critical;
+    }
 }
 
 int TreeNode::Num = 0;

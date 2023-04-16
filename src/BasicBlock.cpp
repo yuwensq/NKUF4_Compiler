@@ -5,6 +5,14 @@
 
 extern FILE *yyout;
 
+void BasicBlock::cleanAllMark()
+{
+    for (auto it = begin(); it != end(); it = it->getNext()) 
+    {
+        it->unsetMark();
+    }
+}
+
 // insert the instruction to the front of the basicblock.
 void BasicBlock::insertFront(Instruction *inst, bool isArray = false)
 {
@@ -127,3 +135,4 @@ BasicBlock::~BasicBlock()
         bb->removePred(this);
     parent->remove(this);
 }
+

@@ -16,6 +16,7 @@ private:
     Instruction *head;
     Function *parent;
     int no;
+    bool mark;
 
 public:
     BasicBlock(Function *);
@@ -45,6 +46,10 @@ public:
     int getNumOfPred() const { return pred.size(); };
     int getNumOfSucc() const { return succ.size(); };
     void genMachineCode(AsmBuilder *);
+    void unsetMark() { mark = false; };
+    void setMark() { mark = true; };    
+    bool getMark() { return mark; };
+    void cleanAllMark();
 
 public:
     int order;

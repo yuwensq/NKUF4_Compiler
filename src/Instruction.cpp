@@ -56,6 +56,51 @@ Instruction *Instruction::getPrev()
     return prev;
 }
 
+bool Instruction::isCritical() 
+{
+    if (isRet()) 
+    {
+        //只有一个return;那么就是关键指令
+        if (getUse().empty())
+            return true;
+        //下面讨论return有返回值
+        //这边的preds取的应该是调用了当前函数的那些call指令
+        auto callPreds = parent->getParent()->getCallPred();
+        //如果为空，那么关键
+        if (callPreds.empty())
+            return true;
+        // 只要有接收ret值的就要返回true
+        for (auto it : callPreds)
+            if (it->getDef()->usersNum())
+                return true;
+        //当前函数的return语句有返回值，当前的函数有被call指令调用，但这若干条call指令的结果都没有被使用，那么返回false
+        return false;
+    }
+    // input/output
+    // a function is essential if it is a sysy/memset function or it has a array param or it call a essential function or修改全局
+    // 论文说：call指令都不能删，毕竟考虑到它可能修改全局变量这样，不过仔细设计倒也不是不行
+    if (isCall()) {
+        IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)(((CallInstruction*)this)->getFunc());
+        //我们的那个代码里面用的llvm.memset.p0i8.i32，表示写内存
+        //Sysy判断是否为库函数
+        if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
+            return true;
+        } else {
+            //讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
+            auto func = funcSE->getFunction();
+            if (func->getCritical() == 1) {
+                return true;
+            }
+        }
+    }
+    //涉及内存写
+    if (isStore()) {
+        return true;
+    }
+    
+    return false;
+}
+
 AllocaInstruction::AllocaInstruction(Operand *dst, SymbolEntry *se, BasicBlock *insert_bb) : Instruction(ALLOCA, insert_bb)
 {
     operands.push_back(dst);
@@ -312,6 +357,12 @@ CallInstruction::CallInstruction(Operand *dst, SymbolEntry *func, std::vector<Op
         operand->addUse(this);
     }
     this->func = func;
+}
+
+void CallInstruction::funcAddPred() {
+    IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)func;
+    if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32")
+        funcSE->getFunction()->addCallPred(this);
 }
 
 CallInstruction::~CallInstruction() {}

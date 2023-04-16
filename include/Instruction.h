@@ -49,6 +49,10 @@ public:
     virtual void replaceDef(Operand *) {}
     int getOpCode() const { return opcode; }
     int getType() const { return instType; }
+    void unsetMark() { mark = false; };
+    void setMark() { mark = true; };    
+    bool getMark() { return mark; };
+    bool isCritical();
 
 protected:
     unsigned instType;
@@ -76,6 +80,7 @@ protected:
         SITFP,
         PHI
     };
+    bool mark;
 };
 
 // meaningless instruction, used as the head node of the instruction list.
@@ -306,6 +311,7 @@ class CallInstruction : public Instruction // 函数调用
 public:
     CallInstruction(Operand *dst, SymbolEntry *func, std::vector<Operand *> params, BasicBlock *insert_bb = nullptr);
     ~CallInstruction();
+    void funcAddPred();
     void output() const;
     void genMachineCode(AsmBuilder *);
     SymbolEntry *getFunc() { return func; };

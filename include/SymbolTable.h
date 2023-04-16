@@ -7,6 +7,7 @@
 
 class Type;
 class Operand;
+class Function;
 
 class SymbolEntry
 {
@@ -115,6 +116,7 @@ private:
     bool initial;
     bool sysy;
     double *arrayValue;
+    Function* func = nullptr;
 
     Operand *addr; // The address of the identifier.
     Operand *argAddr;
@@ -141,6 +143,9 @@ public:
     void setArrayValue(double *arrayValue) { this->arrayValue = arrayValue; };
     double *getArrayValue() { return this->arrayValue; };
     bool isInitial() { return (initial || arrayValue != nullptr); };
+    Function* getFunction() { return func; };
+    void setFunction(Function* func) { this->func = func; }
+
     // You can add any function you need here.
 };
 
