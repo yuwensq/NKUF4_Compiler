@@ -531,6 +531,26 @@ static void reomveDeadBlock(Function *func)
             removeList.push_back(bb);
             continue;
         }
+        // 看看这个块的前驱后继有没有能删除的，删除前驱后继关系
+        std::vector<BasicBlock *> preds(bb->pred_begin(), bb->pred_end());
+        std::vector<BasicBlock *> succs(bb->succ_begin(), bb->succ_end());
+        for (auto pred : preds)
+        {
+            if (color.find(pred) == color.end())
+            {
+                pred->removeSucc(bb);
+                bb->removePred(pred);
+            }
+        }
+        for (auto succ : succs)
+        {
+            if (color.find(succ) == color.end())
+            {
+                succ->removePred(bb);
+                bb->removeSucc(succ);
+            }
+        }
+        // 更新phi指令
         auto inst = bb->begin();
         while (inst != bb->end())
         {
@@ -547,8 +567,6 @@ static void reomveDeadBlock(Function *func)
             for (auto phiRB : phiRemoveList)
             {
                 pairs.erase(phiRB);
-                bb->removePred(phiRB);
-                phiRB->removeSucc(bb);
             }
             inst = inst->getNext();
         }
@@ -561,7 +579,7 @@ static void reomveDeadBlock(Function *func)
 
 void IRSparseCondConstProp::pass()
 {
-    
+
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         sccpInFunc(*func);
