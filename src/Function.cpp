@@ -138,13 +138,14 @@ int Function::getCritical()
                 //这个函数调用了critical的函数
                 if (it->isCall()) {
                     IdentifierSymbolEntry* funcSE =(IdentifierSymbolEntry*)(((CallInstruction*)it)->getFunc());
+                    Function* func = funcSE->getFunction();
+                    if(this == func) continue; //递归call略去
                     if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
                         critical = 1;
                         return critical;
                     } else {
-                        ispure = pureFunc->isPure(funcSE->getFunction());
-                        if(!ispure)
-                        {
+                        int subCritical = func->getCritical();
+                        if(subCritical==1){
                             critical = 1;
                             return critical;
                         }
