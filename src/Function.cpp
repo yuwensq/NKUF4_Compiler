@@ -113,6 +113,14 @@ void Function::addCallPred(Instruction* in)
     this->callPreds.push_back(in);
 }
 
+void Function::removeCallPred(Instruction* in)
+{
+    assert(in->isCall());
+    auto it = find(callPreds.begin(), callPreds.end(), in);
+    assert(it != callPreds.end());
+    callPreds.erase(it);
+}
+
 int Function::getCritical()
 {
     if(critical!=-1) return critical;
@@ -146,6 +154,20 @@ int Function::getCritical()
         }
         critical = 0;
         return critical;
+    }
+}
+
+BasicBlock* Function::getMarkBranch(BasicBlock* block)
+{
+    set<BasicBlock*> blocks;
+    while (true) {
+        auto order = idoms[block->order];
+        block = preOrder2dom[order]->block;
+        if (blocks.count(block))
+            return nullptr;
+        blocks.insert(block);
+        if (block->getMark())
+            return block;
     }
 }
 
