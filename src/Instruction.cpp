@@ -9,6 +9,8 @@
 #include "MachineCode.h"
 extern FILE *yyout;
 
+#define genMachineOperand(name) genMOperand(name, builder)
+
 Instruction::Instruction(unsigned instType, BasicBlock *insert_bb)
 {
     prev = next = this;
@@ -645,7 +647,7 @@ void StoreInstruction::genMachineCode(AsmBuilder *builder)
     // TODO
     auto cur_block = builder->getBlock();
     MachineInstruction *cur_inst = nullptr;
-    auto src = genMachineOperand(operands[1], builder);
+    auto src = genMachineOperand(operands[1]);
     bool floatVersion = operands[1]->getType()->isFloat();
     int strOp = floatVersion ? StoreMInstruction::VSTR : StoreMInstruction::STR;
     if (src->isImm()) // 这里立即数可能为浮点数，这样做也没问题
