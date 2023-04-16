@@ -106,6 +106,8 @@ public:
     void computeIdom();
     void computeDomFrontier();
     TreeNode *getDomNode(BasicBlock *b) { return preOrder2dom[b->order]; }
+    
+    void de_phi();
 };
 
 #endif
