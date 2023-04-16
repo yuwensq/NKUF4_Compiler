@@ -79,8 +79,10 @@ public:
     void genMachineCode(AsmBuilder *);
     int getParamNumber(Operand *param);
     void addCallPred(Instruction* in);
+    void removeCallPred(Instruction* in);
     std::vector<Instruction*> getCallPred() {return callPreds; };
     int getCritical();
+    BasicBlock* getMarkBranch(BasicBlock* block);
 
 public:
     TreeNode *DFSTreeRoot;
