@@ -33,7 +33,8 @@ public:
     Instruction *getNext();
     Instruction *getPrev();
     virtual void output() const = 0;
-    MachineOperand *genMachineOperand(Operand *, AsmBuilder *);
+    MachineOperand *genMOperand(Operand *, AsmBuilder *);
+    MachineOperand *genMachineOperand(Operand *ope, AsmBuilder *builder) { return genMOperand(ope, builder); }
     MachineOperand *genMachineReg(int reg, bool fpu);
     MachineOperand *genMachineVReg(bool fpu);
     MachineOperand *genMachineImm(int val);
