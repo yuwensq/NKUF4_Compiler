@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     sccp.pass();
-    //dce.pass();
+    dce.pass();
     pe.pass();
 
     
