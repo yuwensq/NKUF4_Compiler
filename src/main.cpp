@@ -14,6 +14,7 @@
 #include "PureFunctionAnalyser.h"
 #include "IRComSubExprElim.h"
 #include "PhiElim.h"
+#include "DeadCodeElimination.h"
 using namespace std;
 
 Ast ast;
@@ -87,11 +88,13 @@ int main(int argc, char *argv[])
     IRSparseCondConstProp sccp(&unit);
     IRComSubExprElim cse(&unit);
     PhiElimination pe(&unit);
+    DeadCodeElimination dce(&unit);
 
     m2r.pass(); //Only IR supported
     sccp.pass();
     cse.pass();
     sccp.pass();
+    //dce.pass();
     pe.pass();
 
     

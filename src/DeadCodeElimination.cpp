@@ -1,10 +1,13 @@
 #include "DeadCodeElimination.h"
 #include <vector>
-
+#include "debug.h"
 using namespace std;
 
 void DeadCodeElimination::pass() 
 {
+    static int round = 0;
+    round++;
+    Log("死代码删除开始，round%d\n", round);
     for(auto func=unit->begin();func!=unit->end();func++)
     {
         bool again=true;
@@ -12,15 +15,20 @@ void DeadCodeElimination::pass()
         adjustBlock(*func);
         while (again) {
             //1:初始化
+            Log("死代码删除:initalize\n");
             initalize(*func);
             //2:标记
+            Log("死代码删除:mark\n");
             mark(*func);
             //3:移除
+            Log("死代码删除:remove\n");
             again = remove(*func);
             //4:删除没有前驱的块
+            Log("死代码删除:adjustBlock\n");
             adjustBlock(*func);
         }       
     }
+    Log("死代码删除结束，round%d\n", round);
 }
 
 //删除没有前驱的块
