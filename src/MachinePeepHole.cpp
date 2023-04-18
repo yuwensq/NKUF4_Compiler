@@ -54,19 +54,19 @@ void MachinePeepHole::subPass()
                     // add r4, r3, r2
                     // mov r5, r4
                     // ==> add r5, r3, r2
-                    (*now_inst)->getDef()[0] = (*next_inst)->getDef()[0];
-                    (*now_inst)->getDef()[0]->setParent(*now_inst);
-                    blk->getInsts().erase(next_inst);
+                    // (*now_inst)->getDef()[0] = (*next_inst)->getDef()[0];
+                    // (*now_inst)->getDef()[0]->setParent(*now_inst);
+                    // blk->getInsts().erase(next_inst);
                 }
                 else if ((*now_inst)->isMov() && (*next_inst)->getUse().size() > 0 && *(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[0] && !(*now_inst)->getUse()[0]->isImm())
                 {
                     // mov r5, r4
                     // add r8, r5, r7
                     // ==> add r8, r4, r7
-                    (*next_inst)->getUse()[0] = (*now_inst)->getUse()[0];
-                    (*next_inst)->getUse()[0]->setParent(*next_inst);
-                    blk->getInsts().erase(now_inst);
-                    now_inst--;
+                    // (*next_inst)->getUse()[0] = (*now_inst)->getUse()[0];
+                    // (*next_inst)->getUse()[0]->setParent(*next_inst);
+                    // blk->getInsts().erase(now_inst);
+                    // now_inst--;
                 }
                 else if ((*next_inst)->isCLoad() && (*now_inst)->isCStore())
                 {
@@ -110,7 +110,8 @@ void MachinePeepHole::subPass()
                         now_inst = blk->getInsts().erase(now_inst);
                         *now_inst = new MlaMInstruction(blk, dst, src1, src2, src3);
                     }
-                    else if (*(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[0] && !(*next_inst)->getUse()[1]->isImm()){
+                    else if (*(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[0] && !(*next_inst)->getUse()[1]->isImm())
+                    {
                         auto dst = new MachineOperand(*((*next_inst)->getDef()[0]));
                         auto src1 = new MachineOperand(*((*now_inst)->getUse()[0]));
                         auto src2 = new MachineOperand(*((*now_inst)->getUse()[1]));
@@ -182,15 +183,26 @@ void MachinePeepHole::subPass()
                         }
                     }
                 }
-                else if ((*now_inst)->isVMov32() && (*next_inst)->getUse().size() > 0 && *(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[0])
+                else if ((*now_inst)->isVMov32() && (*next_inst)->getUse().size() > 0)
                 {
                     // vmov.f32 s16, s17
                     // vneg.f32 s17, s16
                     // ==> vneg.f32 s17, s17
-                    (*next_inst)->getUse()[0] = (*now_inst)->getUse()[0];
-                    (*next_inst)->getUse()[0]->setParent(*next_inst);
-                    blk->getInsts().erase(now_inst);
-                    now_inst--;
+                    bool success = false;
+                    for (int i = 0; i < (*next_inst)->getUse().size(); i++)
+                    {
+                        if (*(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[i])
+                        {
+                            success = true;
+                            (*next_inst)->getUse()[i] = new MachineOperand(*(*now_inst)->getUse()[0]);
+                            (*next_inst)->getUse()[i]->setParent(*next_inst);
+                        }
+                    }
+                    if (success)
+                    {
+                        blk->getInsts().erase(now_inst);
+                        now_inst--;
+                    }
                 }
             }
         }
