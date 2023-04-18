@@ -123,8 +123,11 @@ test:app
 		OUT=$${file%.*}.out
 		FILE=$${file##*/}
 		FILE=$${FILE%.*}
-		timeout 180s $(BINARY) $${file} -o $${ASM} -S 2>$${LOG}
-		RETURN_VALUE=$$?
+		@compile_start=$$(date +%s.%3N); \
+		timeout 180s $(BINARY) $${file} -o $${ASM} -S 2>$${LOG};	\
+		RETURN_VALUE=$$?;	\
+		compile_end=$$(date +%s.%3N); \
+		compile_time=$$(echo "$$compile_end - $$compile_start" | bc)
 		if [ $$RETURN_VALUE = 124 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mCompile Timeout\033[0m"
 			continue
@@ -137,12 +140,15 @@ test:app
 		if [ $$? != 0 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mAssemble Error\033[0m"
 		else
-			if [ -f "$${IN}" ]; then
-				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} <$${IN} >$${RES} 2>>$${LOG}
-			else
-				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} >$${RES} 2>>$${LOG}
-			fi
-			RETURN_VALUE=$$?
+			@exec_start=$$(date +%s.%3N); \
+			if [ -f "$${IN}" ]; then \
+				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} <$${IN} >$${RES} 2>>$${LOG};	\
+			else \
+				timeout 100s qemu-arm -L /usr/arm-linux-gnueabihf $${BIN} >$${RES} 2>>$${LOG};	\
+			fi;	\
+			RETURN_VALUE=$$?; \
+			exec_end=$$(date +%s.%3N); \
+			exec_time=$$(echo "$$exec_end - $$exec_start" | bc)
 			FINAL=`tail -c 1 $${RES}`
 			[ $${FINAL} ] && echo "\n$${RETURN_VALUE}" >> $${RES} || echo "$${RETURN_VALUE}" >> $${RES}
 			if [ "$${RETURN_VALUE}" = "124" ]; then
@@ -156,6 +162,7 @@ test:app
 					else
 						success=$$((success + 1))
 						echo "\033[1;32mPASS:\033[0m $${FILE}"
+						awk "BEGIN {printf \"\t compile: %.3fs \t execute: %.3fs\n\", ( $$compile_time ), ( $$exec_time )}"
 					fi
 				fi
 			fi

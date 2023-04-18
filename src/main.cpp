@@ -89,7 +89,6 @@ int main(int argc, char *argv[])
     IRComSubExprElim cse(&unit);
     DeadCodeElimination dce(&unit);
     PhiElimination pe(&unit);
-    DeadCodeElimination dce(&unit);
 
     m2r.pass(); //Only IR supported
     sccp.pass();
