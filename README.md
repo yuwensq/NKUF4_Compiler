@@ -1,10 +1,4 @@
-# 2022Fall NKUCS Course - Principle of Compilers
-
-> Lab7: Machine Code Generation
->
-> Author: Emanual20 YoungCoder feilll shm0214
-> 
-> Date: 2021/11/28 2022/9/30
+# NKUF4团队的SYSY编译器
 
 ## 编译器命令
 ```
@@ -52,14 +46,6 @@ TEST_PATH ?= test/level1-1
 ```
 以example.sy文件为输入，输出相应的汇编代码到example.s文件中。
 
-* 测试：
-```
-    make testlab7
-```
-该命令会搜索TEST_PATH目录下所有的.sy文件，逐个输入到编译器中，生成相应的汇编代码.s文件。你还可以指定测试目录：
-```
-    make testlab7 TEST_PATH=dirpath
-```
 * 批量测试：
 ```
     make test
