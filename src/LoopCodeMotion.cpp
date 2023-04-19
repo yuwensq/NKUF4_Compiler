@@ -567,24 +567,24 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                     }
                     //处理不了样例36
                     else if(ins->isLoad()){
-                        // int constant_count = 0;
-                        // Operand* useOp = ins->getUse()[0];
-                        // Type * operand_type=useOp->getEntry()->getType();
-                        // if(operand_type->isPtr()){
-                        //     //PointerType* operand_ptrtype=(PointerType*)operand_type;
-                        //     if(useOp->isGlobal()){
-                        //         LoopConst[func][Loop].insert(useOp);
-                        //         constant_count++;
-                        //     }
-                        //     else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
-                        //         LoopConst[func][Loop].insert(useOp);
-                        //         constant_count++;
-                        //     }
-                        // }
-                        // if(constant_count==1){
-                        //     LoopConstInstructions.push_back(ins);
-                        //     ifAddNew=true;
-                        // }
+                        int constant_count = 0;
+                        Operand* useOp = ins->getUse()[0];
+                        Type * operand_type=useOp->getEntry()->getType();
+                        if(operand_type->isPtr()){
+                            //PointerType* operand_ptrtype=(PointerType*)operand_type;
+                            if(useOp->isGlobal()){
+                                LoopConst[func][Loop].insert(useOp);
+                                constant_count++;
+                            }
+                            else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                LoopConst[func][Loop].insert(useOp);
+                                constant_count++;
+                            }
+                        }
+                        if(constant_count==1){
+                            LoopConstInstructions.push_back(ins);
+                            ifAddNew=true;
+                        }
                     }
                 }  
                 ins=ins->getNext();
