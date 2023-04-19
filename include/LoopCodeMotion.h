@@ -1,5 +1,5 @@
-#ifndef __LOOP_OPTIMIZATION_H__
-#define __LOOP_OPTIMIZATION_H__
+#ifndef __LOOP_CODE_MOTION_H__
+#define __LOOP_CODE_MOTION_H__
 #include <vector>
 #include <set>
 #include <map>
@@ -11,7 +11,7 @@
 #include "Operand.h"
 
 //循环优化类
-class LoopOptimization{
+class LoopCodeMotion{
     Unit *unit;
     //针对每一个基本块，求他们的必经节点，存入DomBBSet
     std::unordered_map<Function*, std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>> DomBBSet;
@@ -19,7 +19,7 @@ class LoopOptimization{
     std::map<Function*, std::map<std::vector<BasicBlock*>,std::set<Operand*>>> LoopConst;
 public:
     //代码外提
-    LoopOptimization(Unit* unit):unit(unit){};
+    LoopCodeMotion(Unit* unit):unit(unit){};
     void initializeDomBBSet(Function* func);
     bool ifDomBBSetChange(std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>& lastSet,Function* func);
     std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>& getDomBBSet(Function* func){return DomBBSet[func];};
@@ -27,16 +27,16 @@ public:
     void calculateFinalDomBBSet(Function* func);
     std::vector<std::pair<BasicBlock*,BasicBlock*>> getBackEdges(Function* func);
     std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> mergeEdge(std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges);
-    std::vector<std::vector<BasicBlock*>> calculateLoopList(Function* func,std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges);
-    //bool defInstructionInLoop(Operand * op,std::vector<BasicBlock*>Loop);
+    std::vector<std::vector<BasicBlock*>> calculateLoopList(Function* func,std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> &edgeGroups);
     bool OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions);
     std::vector<Instruction*> calculateLoopConstant(std::vector<BasicBlock*>Loop,Function* func);
     std::vector<BasicBlock*> calculateOutBlock(std::vector<BasicBlock*>& Loop);
-    void changePhiInstruction(std::vector<BasicBlock*>& Loop,BasicBlock* preBlock,std::vector<BasicBlock*> oldBlocks);
+    void changePhiInstruction(std::vector<BasicBlock*>& Loop,BasicBlock* newPreBlock,std::vector<BasicBlock*> oldBlocks);
     void CodePullUp(Function* func,std::vector<std::vector<BasicBlock*>>& LoopList,std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges);
     void dealwithNoPreBB(Function* func);
 
     void printDomBB(Function * func);
+    void printBackEdges(std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges);
     void printEdgeGroups(std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups);
     void printLoop(std::vector<std::vector<BasicBlock*>>& LoopList);
     void printLoopConst(std::vector<Instruction*> LoopConstInstructions);
