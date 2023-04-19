@@ -580,6 +580,11 @@ public:
     Operand *getAddr() { return addr; }
     Operand *getEdge(BasicBlock *block) { return (srcs.find(block) != srcs.end()) ? srcs[block] : nullptr; }
     std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
+    bool findSrc(BasicBlock* block);
+    Operand* getBlockSrc(BasicBlock* block);
+    void removeBlockSrc(BasicBlock* block);
+    void addSrc(BasicBlock* block, Operand* src);
+    void removeUse(Operand* use);
 
     void genMachineCode(AsmBuilder *)
     {

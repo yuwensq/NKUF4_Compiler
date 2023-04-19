@@ -1389,6 +1389,46 @@ void PhiInstruction::addEdge(BasicBlock *block, Operand *src)
     src->addUse(this);
 }
 
+bool PhiInstruction::findSrc(BasicBlock* block){
+    for (auto it = srcs.begin(); it != srcs.end(); it++) {
+        if(it->first==block){
+            return true;
+        }
+    }
+    return false;
+}
+
+Operand* PhiInstruction::getBlockSrc(BasicBlock* block) {
+    if (srcs.find(block) != srcs.end())
+        return srcs[block];
+    return nullptr;
+}
+
+void PhiInstruction::removeBlockSrc(BasicBlock* block){
+    for (auto it = srcs.begin(); it != srcs.end(); it++) {
+        if(it->first==block){
+            //使用erase时容器失效
+            srcs.erase(block);
+            removeUse(it->second);
+            it->second->removeUse(this);
+            return;
+        }
+    }
+    return;
+}
+
+void PhiInstruction::addSrc(BasicBlock* block, Operand* src) {
+    operands.push_back(src);
+    srcs.insert(std::make_pair(block, src));
+    src->addUse(this);
+}
+
+void PhiInstruction::removeUse(Operand* use) {
+    auto it = find(operands.begin() + 1, operands.end(), use);
+    if (it != operands.end())
+        operands.erase(it);
+}
+
 std::vector<Operand *> Instruction::replaceAllUsesWith(Operand *replVal)
 {
     auto def = getDef();
