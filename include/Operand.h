@@ -30,6 +30,11 @@ public:
     SymbolEntry *getEntry() { return se; };
     Instruction *getDef() { return def; };
     std::vector<Instruction*>& getUse() { return uses; };
+    bool isGlobal() const {
+        if (se->isVariable())
+            return ((IdentifierSymbolEntry*)se)->isGlobal();
+        return false;
+    }
 };
 
 #endif

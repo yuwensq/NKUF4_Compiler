@@ -27,6 +27,7 @@ public:
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
     bool isBinary() const { return instType == BINARY; };
+    bool isBitcast() const { return instType == BITCAST; };
     void setParent(BasicBlock *);
     void setNext(Instruction *);
     void setPrev(Instruction *);
@@ -579,6 +580,11 @@ public:
     Operand *getAddr() { return addr; }
     Operand *getEdge(BasicBlock *block) { return (srcs.find(block) != srcs.end()) ? srcs[block] : nullptr; }
     std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
+    bool findSrc(BasicBlock* block);
+    Operand* getBlockSrc(BasicBlock* block);
+    void removeBlockSrc(BasicBlock* block);
+    void addSrc(BasicBlock* block, Operand* src);
+    void removeUse(Operand* use);
 
     void genMachineCode(AsmBuilder *)
     {

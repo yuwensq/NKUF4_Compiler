@@ -15,6 +15,7 @@
 #include "IRComSubExprElim.h"
 #include "PhiElim.h"
 #include "DeadCodeElimination.h"
+#include "LoopCodeMotion.h"
 using namespace std;
 
 Ast ast;
@@ -89,12 +90,14 @@ int main(int argc, char *argv[])
     IRComSubExprElim cse(&unit);
     DeadCodeElimination dce(&unit);
     PhiElimination pe(&unit);
+    LoopCodeMotion lcm(&unit);
 
     m2r.pass(); //Only IR supported
     sccp.pass();
     cse.pass();
     sccp.pass();
     dce.pass();
+    //lcm.pass();
     pe.pass();
     
     Log("IR优化成功\n");/**/

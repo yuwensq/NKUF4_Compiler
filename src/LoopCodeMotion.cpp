@@ -1,37 +1,34 @@
-#include "LoopOptimization.h"
+#include "LoopCodeMotion.h"
 #include <algorithm>
 
 //目前只完成代码外提的优化，还可以加强度削弱、循环展开
-void LoopOptimization::pass(){
+void LoopCodeMotion::pass(){
     //遍历每一个函数做操作
     for(auto func=unit->begin();func!=unit->end();func++){
         //计算当前函数每一个基本块的必经节点，存入DomBBSet
         calculateFinalDomBBSet(*func);
-        printDomBB(*func);
+        //printDomBB(*func);
         
         //计算当前函数的回边集合
         std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges=getBackEdges(*func);
+        //printBackEdges(BackEdges);
+
+        //获取回边组，要求每个组中的回边的到达节点是同一个
+        std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups=mergeEdge(BackEdges);
+        //printEdgeGroups(edgeGroups);
+
         //查找当前函数的循环体的集合
-        std::vector<std::vector<BasicBlock*> > LoopList=calculateLoopList(*func,BackEdges);
-        printLoop(LoopList);
+        std::vector<std::vector<BasicBlock*> > LoopList=calculateLoopList(*func,edgeGroups);
+        //printLoop(LoopList);
         
         //代码外提
         CodePullUp(*func,LoopList,BackEdges);
-        /*
-        //下面这个函数是用来干嘛的？？？莫名诡异，看起来是和代码外提相绑定的
-        //dealwithNoPreBB(*func);
-        
-        
-        //外提后会产生新的块 需要重新计算循环
-        calculateFinalDomBBSet(*func);
-        BackEdges=getBackEdges(*func);
-        LoopList=calculateLoopList(*func,BackEdges);
-        */
+        dealwithNoPreBB(*func);
     }
 }
 
 //计算当前函数每一个基本块的必经节点，存入DomBBSet
-void LoopOptimization::calculateFinalDomBBSet(Function* func){
+void LoopCodeMotion::calculateFinalDomBBSet(Function* func){
     //初始化当前函数的domBBMap，入口基本块设它的必经节点为本身，其他基本块设他的必经节点为全部基本块的集合
     initializeDomBBSet(func);
     //获取DomBBSet[func],存入lastSet，用于比较
@@ -76,7 +73,7 @@ void LoopOptimization::calculateFinalDomBBSet(Function* func){
 }
 
 //对当前函数初始化DomBBSet
-void LoopOptimization :: initializeDomBBSet(Function* func){
+void LoopCodeMotion :: initializeDomBBSet(Function* func){
     //如果当前的函数还没有计算domBBMap的话，初始化一个给它
     if(DomBBSet.find(func)==DomBBSet.end()){
         std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>domBBMap;
@@ -104,7 +101,7 @@ void LoopOptimization :: initializeDomBBSet(Function* func){
 }
 
 //找出两个序列中共有的那些个节点
-std::vector<BasicBlock*> LoopOptimization::getIntersectBBList(std::vector<BasicBlock*>& List1,std::vector<BasicBlock*>& List2){
+std::vector<BasicBlock*> LoopCodeMotion::getIntersectBBList(std::vector<BasicBlock*>& List1,std::vector<BasicBlock*>& List2){
     std::vector<BasicBlock*> finalList;
     for (auto block: List1){
         if(count(List2.begin(), List2.end(), block)){
@@ -115,7 +112,7 @@ std::vector<BasicBlock*> LoopOptimization::getIntersectBBList(std::vector<BasicB
 }
 
 //比较DomBBSet是否发生了改变
-bool LoopOptimization :: ifDomBBSetChange(std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>& lastSet,Function* func){
+bool LoopCodeMotion :: ifDomBBSetChange(std::unordered_map<BasicBlock*,std::vector<BasicBlock*>>& lastSet,Function* func){
     std::unordered_map<BasicBlock*,std::vector<BasicBlock*>> DomBB_map=getDomBBSet(func);
     for(auto block: func->getBlockList()){
         if(lastSet[block]!=DomBB_map[block]){
@@ -125,7 +122,7 @@ bool LoopOptimization :: ifDomBBSetChange(std::unordered_map<BasicBlock*,std::ve
     return false;
 }
 
-void LoopOptimization::printDomBB(Function *func){
+void LoopCodeMotion::printDomBB(Function *func){
     std::cout<<"domBB:"<<std::endl;
     for(auto block:(func)->getBlockList()){
         std::cout<<block->getNo()<<":";
@@ -137,12 +134,12 @@ void LoopOptimization::printDomBB(Function *func){
 }
 
 //获取回边（如果存在从节点i到j的有向边，并且j是i的一个必经节点，那么这条边就是回边）
-std::vector<std::pair<BasicBlock*,BasicBlock*>> LoopOptimization::getBackEdges(Function* func){
+std::vector<std::pair<BasicBlock*,BasicBlock*>> LoopCodeMotion::getBackEdges(Function* func){
     //先获取DomBBSet
     std::unordered_map<BasicBlock*,std::vector<BasicBlock*>> DomSet=getDomBBSet(func);
     std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges;
     //search for backedges
-    std::cout<<"backedges:"<<std::endl;
+    //std::cout<<"backedges:"<<std::endl;
     //遍历当前基本块的每一个必经节点
     for (auto block:func->getBlockList()){
         for (auto domBB:DomSet[block]){
@@ -151,7 +148,7 @@ std::vector<std::pair<BasicBlock*,BasicBlock*>> LoopOptimization::getBackEdges(F
                 if(*succ_block==domBB){
                     std::pair<BasicBlock*,BasicBlock*> edge(block,domBB);
                     BackEdges.push_back(edge);
-                    std::cout<<block->getNo()<<"->"<<domBB->getNo()<<std::endl;
+                    //std::cout<<block->getNo()<<"->"<<domBB->getNo()<<std::endl;
                 }
             }
         }
@@ -159,15 +156,73 @@ std::vector<std::pair<BasicBlock*,BasicBlock*>> LoopOptimization::getBackEdges(F
     return BackEdges;
 }
 
+void LoopCodeMotion::printBackEdges(std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges)
+{
+    std::cout<<"backedges:"<<std::endl;
+    for(auto edges:BackEdges)
+    {  
+        std::cout<<edges.first->getNo()<<"->"<<edges.second->getNo()<<std::endl;
+    }
+}
+
+//我们已经有了回边的集合，现在我们想要获取回边组，要求每个组中的回边的到达节点是同一个
+std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> LoopCodeMotion::mergeEdge(std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges){
+    std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups;
+    //遍历每一条回边
+    for(auto edge:BackEdges){
+        //std::cout<<edge.first->getNo()<<"->"<<edge.second->getNo()<<std::endl;
+        //一开始edgeGroups为空，我们先压入当前第一条回边构成的单独的vector
+        if(edgeGroups.size()==0){
+            std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
+            tempgroup.push_back(edge);
+            edgeGroups.push_back(tempgroup);
+        }
+        else{
+            bool find_group=false;
+            //遍历当前的每个组，如果当前这条回边的到达节点能够在已有组中找到就压入
+            for(auto group:edgeGroups){
+                //std::cout<<"group[0].second->getNo():"<<group[0].second->getNo()<<std::endl;
+                //std::cout<<group[0].second<<" "<<edge.second<<std::endl;
+                if(group[0].second==edge.second){
+                    //std::cout<<"equal"<<std::endl;
+                    //group.push_back(edge);
+                    //for(auto e:group) std::cout<<e.first->getNo()<<"->"<<e.second->getNo()<<std::endl;
+                    //如果直接用上面的push_back会发现，虽然在这里面传进去了，但在外层根本看不见,不得已换用下面的
+                    std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
+                    tempgroup.assign(group.begin(),group.end());
+                    tempgroup.push_back(edge);
+                    edgeGroups.push_back(tempgroup);
+                    //这真的不会报错吗？？？感觉严重拖慢了速度
+                    edgeGroups.erase(remove(edgeGroups.begin(),edgeGroups.end(),group),edgeGroups.end());
+                    find_group=true;
+                    break;
+                }
+            }
+            //否则就新创一个回边组
+            if(!find_group){
+                std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
+                tempgroup.push_back(edge);
+                edgeGroups.push_back(tempgroup);
+            }
+        }
+    //printEdgeGroups(edgeGroups);
+    }
+    return edgeGroups;
+}
+
+void LoopCodeMotion::printEdgeGroups(std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups){
+    for(auto group:edgeGroups){
+        std::cout<<"group size: "<<group.size()<<std::endl;
+        for(auto edge:group){
+            std::cout<<edge.first->getNo()<<"->"<<edge.second->getNo()<<std::endl;
+        }
+    }   
+}
+
 //获取循环，每一个循环结构体由基本块的vector组成（若i->j是一条回边，那么i，j以及所有不经过j能到达i的节点构成循环，j为循环首节点）
 //如果两个循环的首节点相同，那么我们合并循环（因此要先找出所有到达节点相同的回边组）
-std::vector<std::vector<BasicBlock*>> LoopOptimization::calculateLoopList(Function* func,std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges){
+std::vector<std::vector<BasicBlock*>> LoopCodeMotion::calculateLoopList(Function* func,std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> &edgeGroups){
     std::vector<std::vector<BasicBlock*>> LoopList;
-    //获取回边组，要求每个组中的回边的到达节点是同一个
-    std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups=mergeEdge(BackEdges);
-    //search for natural loop
-
-    printEdgeGroups(edgeGroups);
 
     //遍历每一个回边的组，每个组生成一个循环loop
     for(auto group:edgeGroups){
@@ -218,61 +273,7 @@ std::vector<std::vector<BasicBlock*>> LoopOptimization::calculateLoopList(Functi
     return LoopList;
 }
 
-//我们已经有了回边的集合，现在我们想要获取回边组，要求每个组中的回边的到达节点是同一个
-std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> LoopOptimization::mergeEdge(std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges){
-    std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups;
-    //遍历每一条回边
-    for(auto edge:BackEdges){
-        //std::cout<<edge.first->getNo()<<"->"<<edge.second->getNo()<<std::endl;
-        //一开始edgeGroups为空，我们先压入当前第一条回边构成的单独的vector
-        if(edgeGroups.size()==0){
-            std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
-            tempgroup.push_back(edge);
-            edgeGroups.push_back(tempgroup);
-        }
-        else{
-            bool find_group=false;
-            //遍历当前的每个组，如果当前这条回边的到达节点能够在已有组中找到就压入
-            for(auto group:edgeGroups){
-                //std::cout<<"group[0].second->getNo():"<<group[0].second->getNo()<<std::endl;
-                //std::cout<<group[0].second<<" "<<edge.second<<std::endl;
-                if(group[0].second==edge.second){
-                    //std::cout<<"equal"<<std::endl;
-                    //group.push_back(edge);
-                    //for(auto e:group) std::cout<<e.first->getNo()<<"->"<<e.second->getNo()<<std::endl;
-                    //如果直接用上面的push_back会发现，虽然在这里面传进去了，但在外层根本看不见,不得已换用下面的
-                    std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
-                    tempgroup.assign(group.begin(),group.end());
-                    tempgroup.push_back(edge);
-                    edgeGroups.push_back(tempgroup);
-                    //这真的不会报错吗？？？感觉严重拖慢了速度
-                    edgeGroups.erase(remove(edgeGroups.begin(),edgeGroups.end(),group),edgeGroups.end());
-                    find_group=true;
-                    break;
-                }
-            }
-            //否则就新创一个回边组
-            if(!find_group){
-                std::vector<std::pair<BasicBlock*,BasicBlock*>> tempgroup;
-                tempgroup.push_back(edge);
-                edgeGroups.push_back(tempgroup);
-            }
-        }
-    //printEdgeGroups(edgeGroups);
-    }
-    return edgeGroups;
-}
-
-void LoopOptimization::printEdgeGroups(std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups){
-    for(auto group:edgeGroups){
-        std::cout<<"group size: "<<group.size()<<std::endl;
-        for(auto edge:group){
-            std::cout<<edge.first->getNo()<<"->"<<edge.second->getNo()<<std::endl;
-        }
-    }   
-}
-
-void LoopOptimization::printLoop(std::vector<std::vector<BasicBlock*>>& LoopList){
+void LoopCodeMotion::printLoop(std::vector<std::vector<BasicBlock*>>& LoopList){
     for(auto Loop:LoopList){
         std::cout<<"Loop size:"<<Loop.size()<<std::endl;
         for(auto block:Loop)
@@ -282,23 +283,23 @@ void LoopOptimization::printLoop(std::vector<std::vector<BasicBlock*>>& LoopList
 }
 
 //代码外提
-void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBlock*>>& LoopList, std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges){
+void LoopCodeMotion::CodePullUp(Function* func,std::vector<std::vector<BasicBlock*>>& LoopList, std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges){
     //获取必经节点的集合
     std::unordered_map<BasicBlock*,std::vector<BasicBlock*>> domBBSet=getDomBBSet(func);
     // 遍历每一个循环
     for(auto Loop:LoopList){
-        std::cout<<"Loop:"<<std::endl;
+        //std::cout<<"Loop:"<<std::endl;
         //获取出口节点的集合outBlock
         std::vector<BasicBlock*> outBlock=calculateOutBlock(Loop);
-        std::cout<<"outBlock:"<<std::endl;  
-        for(auto block1:outBlock) std::cout<<block1->getNo()<<" "<<std::endl;
+        //std::cout<<"outBlock:"<<std::endl;  
+        //for(auto block1:outBlock) std::cout<<block1->getNo()<<" "<<std::endl;
         
         //计算循环不变的指令信息
         std::vector<Instruction*> LoopConstInstructions=calculateLoopConstant(Loop,func);
-        std::cout<<LoopConstInstructions.size()<<std::endl;
+        //std::cout<<LoopConstInstructions.size()<<std::endl;
         //printLoopConst(LoopConstInstructions);
         //for(auto op:LoopConst[func][Loop]) std::cout<<op->toStr()<<std::endl;
-        /*
+        
         // headBlock为该循环的首节点
         BasicBlock * headBlock=Loop[0];
         // 新增的前继节点predBB
@@ -319,10 +320,8 @@ void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBl
                     break;
                 }
             }
-            // 可以外提吗？？？？
-            // 还需要设计如下两个条件：
-            // 条件2：A在循环L中的其他地方没有定值语句
-            // 条件3：循环L中所有对于A的引用，只有s中对于A的定值能够到达
+            // mem2reg优化以后，后面两个条件无需考虑
+            // 死代码删除优化以后，无需考虑无用定值指令的外提，因为直接删掉了
             
             if(if_DomBBAll){
                 //设置predBB的跳转，以及BasciBlock中的跳转指令的目的块
@@ -332,7 +331,6 @@ void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBl
                     std::vector<BasicBlock*> pre_block_delete;
 
                     //查headblock前驱，将其最后一条指令然后改掉，指向predBB
-                    //是这样外提的吗？？
                     //遍历该循环的首节点的所有前继节点
                     for(auto block=headBlock->pred_begin();block!=headBlock->pred_end();block++){
                         //只用改不是回边的块的前驱后继，为什么？
@@ -360,7 +358,6 @@ void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBl
                             UncondBrInstruction* last=(UncondBrInstruction*)lastins;
                             last->setBranch(predBB);
                         }
-                        //最后一条指令有可能有其他的情况吗？？？？？？？？？？
                         (*block)->removeSucc(headBlock);
                         (*block)->addSucc(predBB);
                         predBB->addPred(*block);
@@ -370,10 +367,10 @@ void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBl
                     predBB->addSucc(headBlock);
                     new UncondBrInstruction(headBlock,predBB);
                     for(auto block:pre_block_delete){
-                        // std::cout<<block->getNo()<<std::endl;
+                        //std::cout<<block->getNo()<<std::endl;
                         headBlock->removePred(block);
                     }
-                    //phi指令又是什么指令呢？？？
+                    //phi指令,这个处理
                     changePhiInstruction(Loop,predBB,pre_block_delete);
                 }
  
@@ -385,18 +382,16 @@ void LoopOptimization::CodePullUp(Function* func,std::vector<std::vector<BasicBl
                 nextins->setPrev(previns);
 
                 ins->setParent(predBB);
-                //将ins插在predBB->rbegin()的前面，一开始会有一条空指令在基本块中
-                //这样子是越早插入的在越前面，但是，这样能够满足：若s的运算对象B或C是在L中定值的，那么B或C的定值代码要先插入吗？？？可能不行？
+                //将ins插在predBB->rbegin()的前面
                 predBB->insertBefore(ins,predBB->rbegin());
             }
         }
-        */
     }
 }
 
-//查找出口节点（这里是不是有问题，会重复添加把？？？？？是不是要一个break？）
+//查找出口节点
 //出口结点是指循环中具有如下性质的结点：从该结点有一条有向边引到循环外的某结点
-std::vector<BasicBlock*> LoopOptimization::calculateOutBlock(std::vector<BasicBlock*>& Loop){
+std::vector<BasicBlock*> LoopCodeMotion::calculateOutBlock(std::vector<BasicBlock*>& Loop){
     std::vector<BasicBlock*> outBlock;
     for(auto block:Loop){
         //查找后继节点看是否在循环里，只要有一个在循环外，就可以加入
@@ -410,21 +405,20 @@ std::vector<BasicBlock*> LoopOptimization::calculateOutBlock(std::vector<BasicBl
     return outBlock;
 }
 
-void LoopOptimization::printLoopConst(std::vector<Instruction*> LoopConstInstructions){
+void LoopCodeMotion::printLoopConst(std::vector<Instruction*> LoopConstInstructions){
     for(auto ins:LoopConstInstructions){
         ins->output();
     }
 }
 
-
 //计算循环不变信息，返回指令的向量集合,同时将不变的操作数存入LoopConst（需要大量补充？？？？？？？？）
 //循环不变运算可以是一元/二元/赋值/等等，这边具体参考我们已经有的所有可能的中间代码指令类型，需要仔细设计
-std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<BasicBlock*> Loop,Function* func){
+std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<BasicBlock*> Loop,Function* func){
     std::vector<Instruction*> LoopConstInstructions;
     std::set<Operand*>Operands; //避免重复
-    //我们只能够保证，加入了loopConst的那些操作数，就代表了在循环中至少存在它的一条定值语句被标记为循环不变指令，但可能有多条！
+    //我们只能够保证，加入了loopConst的那些操作数，就代表了在循环中至少存在它的一条定值语句被标记为循环不变指令
     LoopConst[func][Loop]=Operands;
-    //遍历当前循环的每一个基本块
+    //遍历当前循环的每一个基本块,一次遍历完成之后，去判断有没有新增外提指令，有就继续
     while(true){
         bool ifAddNew=false;
         for(auto block:Loop){
@@ -439,9 +433,6 @@ std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<Ba
                         //获取当前指令的use
                         std::vector<Operand*> useOperands=ins->getUse();
                         int constant_count=0;
-                        
-                        //还需要考虑二元操作数中类型是ArrayType或者PointerType!!!!!!!!!!!!!!!!!!!
-                        //以及a=func(1)+3，这里面func(1)的类型为int or float，当然这并不重要，只要我们能够在call语句上确定func(1)是循环不变量，就可以
 
                         //遍历所有的use操作数
                         for(auto operand:useOperands){
@@ -449,9 +440,8 @@ std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<Ba
                             Type * operand_type=operand->getEntry()->getType();
                             //如果是int
                             if(operand_type->isInt()){
-                                IntType* operand_inttype=(IntType*)operand_type;
                                 //是常量
-                                if(operand_inttype->isConst()){
+                                if(operand->getEntry()->isConstant()){
                                     //插入LoopConst
                                     LoopConst[func][Loop].insert(operand);
                                     constant_count++;
@@ -464,8 +454,7 @@ std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<Ba
                             }
                             //如果是float
                             else if(operand_type->isFloat()){
-                                FloatType* operand_floattype=(FloatType*)operand_type;
-                                if(operand_floattype->isConst()){
+                                if(operand->getEntry()->isConstant()){
                                     LoopConst[func][Loop].insert(operand);
                                     constant_count++;
                                 }
@@ -489,8 +478,115 @@ std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<Ba
                         LoopConst[func][Loop].insert(ins->getDef());
                         ifAddNew=true;
                     }
-                    //wait for adding
-                }
+                    else if(ins->isGep()){
+                        std::vector<Operand*> useOperands = ins->getUse();
+                        int constant_count=0;
+                        for(auto useOp:useOperands){
+                            Type * operand_type=useOp->getEntry()->getType();
+                            if(operand_type->isInt()){
+                                if(useOp->getEntry()->isConstant()){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                                //对该操作数的定值运算全部被标记为循环不变
+                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                            }
+                            else if(operand_type->isPtr()){
+                                //PointerType* operand_ptrtype=(PointerType*)operand_type;
+                                if(useOp->isGlobal()){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                                //对该操作数的定值运算全部被标记为循环不变
+                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                            }
+                            if(constant_count==2){
+                                // ins->output();
+                                LoopConstInstructions.push_back(ins);
+                                ifAddNew=true;
+                            }
+                        }
+                    }
+                    else if(ins->isBitcast()){
+                        Operand* useOp = ins ->getUse()[0];
+                        int constant_count=0;
+                        Type * operand_type=useOp->getEntry()->getType();
+                        if(operand_type->isPtr()){
+                            //PointerType* operand_ptrtype=(PointerType*)operand_type;
+                            if(useOp->isGlobal()){
+                                LoopConst[func][Loop].insert(useOp);
+                                constant_count++;
+                            }
+                            //对该操作数的定值运算全部被标记为循环不变
+                            else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                LoopConst[func][Loop].insert(useOp);
+                                constant_count++;
+                            }
+                        }
+                        if(constant_count==1){
+                            // ins->output();
+                            LoopConstInstructions.push_back(ins);
+                            ifAddNew=true;
+                        }
+                    }
+                    else if(ins->isCall()){
+                        auto funcSE = (IdentifierSymbolEntry*)(((CallInstruction*)ins)->getFunc());
+                        if(funcSE->getName() == "llvm.memset.p0i8.i32"){
+                            std::vector<Operand*> useOperands = ins->getUse();
+                            Operand* firstOp = useOperands[0];
+                            Operand* thirdOp = useOperands[2];
+                            if(OperandIsLoopConst(firstOp,Loop,LoopConstInstructions)&&
+                            (OperandIsLoopConst(thirdOp,Loop,LoopConstInstructions)||thirdOp->getEntry()->isConstant())){
+                                LoopConstInstructions.push_back(ins);
+                                ifAddNew=true;
+                            }
+                        }
+                    }
+                    else if(ins->isStore()){
+                        std::vector<Operand*> useOperands = ins->getUse();
+                        Operand* addrOp = useOperands[0];
+                        Operand* valueOp = useOperands[1];
+                        int constant_count = 0;
+                        if(addrOp->isGlobal()||OperandIsLoopConst(addrOp,Loop,LoopConstInstructions)){
+                            //std::cout<<"is global:"<<addrOp->toStr()<<std::endl;
+                            constant_count++;
+                        }
+                        if(valueOp->getEntry()->isConstant()||OperandIsLoopConst(valueOp,Loop,LoopConstInstructions)){
+                            constant_count++;
+                        }
+                        if(constant_count==2){
+                            LoopConstInstructions.push_back(ins);
+                            //store 不增加新的def
+                        }
+                    }
+                    //处理不了样例36
+                    else if(ins->isLoad()){
+                        // int constant_count = 0;
+                        // Operand* useOp = ins->getUse()[0];
+                        // Type * operand_type=useOp->getEntry()->getType();
+                        // if(operand_type->isPtr()){
+                        //     //PointerType* operand_ptrtype=(PointerType*)operand_type;
+                        //     if(useOp->isGlobal()){
+                        //         LoopConst[func][Loop].insert(useOp);
+                        //         constant_count++;
+                        //     }
+                        //     else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                        //         LoopConst[func][Loop].insert(useOp);
+                        //         constant_count++;
+                        //     }
+                        // }
+                        // if(constant_count==1){
+                        //     LoopConstInstructions.push_back(ins);
+                        //     ifAddNew=true;
+                        // }
+                    }
+                }  
                 ins=ins->getNext();
             }
         }
@@ -499,57 +595,35 @@ std::vector<Instruction*> LoopOptimization::calculateLoopConstant(std::vector<Ba
     return LoopConstInstructions;
 }
 
-// //检测当前的操作数op的定值是否有在循环内存在，若有，则返回true
-// bool LoopOptimization::defInstructionInLoop(Operand * op,std::vector<BasicBlock*>Loop){
-//     for(auto block:Loop){
-//         Instruction* i = block->begin();
-//         Instruction* last = block->end();
-//         while (i != last) {
-//             if(i->getDef()==op){
-//                 return true;
-//             }
-//             i = i->getNext();
-//         }
-//     }
-//     return false;
-// }
-
 //但凡在循环中存在一条对该操作数的定值语句，它没有被标记为循环不变语句，就不通过
 //若定值全在外，或有在里面，但都被标记，则true
 //现在全部的依凭就是LoopConstInstructions
-bool LoopOptimization::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions){
+bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions){
     for(auto block:Loop){
         Instruction* i = block->begin();
         Instruction* last = block->end();
         while (i != last) {
-            //在循环中找到了一条定值语句,但是遇到数组是有bug的(见文档)，这个再讨论
-            if(i->getDef()==op){
+            //if(i->getDef())std::cout<<op->toStr()<<":"<<i->getDef()->toStr()<<std::endl;
+            //无需考虑store,它只有getUse，所以下面if进不去
+            //这是因为store存值，后面必定是用load取出同一个位置的值，而不会复用同一个中间变量
+            //在循环中找到了一条定值语句,mem2reg优化之下，它只可能有一个定值
+            if(i->getDef()==op){                
                 //如果这条定值语句目前不是循环不变语句，那就不通过
                 if(!count(LoopConstInstructions.begin(),LoopConstInstructions.end(),i)){
                     return false;
+                }
+                else{
+                    return true;
                 }
             }
             i = i->getNext();
         }
     }
     return true;
-
-    /*
-    //只有一个定值能到达,做了ssa，则只有一个def
-    for(auto ins:LoopConstInstructions){
-        if(ins->isStore())
-            continue;
-        if(ins->getDef()==op){
-            return true;
-        }
-    }
-    return false;
-    */
 }
 
-/*
 //phi指令的块不在循环里，改成对应的preblock
-void LoopOptimization::changePhiInstruction(std::vector<BasicBlock*>& Loop,BasicBlock* preBlock, std::vector<BasicBlock*> oldBlocks){
+void LoopCodeMotion::changePhiInstruction(std::vector<BasicBlock*>& Loop,BasicBlock* newPreBlock, std::vector<BasicBlock*> oldBlocks){
     for(auto block:Loop){
         Instruction* i = block->begin();
         Instruction* last = block->end();
@@ -558,13 +632,11 @@ void LoopOptimization::changePhiInstruction(std::vector<BasicBlock*>& Loop,Basic
             if(i->isPhi()){
                 PhiInstruction* pi=(PhiInstruction*)i;
                 //判断phi指令的src块是否在循环里
-
                 for(auto oldBlock:oldBlocks){
-                    
                     if(pi->findSrc(oldBlock)){
-                        Operand* op=pi->getSrc(oldBlock);
-                        pi->removeSrc(oldBlock);
-                        pi->addSrc(preBlock,op);
+                        Operand* op=pi->getBlockSrc(oldBlock);
+                        pi->removeBlockSrc(oldBlock);
+                        pi->addSrc(newPreBlock,op);
                     }
                 }
             }
@@ -572,4 +644,19 @@ void LoopOptimization::changePhiInstruction(std::vector<BasicBlock*>& Loop,Basic
         }
     }
 }
-*/
+
+void LoopCodeMotion::dealwithNoPreBB(Function* func){
+    std::vector<BasicBlock*> temp;
+    std::vector<BasicBlock*> blocklist = func -> getBlockList();
+    for (auto it = blocklist.begin(); it != blocklist.end(); it++) {
+        if ((*it)->getNumOfPred() == 0 && *it != func->getEntry()) {
+            for (auto it1 = (*it)->pred_begin(); it1 != (*it)->pred_end();it1++) {
+                (*it1)->removePred(*it);
+            }
+            temp.push_back(*it);
+            // ret = true;
+        }
+    }
+    for (auto b : temp)
+        func->remove(b);
+}
