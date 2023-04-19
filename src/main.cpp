@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
     mst.pass();
-    // mph.pass();
+    mph.pass();
 
     Log("目标代码优化成功\n");
 

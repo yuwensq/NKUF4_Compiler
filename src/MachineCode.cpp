@@ -671,7 +671,7 @@ void MachineBlock::output()
         {
             this->getParent()->getParent()->printLTORG();
         }
-        else if (inst_num >= 256)
+        else if (inst_num >= 768) // 文字池最多离ldr 4KB
         { // 这里，每隔256条指令，打一个文字池
             inst_num = 0;
             int ltorg_num = this->getParent()->getParent()->getLtorgNum();
@@ -905,9 +905,9 @@ void MachineUnit::PrintGlobalDecl()
 void MachineUnit::printLTORG()
 {
     // 打印文字池
+    fprintf(yyout, "\n.LTORG\n");
     if (global_vars.size() > 0)
     {
-        fprintf(yyout, "\n.LTORG\n");
         for (auto se : global_vars)
         {
             fprintf(yyout, "addr_%s_%d:\n", se->toStr().c_str() + 1, ltorg_num);

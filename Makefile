@@ -113,6 +113,7 @@ gccasm:$(GCC_ASM)
 .ONESHELL:
 test:app
 	@success=0
+	@TOTAL_EXEC_TIME=0
 	@for file in $(sort $(TESTCASE))
 	do
 		ASM=$${file%.*}.s
@@ -149,6 +150,7 @@ test:app
 			RETURN_VALUE=$$?; \
 			exec_end=$$(date +%s.%3N); \
 			exec_time=$$(echo "$$exec_end - $$exec_start" | bc)
+			TOTAL_EXEC_TIME=$$(echo "$$TOTAL_EXEC_TIME + $$exec_time" | bc)
 			FINAL=`tail -c 1 $${RES}`
 			[ $${FINAL} ] && echo "\n$${RETURN_VALUE}" >> $${RES} || echo "$${RETURN_VALUE}" >> $${RES}
 			if [ "$${RETURN_VALUE}" = "124" ]; then
@@ -170,6 +172,7 @@ test:app
 	done
 	echo "\033[1;33mTotal: $(TESTCASE_NUM)\t\033[1;32mAccept: $${success}\t\033[1;31mFail: $$(($(TESTCASE_NUM) - $${success}))\033[0m"
 	[ $(TESTCASE_NUM) = $${success} ] && echo "\033[5;32mAll Accepted. Congratulations!\033[0m"
+	awk "BEGIN {printf \"total execute time: %.3fs\n\", $$TOTAL_EXEC_TIME}"
 	:
 
 clean-app:

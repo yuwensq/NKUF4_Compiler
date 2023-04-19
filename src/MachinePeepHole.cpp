@@ -188,21 +188,21 @@ void MachinePeepHole::subPass()
                     // vmov.f32 s16, s17
                     // vneg.f32 s17, s16
                     // ==> vneg.f32 s17, s17
-                    bool success = false;
-                    for (int i = 0; i < (*next_inst)->getUse().size(); i++)
-                    {
-                        if (*(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[i])
-                        {
-                            success = true;
-                            (*next_inst)->getUse()[i] = new MachineOperand(*(*now_inst)->getUse()[0]);
-                            (*next_inst)->getUse()[i]->setParent(*next_inst);
-                        }
-                    }
-                    if (success)
-                    {
-                        blk->getInsts().erase(now_inst);
-                        now_inst--;
-                    }
+                    // bool success = false;
+                    // for (int i = 0; i < (*next_inst)->getUse().size(); i++)
+                    // {
+                    //     if (*(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[i])
+                    //     {
+                    //         success = true;
+                    //         (*next_inst)->getUse()[i] = new MachineOperand(*(*now_inst)->getUse()[0]);
+                    //         (*next_inst)->getUse()[i]->setParent(*next_inst);
+                    //     }
+                    // }
+                    // if (success)
+                    // {
+                    //     blk->getInsts().erase(now_inst);
+                    //     now_inst--;
+                    // }
                 }
             }
         }

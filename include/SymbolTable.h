@@ -74,6 +74,7 @@ public:
     ConstantSymbolEntry(Type *type);
     virtual ~ConstantSymbolEntry(){};
     double getValue() const { return value; };
+    void setValue(double value) { this->value = value; };
     std::string toStr();
     // You can add any function you need here.
 };
@@ -116,7 +117,7 @@ private:
     bool initial;
     bool sysy;
     double *arrayValue;
-    Function* func = nullptr;
+    Function *func = nullptr;
 
     Operand *addr; // The address of the identifier.
     Operand *argAddr;
@@ -143,8 +144,8 @@ public:
     void setArrayValue(double *arrayValue) { this->arrayValue = arrayValue; };
     double *getArrayValue() { return this->arrayValue; };
     bool isInitial() { return (initial || arrayValue != nullptr); };
-    Function* getFunction() { return func; };
-    void setFunction(Function* func) { this->func = func; }
+    Function *getFunction() { return func; };
+    void setFunction(Function *func) { this->func = func; }
 
     // You can add any function you need here.
 };

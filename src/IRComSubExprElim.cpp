@@ -43,7 +43,7 @@ void IRComSubExprElim::removeLoadAfterStore()
         auto loadSrc = pa.first->getUse()[1];
         Assert(loadSrc != nullptr, "啊嘞");
         // 如果是函数参数，这条load就先留着吧，如果改了可能r寄存器被覆盖
-        if (static_cast<TemporarySymbolEntry*>(loadSrc->getEntry())->isParam())
+        if (static_cast<TemporarySymbolEntry *>(loadSrc->getEntry())->isParam())
             continue;
         // if (loadSrc == nullptr)
         // {
@@ -182,7 +182,31 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
                 }
             }
             else if (allocInstLoad == allocInstPre)
-                return true;
+            {
+                // return true;
+                // 这里，如果load和store同一个局部数组，我们可以看一看他们的offs相同不，如果不相同，照样注销不了
+                auto gepLoad = loadInst->getUse()[0]->getDef();
+                auto gepStore = preInst->getUse()[0]->getDef();
+                if (!(gepLoad->isGep() && gepStore->isGep()))
+                    return true;
+                Assert(gepLoad->isGep() && gepStore->isGep(), "不是gep呀");
+                auto offs1 = static_cast<GepInstruction *>(gepLoad)->getUse();
+                auto offs2 = static_cast<GepInstruction *>(gepStore)->getUse();
+                if (offs1.size() != offs2.size())
+                    return true;
+                bool res = true;
+                for (int i = 1; i < offs1.size(); i++)
+                {
+                    // 判断不出来，默认注销
+                    if (!(offs1[i]->getEntry()->isConstant() && offs2[i]->getEntry()->isConstant()))
+                        return true;
+                    int v1 = static_cast<ConstantSymbolEntry *>(offs1[i]->getEntry())->getValue();
+                    int v2 = static_cast<ConstantSymbolEntry *>(offs2[i]->getEntry())->getValue();
+                    if (v1 != v2)
+                        res = false;
+                }
+                return res;
+            }
             return false;
         }
         // load一个参数数组
@@ -256,7 +280,9 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
     for (preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
     {
         if (inst->isLoad() && invalidate(preInst, inst))
+        {
             return nullptr;
+        }
         if (isSameExpr(preInst, inst))
             return preInst;
     }

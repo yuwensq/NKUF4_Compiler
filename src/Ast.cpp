@@ -9,6 +9,8 @@
 #include "Type.h"
 #include "Unit.h"
 
+#define ALLOFFS
+
 #define now_bb (builder->getInsertBB())
 #define now_func (builder->getInsertBB()->getParent())
 extern Unit unit;
@@ -36,13 +38,13 @@ void Node::setNext(Node *node)
     n->next = node;
 }
 
-void installMemset(Function* func)
+void installMemset(Function *func)
 {
     if (!llvm_memset_func)
     {
         llvm_memset_func = true;
         auto func_type = new FunctionType(
-            TypeSystem::voidType, 
+            TypeSystem::voidType,
             {TypeSystem::int8PtrType, TypeSystem::int8Type, TypeSystem::intType, TypeSystem::boolType});
         auto funcSE = new IdentifierSymbolEntry(func_type, "llvm.memset.p0i8.i32", 0, true);
         globals->install("llvm.memset.p0i8.i32", funcSE);
@@ -742,18 +744,21 @@ void DeclStmt::genCode()
         unit.addGlobalVar(se);
         if (se->getType()->isArray())
         {
-        	if (exprArray == nullptr)
-        	{
-        		se->setArrayValue(nullptr);
-        	} else {
-            int size = se->getType()->getSize() / TypeSystem::intType->getSize();
-            double *arrayValue = new double[size] {};
-            se->setArrayValue(arrayValue);
-            for (int i = 0; i < size; i++)
+            if (exprArray == nullptr)
             {
-                if (exprArray[i])
-                    arrayValue[i] = exprArray[i]->getValue();
-            }}
+                se->setArrayValue(nullptr);
+            }
+            else
+            {
+                int size = se->getType()->getSize() / TypeSystem::intType->getSize();
+                double *arrayValue = new double[size]{};
+                se->setArrayValue(arrayValue);
+                for (int i = 0; i < size; i++)
+                {
+                    if (exprArray[i])
+                        arrayValue[i] = exprArray[i]->getValue();
+                }
+            }
         }
     }
     else
@@ -762,9 +767,9 @@ void DeclStmt::genCode()
         Instruction *alloca;
         Operand *addr;
         addr = new Operand(new TemporarySymbolEntry(new PointerType(se->getType()), SymbolTable::getLabel()));
-        alloca = new AllocaInstruction(addr, se); // allocate space for local id in function stack.
-        entry->insertFront(alloca, se->getType()->isArray());               // allocate instructions should be inserted into the begin of the entry block.
-        se->setAddr(addr);                        // set the addr operand in symbol entry so that we can use it in subsequent code generation.
+        alloca = new AllocaInstruction(addr, se);             // allocate space for local id in function stack.
+        entry->insertFront(alloca, se->getType()->isArray()); // allocate instructions should be inserted into the begin of the entry block.
+        se->setAddr(addr);                                    // set the addr operand in symbol entry so that we can use it in subsequent code generation.
         if (expr)
         {
             expr->genCode();
@@ -780,9 +785,10 @@ void DeclStmt::genCode()
             auto bitcast_dst = new Operand(new TemporarySymbolEntry(TypeSystem::int8PtrType, SymbolTable::getLabel()));
             installMemset(now_func);
             auto funcSE = globals->lookup("llvm.memset.p0i8.i32");
-            if (funcSE == nullptr) std::cout << "'llvm.memset' installing failed." << std::endl;
+            if (funcSE == nullptr)
+                std::cout << "'llvm.memset' installing failed." << std::endl;
             new BitcastInstruction(bitcast_dst, addr, now_bb);
-            std::vector<Operand*> operands = {
+            std::vector<Operand *> operands = {
                 bitcast_dst,
                 new Operand(new ConstantSymbolEntry(TypeSystem::int8Type, 0)),
                 new Operand(new ConstantSymbolEntry(TypeSystem::intType, se->getType()->getSize() >> 3)),
@@ -798,6 +804,37 @@ void DeclStmt::genCode()
             {
                 offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
             }
+#ifdef ALLOFFS
+            for (int i = 0; i < size; i++)
+            {
+                if (exprArray[i])
+                {
+                    Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
+                    new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
+                    exprArray[i]->genCode();
+                    new StoreInstruction(ele_addr, exprArray[i]->getOperand(), now_bb);
+                }
+                int j;
+                for (j = indexs.size() - 1; j >= 0; j--)
+                {
+                    double v = static_cast<ConstantSymbolEntry *>(offs[j]->getEntry())->getValue();
+                    if (static_cast<int>(v) >= indexs[j] - 1)
+                    {
+                        offs[j] = new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0));
+                    }
+                    else
+                    {
+                        offs[j] = new Operand(new ConstantSymbolEntry(TypeSystem::intType, v + 1));
+                        break;
+                    }
+                }
+                for (; j >= 0; j--)
+                {
+                    offs[j] = new Operand(*offs[j]);
+                }
+            }
+#else
+            /*下面这种写法会导致一些公共的gep指令删除不掉*/
             indexs = ((ArrayType *)se->getType())->getIndexs();
             Operand *ele_addr = new Operand(new TemporarySymbolEntry(new PointerType(new ArrayType({}, baseType)), SymbolTable::getLabel()));
             new GepInstruction(ele_addr, se->getAddr(), offs, now_bb);
@@ -823,6 +860,7 @@ void DeclStmt::genCode()
                     step++;
                 }
             }
+#endif
         }
     }
     // 这里要看看下一个有没有
@@ -1089,7 +1127,8 @@ void FunctionDef::genCode()
         for (auto it = func->begin(); it != func->end(); it++)
         {
             auto block = *it;
-            if (block == func->getEntry()) continue;
+            if (block == func->getEntry())
+                continue;
             if (block->getNumOfPred() == 0)
             {
                 delete block;
@@ -1097,7 +1136,8 @@ void FunctionDef::genCode()
                 break;
             }
         }
-        if (!flag) break;
+        if (!flag)
+            break;
     }
 }
 

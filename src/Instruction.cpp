@@ -567,11 +567,13 @@ MachineOperand *Instruction::immToVReg(MachineOperand *imm, MachineBlock *cur_bl
     }
     else
     {
-        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, internal_reg, genMachineImm(value & 0xffff)));
-        if (value & 0xff0000)
-            cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg), genMachineImm(value & 0xff0000)));
-        if (value & 0xff000000)
-            cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg), genMachineImm(value & 0xff000000)));
+        // cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, internal_reg, genMachineImm(value & 0xffff)));
+        // if (value & 0xff0000)
+        //     cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg), genMachineImm(value & 0xff0000)));
+        // if (value & 0xff000000)
+        //     cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg), genMachineImm(value & 0xff000000)));
+        auto cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::LDR, internal_reg, imm);
+        cur_block->InsertInst(cur_inst);
     }
     return internal_reg;
 }
@@ -650,16 +652,16 @@ void StoreInstruction::genMachineCode(AsmBuilder *builder)
     MachineInstruction *cur_inst = nullptr;
     auto src = genMachineOperand(operands[1]);
     bool floatVersion = operands[1]->getType()->isFloat();
-    int strOp = floatVersion ? StoreMInstruction::VSTR : StoreMInstruction::STR;
+    int strOp = (floatVersion && !src->isImm()) ? StoreMInstruction::VSTR : StoreMInstruction::STR;
     if (src->isImm()) // 这里立即数可能为浮点数，这样做也没问题
     {
         src = new MachineOperand(*immToVReg(src, cur_block));
-        if (floatVersion)
-        {
-            auto internal_reg = genMachineVReg(true);
-            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src));
-            src = new MachineOperand(*internal_reg);
-        }
+        // if (floatVersion)
+        // {
+        //     auto internal_reg = genMachineVReg(true);
+        //     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src));
+        //     src = new MachineOperand(*internal_reg);
+        // }
     }
     // Store global operand
     if (operands[0]->getEntry()->isVariable() && dynamic_cast<IdentifierSymbolEntry *>(operands[0]->getEntry())->isGlobal())
@@ -822,6 +824,9 @@ void CmpInstruction::genMachineCode(AsmBuilder *builder)
     }
     if (src2->isImm())
     {
+        /*我是抗拒用goto的*/
+        if (!floatVersion && AsmBuilder::isLegalImm(src2->getVal()))
+            goto SKIP;
         src2 = new MachineOperand(*immToVReg(src2, cur_block));
         if (floatVersion)
         {
@@ -830,6 +835,7 @@ void CmpInstruction::genMachineCode(AsmBuilder *builder)
             src2 = new MachineOperand(*internal_reg);
         }
     }
+SKIP:
     if (floatVersion)
     {
         cur_block->InsertInst(new CmpMInstruction(cur_block, CmpMInstruction::VCMP, src1, src2));
@@ -925,7 +931,8 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
             int offset = arraySE->getOffset();
             operand = genMachineVReg();
             auto fp = genMachineReg(11);
-            if (offset > -255 && offset < 255)
+            /*这里改成这样比较好*/
+            if (AsmBuilder::isLegalImm(offset))
             {
                 cur_block->InsertInst(new BinaryMInstruction(
                     cur_block, BinaryMInstruction::ADD, r0, fp, genMachineImm(offset)));
@@ -942,7 +949,8 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         }
         cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, r1, genMachineImm(0)));
         auto len = genMachineOperand(operands[3]);
-        if (len->isImm() && len->getVal() > 255)
+        /*这里也是改成这样比较好*/
+        if (len->isImm() && !AsmBuilder::isLegalImm(len->getVal()))
         {
             operand = genMachineVReg();
             cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::LDR, operand, len);
@@ -968,13 +976,15 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         if (operands[i]->getType()->isFloat())
             continue;
         auto param = genMachineOperand(operands[i]);
-        // 一条mov解决不了
-        if (param->isImm() && (param->getVal() & 0xffff0000))
+        if (param->isImm())
         {
-            param = new MachineOperand(*immToVReg(param, cur_block));
+            if (!AsmBuilder::isLegalImm(param->getVal()))
+                cur_block->InsertInst(new LoadMInstruction(cur_block, LoadMInstruction::LDR, genMachineReg(sum), param));
+            else
+                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
         }
-        // 用mov指令把参数放到对应寄存器里
-        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
+        else 
+            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
         sum++;
     }
     auto intLastPos = i;
@@ -1014,9 +1024,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         else
         {
             if (param->isImm())
-            {
                 param = new MachineOperand(*immToVReg(param, cur_block));
-            }
             cur_block->InsertInst(new StackMInstrcuton(cur_block, StackMInstrcuton::PUSH, {param}));
         }
         param_size_in_stack += 4;
@@ -1121,16 +1129,11 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
         // 偏移都是负数
         int offset = ((TemporarySymbolEntry *)operands[1]->getEntry())->getOffset();
         auto off = genMachineImm(offset);
-        if (AsmBuilder::isLegalImm(offset) || offset > -255)
-        {
+        if (AsmBuilder::isLegalImm(offset))
             cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, base, genMachineReg(11), off));
-            base = new MachineOperand(*base);
-        }
         else
-        {
             cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, base, genMachineReg(11), new MachineOperand(*immToVReg(off, cur_block))));
-            base = new MachineOperand(*base);
-        }
+        base = new MachineOperand(*base);
     }
     Type *arrType = ((PointerType *)operands[1]->getType())->getType();
     std::vector<int> indexs = ((ArrayType *)arrType)->getIndexs();
@@ -1303,6 +1306,7 @@ void F2IInstruction::genMachineCode(AsmBuilder *builder)
     else
     {
         // 这种情况可能是浮点立即数转int
+        /*经过常量传播之后，这个分支已经不可能走到了*/
         auto internal_reg = genMachineVReg(true);
         cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src));
         cur_block->InsertInst(new VcvtMInstruction(cur_block, VcvtMInstruction::FTS, new MachineOperand(*internal_reg), new MachineOperand(*internal_reg)));
