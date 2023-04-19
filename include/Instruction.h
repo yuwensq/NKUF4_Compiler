@@ -27,6 +27,7 @@ public:
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
     bool isBinary() const { return instType == BINARY; };
+    bool isBitcast() const { return instType == BITCAST; };
     void setParent(BasicBlock *);
     void setNext(Instruction *);
     void setPrev(Instruction *);
