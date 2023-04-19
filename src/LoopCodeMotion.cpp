@@ -7,19 +7,19 @@ void LoopCodeMotion::pass(){
     for(auto func=unit->begin();func!=unit->end();func++){
         //计算当前函数每一个基本块的必经节点，存入DomBBSet
         calculateFinalDomBBSet(*func);
-        printDomBB(*func);
+        //printDomBB(*func);
         
         //计算当前函数的回边集合
         std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges=getBackEdges(*func);
-        printBackEdges(BackEdges);
+        //printBackEdges(BackEdges);
 
         //获取回边组，要求每个组中的回边的到达节点是同一个
         std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups=mergeEdge(BackEdges);
-        printEdgeGroups(edgeGroups);
+        //printEdgeGroups(edgeGroups);
 
         //查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock*> > LoopList=calculateLoopList(*func,edgeGroups);
-        printLoop(LoopList);
+        //printLoop(LoopList);
         
         //代码外提
         CodePullUp(*func,LoopList,BackEdges);
@@ -367,7 +367,7 @@ void LoopCodeMotion::CodePullUp(Function* func,std::vector<std::vector<BasicBloc
                     predBB->addSucc(headBlock);
                     new UncondBrInstruction(headBlock,predBB);
                     for(auto block:pre_block_delete){
-                        std::cout<<block->getNo()<<std::endl;
+                        //std::cout<<block->getNo()<<std::endl;
                         headBlock->removePred(block);
                     }
                     //phi指令,这个处理
@@ -440,9 +440,8 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                             Type * operand_type=operand->getEntry()->getType();
                             //如果是int
                             if(operand_type->isInt()){
-                                IntType* operand_inttype=(IntType*)operand_type;
                                 //是常量
-                                if(operand_inttype->isConst()){
+                                if(operand->getEntry()->isConstant()){
                                     //插入LoopConst
                                     LoopConst[func][Loop].insert(operand);
                                     constant_count++;
@@ -455,8 +454,7 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                             }
                             //如果是float
                             else if(operand_type->isFloat()){
-                                FloatType* operand_floattype=(FloatType*)operand_type;
-                                if(operand_floattype->isConst()){
+                                if(operand->getEntry()->isConstant()){
                                     LoopConst[func][Loop].insert(operand);
                                     constant_count++;
                                 }
@@ -486,8 +484,7 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                         for(auto useOp:useOperands){
                             Type * operand_type=useOp->getEntry()->getType();
                             if(operand_type->isInt()){
-                                IntType* operand_inttype=(IntType*)operand_type;
-                                if(operand_inttype->isConst()){
+                                if(useOp->getEntry()->isConstant()){
                                     LoopConst[func][Loop].insert(useOp);
                                     constant_count++;
                                 }
@@ -556,10 +553,11 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                         Operand* addrOp = useOperands[0];
                         Operand* valueOp = useOperands[1];
                         int constant_count = 0;
-                        if(OperandIsLoopConst(addrOp,Loop,LoopConstInstructions)||addrOp->isGlobal()){
+                        if(addrOp->isGlobal()||OperandIsLoopConst(addrOp,Loop,LoopConstInstructions)){
+                            //std::cout<<"is global:"<<addrOp->toStr()<<std::endl;
                             constant_count++;
                         }
-                        if(OperandIsLoopConst(valueOp,Loop,LoopConstInstructions)||valueOp->getEntry()->isConstant()){
+                        if(valueOp->getEntry()->isConstant()||OperandIsLoopConst(valueOp,Loop,LoopConstInstructions)){
                             constant_count++;
                         }
                         if(constant_count==2){
@@ -605,10 +603,11 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loo
         Instruction* i = block->begin();
         Instruction* last = block->end();
         while (i != last) {
+            //if(i->getDef())std::cout<<op->toStr()<<":"<<i->getDef()->toStr()<<std::endl;
             //无需考虑store,它只有getUse，所以下面if进不去
             //这是因为store存值，后面必定是用load取出同一个位置的值，而不会复用同一个中间变量
             //在循环中找到了一条定值语句,mem2reg优化之下，它只可能有一个定值
-            if(i->getDef()==op){
+            if(i->getDef()==op){                
                 //如果这条定值语句目前不是循环不变语句，那就不通过
                 if(!count(LoopConstInstructions.begin(),LoopConstInstructions.end(),i)){
                     return false;
