@@ -34,6 +34,7 @@ public:
     void changePhiInstruction(std::vector<BasicBlock*>& Loop,BasicBlock* newPreBlock,std::vector<BasicBlock*> oldBlocks);
     void CodePullUp(Function* func,std::vector<std::vector<BasicBlock*>>& LoopList,std::vector<std::pair<BasicBlock*,BasicBlock*>>& BackEdges);
     void dealwithNoPreBB(Function* func);
+    bool isLoadInfluential(Instruction* ins);
 
     void printDomBB(Function * func);
     void printBackEdges(std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges);

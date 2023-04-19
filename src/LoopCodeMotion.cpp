@@ -565,26 +565,30 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                             //store 不增加新的def
                         }
                     }
-                    //处理不了样例36
+                    //根据数据流分析，load的def不能够影响到所在基本块的cmp语句中的任一use，否则一些判断会出错，造成死循环
                     else if(ins->isLoad()){
-                        // int constant_count = 0;
-                        // Operand* useOp = ins->getUse()[0];
-                        // Type * operand_type=useOp->getEntry()->getType();
-                        // if(operand_type->isPtr()){
-                        //     //PointerType* operand_ptrtype=(PointerType*)operand_type;
-                        //     if(useOp->isGlobal()){
-                        //         LoopConst[func][Loop].insert(useOp);
-                        //         constant_count++;
-                        //     }
-                        //     else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
-                        //         LoopConst[func][Loop].insert(useOp);
-                        //         constant_count++;
-                        //     }
-                        // }
-                        // if(constant_count==1){
-                        //     LoopConstInstructions.push_back(ins);
-                        //     ifAddNew=true;
-                        // }
+                        //判断这个load是否影响
+                        if(!isLoadInfluential(ins)){
+                            //判断是否循环不变
+                            int constant_count = 0;
+                            Operand* useOp = ins->getUse()[0];
+                            Type * operand_type=useOp->getEntry()->getType();
+                            if(operand_type->isPtr()){
+                                //PointerType* operand_ptrtype=(PointerType*)operand_type;
+                                if(useOp->isGlobal()){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                    LoopConst[func][Loop].insert(useOp);
+                                    constant_count++;
+                                }
+                            }
+                            if(constant_count==1){
+                                LoopConstInstructions.push_back(ins);
+                                ifAddNew=true;
+                            }
+                        }
                     }
                 }  
                 ins=ins->getNext();
@@ -593,6 +597,35 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
         if(!ifAddNew) break;
     }
     return LoopConstInstructions;
+}
+
+bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
+{
+    Instruction* temp=ins->getNext();
+    BasicBlock* block=ins->getParent();
+    std::vector<Operand*> affectedOperands;
+    affectedOperands.push_back(ins->getDef());
+    while(temp!=block->end()){
+        //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
+        //call的话，还需要详细判断
+        if(temp->isStore()||temp->isCall()){return true;}
+        //如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
+        for(auto use:temp->getUse())
+        {
+            if(count(affectedOperands.begin(),affectedOperands.end(),use))
+            {
+                //如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
+                if(temp->isCmp())
+                {
+                    return true;
+                }
+                affectedOperands.push_back(temp->getDef());
+                break;
+            }
+        }
+        temp=temp->getNext();
+    }
+    return false;
 }
 
 //但凡在循环中存在一条对该操作数的定值语句，它没有被标记为循环不变语句，就不通过
