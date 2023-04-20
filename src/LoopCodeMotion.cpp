@@ -606,16 +606,21 @@ bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
     std::vector<Operand*> affectedOperands;
     affectedOperands.push_back(ins->getDef());
     while(temp!=block->end()){
-        //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
-        //call的话，还需要详细判断
-        if(temp->isStore()||temp->isCall()){return true;}
+        // //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
+        // if(temp->isStore()){return true;}
         //如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
         for(auto use:temp->getUse())
         {
             if(count(affectedOperands.begin(),affectedOperands.end(),use))
             {
                 //如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
-                if(temp->isCmp())
+                //如果遇到受影响的store，那么也返回true
+                if(temp->isCmp()||temp->isStore())
+                {
+                    return true;
+                }
+                //call考虑返回值为void的情况,直接返回true
+                if(temp->isCall()&&!temp->getDef())
                 {
                     return true;
                 }
