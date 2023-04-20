@@ -615,12 +615,8 @@ bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
             {
                 //如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
                 //如果遇到受影响的store，那么也返回true
-                if(temp->isCmp()||temp->isStore())
-                {
-                    return true;
-                }
-                //call考虑返回值为void的情况,直接返回true
-                if(temp->isCall()&&!temp->getDef())
+                //如果遇到call，参数中含有受影响的，也直接返回true
+                if(temp->isCmp()||temp->isStore()||temp->isCall())
                 {
                     return true;
                 }
