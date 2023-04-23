@@ -1,6 +1,8 @@
 #include "LiveVariableAnalysis.h"
 #include "MachineCode.h"
+#include <iostream>
 #include <algorithm>
+#include <chrono>
 
 void LiveVariableAnalysis::pass(MachineUnit *unit)
 {
@@ -15,8 +17,11 @@ void LiveVariableAnalysis::pass(MachineUnit *unit)
 void LiveVariableAnalysis::pass(MachineFunction *func)
 {
     computeUsePos(func);
+    Log("compute use pos over");
     computeDefUse(func);
+    Log("compute def use over");
     iterate(func);
+    Log("iterate over");
 }
 
 void LiveVariableAnalysis::computeDefUse(MachineFunction *func)
@@ -50,9 +55,10 @@ void LiveVariableAnalysis::iterate(MachineFunction *func)
             block->live_out.clear();
             auto old = block->live_in;
             for (auto &succ : block->getSuccs())
+            {
                 block->live_out.insert(succ->live_in.begin(), succ->live_in.end());
+            }
             block->live_in = use[block];
-            std::vector<MachineOperand *> temp;
             set_difference(block->live_out.begin(), block->live_out.end(),
                            def[block].begin(), def[block].end(), inserter(block->live_in, block->live_in.end()));
             if (old != block->live_in)

@@ -7,7 +7,7 @@ void LoopCodeMotion::pass(){
     for(auto func=unit->begin();func!=unit->end();func++){
         //计算当前函数每一个基本块的必经节点，存入DomBBSet
         calculateFinalDomBBSet(*func);
-        //printDomBB(*func);
+        // printDomBB(*func);
         
         //计算当前函数的回边集合
         std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges=getBackEdges(*func);

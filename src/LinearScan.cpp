@@ -43,6 +43,7 @@ void LinearScan::makeDuChains()
 {
     LiveVariableAnalysis lva;
     lva.pass(func);
+    Log("lva pass over");
     du_chains.clear();
     int i = 0;
     std::map<MachineOperand, std::set<MachineOperand *>> liveVar;

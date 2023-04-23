@@ -49,6 +49,7 @@ void Function::output() const
     fprintf(yyout, ") {\n");
     std::set<BasicBlock *> v;
     std::list<BasicBlock *> q;
+    Log("%d", block_list.size());
     q.push_back(entry);
     v.insert(entry);
     while (!q.empty())

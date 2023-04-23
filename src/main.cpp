@@ -93,12 +93,12 @@ int main(int argc, char *argv[])
     LoopCodeMotion lcm(&unit);
 
     m2r.pass(); //Only IR supported
-    // sccp.pass();
-    // cse.pass();
-    // sccp.pass();
-    // dce.pass();
+    sccp.pass();
+    cse.pass();
+    sccp.pass();
+    dce.pass();
     lcm.pass();
-    // pe.pass();
+    pe.pass();
     
     Log("IR优化成功\n");/**/
 
@@ -108,8 +108,8 @@ int main(int argc, char *argv[])
     Log("目标代码生成成功\n");
 
     // MachinePeepHole mph(&mUnit, 2);
-    // MachineStraight mst(&mUnit);
-    // mst.pass();
+    MachineStraight mst(&mUnit);
+    mst.pass();
     // mph.pass();
 
     Log("目标代码优化成功\n");
