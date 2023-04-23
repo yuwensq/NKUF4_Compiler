@@ -506,11 +506,11 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                                     constant_count++;
                                 }
                             }
-                            if(constant_count==2){
-                                // ins->output();
-                                LoopConstInstructions.push_back(ins);
-                                ifAddNew=true;
-                            }
+                        }
+                        if(constant_count==useOperands.size()){
+                            // ins->output();
+                            LoopConstInstructions.push_back(ins);
+                            ifAddNew=true;
                         }
                     }
                     else if(ins->isBitcast()){
