@@ -26,6 +26,7 @@ public:
     bool isGep() const { return instType == GEP; };
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
+    bool isFICal() const {return instType == FPTSI || instType == SITFP;};
     bool isBinary() const { return instType == BINARY; };
     bool isBitcast() const { return instType == BITCAST; };
     bool isCmp() const {return instType == CMP; };

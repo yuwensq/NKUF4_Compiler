@@ -472,6 +472,17 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                             ifAddNew=true;
                         }
                     }
+                    //如果是F2I或I2F
+                    if(ins->isFICal())
+                    {
+                        Operand* operand=ins->getUse()[0];
+                        if(operand->getEntry()->isConstant()||
+                        OperandIsLoopConst(operand,Loop,LoopConstInstructions)){
+                            LoopConst[func][Loop].insert(operand);
+                            LoopConstInstructions.push_back(ins);
+                            ifAddNew=true;
+                        }
+                    }
                     // 如果指令类型为alloc,无条件接受，因为他只可能是循环中的数组定义
                     else if(ins->isAlloc()){
                         LoopConstInstructions.push_back(ins);
@@ -506,11 +517,11 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                                     constant_count++;
                                 }
                             }
-                            if(constant_count==2){
-                                // ins->output();
-                                LoopConstInstructions.push_back(ins);
-                                ifAddNew=true;
-                            }
+                        }
+                        if(constant_count==useOperands.size()){
+                            // ins->output();
+                            LoopConstInstructions.push_back(ins);
+                            ifAddNew=true;
                         }
                     }
                     else if(ins->isBitcast()){
