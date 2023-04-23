@@ -36,6 +36,11 @@ public:
     virtual void output(int level) = 0;
     virtual void typeCheck() = 0;
     virtual void genCode() = 0;
+    void clearLists()
+    {
+        true_list.clear();
+        false_list.clear();
+    };
     std::vector<Instruction *> &trueList() { return true_list; }
     std::vector<Instruction *> &falseList() { return false_list; }
     void setNext(Node *node);
@@ -47,12 +52,15 @@ class ExprNode : public Node
 protected:
     SymbolEntry *symbolEntry;
     bool isCond;
-    Operand *dst; // The result of the subtree is stored into dst.
+    Operand *dst;    // The result of the subtree is stored into dst.
+    Operand *dupDst; // 如果基本块生成二遍，就用这个
     Type *type;
 
 public:
     ExprNode(SymbolEntry *symbolEntry) : symbolEntry(symbolEntry), isCond(false){};
+    void genDupOperand() { dupDst = new Operand(new TemporarySymbolEntry(dst->getType(), SymbolTable::getLabel())); };
     Operand *getOperand() { return dst; };
+    Operand *getDupOperand() { return dupDst; };
     SymbolEntry *getSymPtr() { return symbolEntry; };
     bool isConde() const { return isCond; };
     void setIsCond(bool isCond) { this->isCond = isCond; };
@@ -390,7 +398,7 @@ class WhileStmt : public StmtNode
 private:
     ExprNode *cond;
     StmtNode *stmt;
-    BasicBlock *cond_bb;
+    BasicBlock *exit_cond_bb;
     BasicBlock *end_bb;
 
 public:
@@ -399,7 +407,7 @@ public:
     void output(int level);
     void typeCheck();
     void genCode();
-    BasicBlock *get_cond_bb() { return this->cond_bb; };
+    BasicBlock *get_exit_cond_bb() { return this->exit_cond_bb; };
     BasicBlock *get_end_bb() { return this->end_bb; };
 };
 

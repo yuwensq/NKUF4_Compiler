@@ -507,6 +507,15 @@ void Ast::genCode(Unit *unit)
 
 void BinaryExpr::genCode()
 {
+    // 如果是第二遍，先生成一个目标
+    auto op1 = expr1->getOperand();
+    auto op2 = expr2->getOperand();
+    auto now_dst = dst;
+    if (builder->isDuplicate())
+    {
+        genDupOperand();
+        now_dst = dupDst;
+    }
     if (op == AND)
     {
         if (this->isConde())
@@ -543,8 +552,10 @@ void BinaryExpr::genCode()
         // Todo
         expr1->genCode();
         expr2->genCode();
+        op1 = (builder->isDuplicate() ? expr1->getDupOperand() : op1);
+        op2 = (builder->isDuplicate() ? expr2->getDupOperand() : op2);
         int cmpOps[] = {CmpInstruction::L, CmpInstruction::LE, CmpInstruction::G, CmpInstruction::GE, CmpInstruction::E, CmpInstruction::NE};
-        new CmpInstruction(cmpOps[op - LESS], dst, expr1->getOperand(), expr2->getOperand(), now_bb);
+        new CmpInstruction(cmpOps[op - LESS], now_dst, op1, op2, now_bb);
         /* true和false未知，interB已知
         cmp
         br true, interB
@@ -556,7 +567,7 @@ void BinaryExpr::genCode()
         {
             BasicBlock *interB;
             interB = new BasicBlock(now_func);
-            true_list.push_back(new CondBrInstruction(nullptr, interB, dst, now_bb));
+            true_list.push_back(new CondBrInstruction(nullptr, interB, now_dst, now_bb));
             false_list.push_back(new UncondBrInstruction(nullptr, interB));
         }
     }
@@ -564,40 +575,50 @@ void BinaryExpr::genCode()
     {
         expr1->genCode();
         expr2->genCode();
+        op1 = (builder->isDuplicate() ? expr1->getDupOperand() : op1);
+        op2 = (builder->isDuplicate() ? expr2->getDupOperand() : op2);
         int opcodes[] = {BinaryInstruction::ADD, BinaryInstruction::SUB, BinaryInstruction::MUL, BinaryInstruction::DIV, BinaryInstruction::MOD};
-        new BinaryInstruction(opcodes[op - ADD], dst, expr1->getOperand(), expr2->getOperand(), now_bb);
+        new BinaryInstruction(opcodes[op - ADD], now_dst, op1, op2, now_bb);
     }
 }
 
 void UnaryExpr::genCode()
 {
+    auto now_op = expr->getOperand();
+    auto now_dst = dst;
+    if (builder->isDuplicate())
+    {
+        genDupOperand();
+        now_dst = dupDst;
+    }
     expr->genCode();
+    now_op = (builder->isDuplicate() ? expr->getDupOperand() : now_op);
     if (op == SUB)
     {
         if (expr->getType()->isInt())
-            new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), expr->getOperand(), now_bb);
+            new BinaryInstruction(BinaryInstruction::SUB, now_dst, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_op, now_bb);
         else if (expr->getType()->isFloat())
-            new BinaryInstruction(BinaryInstruction::SUB, dst, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), expr->getOperand(), now_bb);
+            new BinaryInstruction(BinaryInstruction::SUB, now_dst, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_op, now_bb);
     }
     else if (op == NOT)
     {
         if (expr->getType()->isInt())
         {
-            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
+            new CmpInstruction(CmpInstruction::E, now_dst, now_op, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
         }
         else if (expr->getType()->isFloat())
         {
-            new CmpInstruction(CmpInstruction::E, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
+            new CmpInstruction(CmpInstruction::E, now_dst, now_op, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
         }
         else
         {
-            new XorInstruction(dst, expr->getOperand(), now_bb);
+            new XorInstruction(now_dst, now_op, now_bb);
         }
         if (isCond)
         {
             BasicBlock *interB;
             interB = new BasicBlock(now_func);
-            true_list.push_back(new CondBrInstruction(nullptr, interB, dst, now_bb));
+            true_list.push_back(new CondBrInstruction(nullptr, interB, now_dst, now_bb));
             false_list.push_back(new UncondBrInstruction(nullptr, interB));
         }
     }
@@ -605,22 +626,36 @@ void UnaryExpr::genCode()
 
 void CallExpr::genCode()
 {
+    auto now_dst = dst;
+    if (builder->isDuplicate())
+    {
+        genDupOperand();
+        now_dst = dupDst;
+    }
     std::vector<Operand *> rParams;
     for (auto param : params)
     {
         param->genCode();
-        rParams.push_back(param->getOperand());
+        rParams.push_back((builder->isDuplicate() ? param->getDupOperand() : param->getOperand()));
     }
-    new CallInstruction(dst, symbolEntry, rParams, now_bb);
+    new CallInstruction(now_dst, symbolEntry, rParams, now_bb);
 }
 
 void Constant::genCode()
 {
     // we don't need to generate code.
+    if (builder->isDuplicate())
+        dupDst = new Operand(dst->getEntry());
 }
 
 void Id::genCode()
 {
+    auto now_dst = dst;
+    if (builder->isDuplicate())
+    {
+        genDupOperand();
+        now_dst = dupDst;
+    }
     IdentifierSymbolEntry *se = (IdentifierSymbolEntry *)symbolEntry;
     Operand *addr = se->getAddr();
     if (se->getType()->isArray())
@@ -630,7 +665,7 @@ void Id::genCode()
         while (tmp)
         {
             tmp->genCode();
-            offs.push_back(tmp->getOperand());
+            offs.push_back((builder->isDuplicate() ? tmp->getDupOperand() : tmp->getOperand()));
             tmp = (ExprNode *)tmp->getNext();
         }
         if (this->isPointer)
@@ -638,7 +673,7 @@ void Id::genCode()
             // 数组作为函数参数传递指针，取数组指针就行
             // 生成一条gep指令返回就行
             offs.push_back(new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
-            new GepInstruction(dst, addr, offs, now_bb);
+            new GepInstruction(now_dst, addr, offs, now_bb);
             return;
         }
         if (((ArrayType *)se->getType())->getBaseType()->isInt())
@@ -653,7 +688,7 @@ void Id::genCode()
         if (tmp == nullptr)
         {
             // 如果数组标识符没有索引，他应该是作为参数传递的，取数组指针就行
-            new LoadInstruction(dst, addr, now_bb);
+            new LoadInstruction(now_dst, addr, now_bb);
             return;
         }
         Operand *base = new Operand(new TemporarySymbolEntry(((PointerType *)(addr->getType()))->getType(), SymbolTable::getLabel()));
@@ -662,7 +697,7 @@ void Id::genCode()
         while (tmp)
         {
             tmp->genCode();
-            offs.push_back(tmp->getOperand());
+            offs.push_back((builder->isDuplicate() ? tmp->getDupOperand() : tmp->getOperand()));
             tmp = (ExprNode *)tmp->getNext();
         }
         if (((ArrayType *)((PointerType *)se->getType())->getType())->getBaseType()->isInt())
@@ -671,45 +706,52 @@ void Id::genCode()
             addr = new Operand(new TemporarySymbolEntry(new PointerType(TypeSystem::floatType), SymbolTable::getLabel()));
         new GepInstruction(addr, base, offs, now_bb, true);
     }
-    new LoadInstruction(dst, addr, now_bb);
+    new LoadInstruction(now_dst, addr, now_bb);
 }
 
 void ImplictCastExpr::genCode()
 {
+    auto now_dst = dst;
+    if (builder->isDuplicate())
+    {
+        genDupOperand();
+        now_dst = dupDst;
+    }
     expr->genCode();
+    auto now_op = (builder->isDuplicate() ? expr->getDupOperand() : expr->getOperand());
     // bool转int
     if (op == BTI)
     {
-        new ZextInstruction(dst, expr->getOperand(), true, now_bb);
+        new ZextInstruction(now_dst, now_op, true, now_bb);
     }
     // int转bool
     else if (op == ITB)
     {
-        new CmpInstruction(CmpInstruction::NE, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
+        new CmpInstruction(CmpInstruction::NE, now_dst, now_op, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)), now_bb);
     }
     else if (op == FTI)
     {
-        new F2IInstruction(dst, expr->getOperand(), now_bb);
+        new F2IInstruction(now_dst, now_op, now_bb);
     }
     else if (op == ITF)
     {
-        new I2FInstruction(dst, expr->getOperand(), now_bb);
+        new I2FInstruction(now_dst, now_op, now_bb);
     }
     else if (op == FTB)
     {
-        new CmpInstruction(CmpInstruction::NE, dst, expr->getOperand(), new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
+        new CmpInstruction(CmpInstruction::NE, now_dst, now_op, new Operand(new ConstantSymbolEntry(TypeSystem::floatType, 0)), now_bb);
     }
     else if (op == BTF)
     {
         Operand *internal_op = new Operand(new TemporarySymbolEntry(TypeSystem::intType, SymbolTable::getLabel()));
-        new ZextInstruction(internal_op, expr->getOperand(), true, now_bb);
-        new I2FInstruction(dst, internal_op, now_bb);
+        new ZextInstruction(internal_op, now_op, true, now_bb);
+        new I2FInstruction(now_dst, internal_op, now_bb);
     }
     if (this->isCond)
     {
         BasicBlock *interB;
         interB = new BasicBlock(now_func);
-        true_list.push_back(new CondBrInstruction(nullptr, interB, dst, now_bb));
+        true_list.push_back(new CondBrInstruction(nullptr, interB, now_dst, now_bb));
         false_list.push_back(new UncondBrInstruction(nullptr, interB));
     }
 }
@@ -717,6 +759,7 @@ void ImplictCastExpr::genCode()
 void CompoundStmt::genCode()
 {
     // Todo
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     if (stmt)
     {
         stmt->genCode();
@@ -726,12 +769,14 @@ void CompoundStmt::genCode()
 void SeqNode::genCode()
 {
     // Todo
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     stmt1->genCode();
     stmt2->genCode();
 }
 
 void DeclStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     IdentifierSymbolEntry *se = dynamic_cast<IdentifierSymbolEntry *>(id->getSymPtr());
     if (se->isGlobal())
     {
@@ -891,10 +936,12 @@ void DeclStmt::setInitArray(ExprNode **exprArray)
 
 void BlankStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
 }
 
 void IfStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     BasicBlock *then_bb, *end_bb;
 
     then_bb = new BasicBlock(now_func);
@@ -915,6 +962,7 @@ void IfStmt::genCode()
 void IfElseStmt::genCode()
 {
     // Todo
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     BasicBlock *then_bb, *else_bb, *end_bb;
 
     then_bb = new BasicBlock(now_func);
@@ -943,29 +991,39 @@ void IfElseStmt::genCode()
 
 void WhileStmt::genCode()
 {
-    BasicBlock *cond_bb, *stmt_bb, *end_bb;
-    cond_bb = new BasicBlock(now_func);
+    // 这里由于使用do while形式生成，如果调用cond->genCode()两次，会生成相同的代码
+    // 怎么解决呢？
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
+    BasicBlock *exit_cond_bb, *stmt_bb, *end_bb;
+    exit_cond_bb = new BasicBlock(now_func);
     stmt_bb = new BasicBlock(now_func);
     end_bb = new BasicBlock(now_func);
-    this->cond_bb = cond_bb;
+    this->exit_cond_bb = exit_cond_bb;
     this->end_bb = end_bb;
 
-    new UncondBrInstruction(cond_bb, now_bb);
-    builder->setInsertBB(cond_bb);
     cond->genCode();
     backPatch(cond->trueList(), stmt_bb);
     backPatch(cond->falseList(), end_bb);
 
     builder->setInsertBB(stmt_bb);
     stmt->genCode();
-    stmt_bb = builder->getInsertBB();
-    new UncondBrInstruction(cond_bb, stmt_bb);
+    new UncondBrInstruction(exit_cond_bb, now_bb);
+
+    builder->setInsertBB(exit_cond_bb);
+    builder->setDuplicate(true);
+    // 清空true和false，可不可以在backPatch里清空呀，先这样写
+    cond->clearLists();
+    cond->genCode();
+    builder->setDuplicate(false);
+    backPatch(cond->trueList(), stmt_bb);
+    backPatch(cond->falseList(), end_bb);
 
     builder->setInsertBB(end_bb);
 }
 
 void BreakStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     if (whileStmt)
     {
         new UncondBrInstruction(((WhileStmt *)whileStmt)->get_end_bb(), now_bb);
@@ -975,15 +1033,17 @@ void BreakStmt::genCode()
 
 void ContinueStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     if (whileStmt)
     {
-        new UncondBrInstruction(((WhileStmt *)whileStmt)->get_cond_bb(), now_bb);
+        new UncondBrInstruction(((WhileStmt *)whileStmt)->get_exit_cond_bb(), now_bb);
         builder->setInsertBB(new BasicBlock(now_func));
     }
 }
 
 void ReturnStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     // Todo
     if (retValue)
     {
@@ -994,6 +1054,7 @@ void ReturnStmt::genCode()
 
 void AssignStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     IdentifierSymbolEntry *se = (IdentifierSymbolEntry *)lval->getSymPtr();
     expr->genCode();
     Operand *addr = se->getAddr();
@@ -1042,11 +1103,13 @@ void AssignStmt::genCode()
 
 void ExprStmt::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     expr->genCode();
 }
 
 void FunctionDef::genCode()
 {
+    Assert(!builder->isDuplicate(), "为啥这里重复了");
     Unit *unit = builder->getUnit();
     Function *func = new Function(unit, se);
     BasicBlock *entry = func->getEntry();
