@@ -8,9 +8,10 @@ class DeadCodeElimination {
 private:
     Unit* unit;
     std::vector<Instruction*> worklist; //关键指令
-    std::set<std::vector<Operand*>> loadArrOp; //load,src是数组的若干个op
-    std::set<Operand*> loadGloOp; //load,src是全局的op
-    std::set<Operand*> loadAllocOp; //load,src的def是一个alloc语句
+    //与store是否保留有关的一些重要操作数
+    std::set<Operand*> gepOp; //load,src是数组的首地址op
+    std::set<Operand*> gloOp; //load,src是全局的op
+    std::set<Operand*> allocOp; //load,src的def是一个alloc语句
 public:
     DeadCodeElimination(Unit* unit) : unit(unit){};
     void pass();
@@ -19,11 +20,9 @@ public:
     bool remove(Function* function);
     void adjustBlock(Function* function);
 
-    void addLoadOp(Instruction* ins);
+    void addCriticalOp(Instruction* ins);
     void markBasic(Function* function);
     void markStore(Function* function);
-    bool isequal(std::vector<Operand*>& op1,std::vector<Operand*>& op2);
-
 };
 
 #endif

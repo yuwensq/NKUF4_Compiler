@@ -65,6 +65,10 @@ void DeadCodeElimination::initalize(Function* func)
         //遍历指令，执行某一些条件判断，标记其中的一些指令以及基本块，压入worklist
         for (auto it1 = (*it)->begin(); it1 != (*it)->end(); it1 = it1->getNext()) 
         {
+            //call指令的参数会影响前面store是否保存
+            if(it1->isCall()){
+                addCriticalOp(it1);
+            }
             if (it1->isCritical()) {
                 //如果是关键指令，就标记它及它所在的基本块
                 it1->setMark();
@@ -77,7 +81,7 @@ void DeadCodeElimination::initalize(Function* func)
 
 void DeadCodeElimination::mark(Function* func)
 {
-    int loadOpNum=0;
+    int opNum=0;
     //计算反向支配边界
     func->computeRDF();
     
@@ -85,9 +89,9 @@ void DeadCodeElimination::mark(Function* func)
         Log("markBasic:begin\n");
         markBasic(func);
         Log("markBasic:end\n");
-        int temp=loadArrOp.size()+loadGloOp.size()+loadAllocOp.size();
-        if(temp>loadOpNum){
-            loadOpNum=temp;
+        int temp=gepOp.size()+gloOp.size()+allocOp.size();
+        if(temp>opNum){
+            opNum=temp;
         }else{
             break;
         }
@@ -110,7 +114,7 @@ void DeadCodeElimination::markBasic(Function* func)
             auto def = it->getDef();
             if (def && !def->getMark()) {
                 if(def->isLoad()){
-                    addLoadOp(def);
+                    addCriticalOp(def);
                 }
                 def->setMark();
                 def->getParent()->setMark();
@@ -156,26 +160,42 @@ void DeadCodeElimination::markBasic(Function* func)
     }
 }
 
-void DeadCodeElimination::addLoadOp(Instruction* ins){
-    //获取这条load指令的src
-    Operand* use=ins->getUse()[0];
-    //如果是全局
-    if(use->isGlobal()){
-        loadGloOp.insert(use);
-    }else{
-        //如果是数组指针,获取那条数组求地址指令的所有use
-        Instruction* def=use->getDef();
-        std::cout<<def->getDef()->toStr()<<std::endl;
-        if(def->isAlloc()){
-            std::cout<<use->getType()->toStr()<<std::endl;
-            loadAllocOp.insert(use);
+void DeadCodeElimination::addCriticalOp(Instruction* ins){
+    if(ins->isLoad()){
+        //获取这条load指令的src
+        Operand* use=ins->getUse()[0];
+        //如果是全局
+        if(use->isGlobal()){
+            gloOp.insert(use);
         }else{
-            std::vector<Operand*> temp;
-            for(auto arrUse:def->getUse()){
-                temp.push_back(arrUse);
-                std::cout<<arrUse->toStr()<<std::endl;
+            //如果是数组指针,获取那条数组求地址指令的所有use
+            Instruction* def=use->getDef();
+            //前继def是alloc指令
+            if(def->isAlloc()){
+                allocOp.insert(use);
+            }else{
+                //前继def是gep指令
+                auto arrUse=def->getUse()[0];
+                gepOp.insert(arrUse);            
             }
-            loadArrOp.insert(temp);            
+        }        
+    }
+    if(ins->isCall()){
+        //如果它的参数中有指针，那么我们要将对应的数组首地址压入gepOp，对他的store要保留
+        //同时应考虑前继为alloc
+        //如果参数有全局数组的话，他前面会先load的
+        std::vector<Operand*> params=ins->getUse();
+        if(!params.empty()){
+            for(auto param:params){
+                if(param->getType()->isPtr()){
+                    Instruction* defIns=param->getDef();
+                    if(defIns->isAlloc()){
+                        allocOp.insert(param);
+                    }else{
+                        gepOp.insert(defIns->getUse()[0]);
+                    }
+                }
+            }
         }
     }
 }
@@ -186,35 +206,23 @@ void DeadCodeElimination::markStore(Function* func){
         Instruction* ins=block->begin();
         while(ins!=block->end()){
             if(ins->isStore()){
-                Log("1111");
                 Operand* dstOP=ins->getUse()[0];
-                Log("2222");
+                //全局的标记
                 if(dstOP->isGlobal()){
-                    if(!loadGloOp.empty()){
-                        Log("3333");
-                        //std::cout<<dstOP->toStr()<<std::endl;
-                        //std::cout<<(*loadGloOp.begin())->toStr()<<std::endl;
-                        //全局讨论,如果那个全局变量存在，就标记store
-                        //for(auto gloOp:loadGloOp){std::cout<<gloOp->toStr()<<std::endl;}
-                        for(auto gloOp=loadGloOp.begin();gloOp!=loadGloOp.end();gloOp++){
-                            if(*gloOp==dstOP){
-                                //std::cout<<dstOP->toStr()<<" "<<(*gloOp)->toStr()<<std::endl;
-                                ins->setMark();
-                                ins->getParent()->setMark();
-                                worklist.push_back(ins);                               
-                            }
-                        }
-                        Log("4444");                        
+                    if(count(gloOp.begin(),gloOp.end(),dstOP)){
+                        ins->setMark();
+                        ins->getParent()->setMark();
+                        worklist.push_back(ins);                             
                     }
+                //alloc或gep的标记
                 }else {
-                    Log("5555");
-                    //数组讨论，如果这条数组指令的全部useOp有存在loadArrOp中，就标记
-                    //std::cout<<dstOP->toStr()<<std::endl;
-                    Instruction* def=dstOP->getDef();//def是数组指令
+                    Instruction* def=dstOP->getDef();//def是gep或alloc指令
+                    //我们使用toStr()比较名称是否相同，而不直接比较两个operand*对象
+                    //因为前面优化处理可能让两个不同operand*最后有相同的名称等等
                     if(def->isAlloc()){
-                        if(!loadAllocOp.empty()){
-                            for(auto allOp:loadAllocOp){
-                                if(allOp==dstOP){
+                        if(!allocOp.empty()){
+                            for(auto allOp:allocOp){
+                                if(allOp->toStr()==dstOP->toStr()){
                                     ins->setMark();
                                     ins->getParent()->setMark();
                                     worklist.push_back(ins);                                           
@@ -222,22 +230,10 @@ void DeadCodeElimination::markStore(Function* func){
                             }
                         }
                     }
-                    else if(!loadArrOp.empty()){
-                        Log("9999");
-                        //std::cout<<def->getDef()->toStr()<<std::endl;
-                        std::vector<Operand*> temp;
-                        Log("8888");
-                        for(auto arrUse:def->getUse()){
-                            temp.push_back(arrUse);
-                            //std::cout<<arrUse->toStr()<<std::endl;
-                        }
-                        Log("7777");
-                        std::cout<<loadArrOp.empty()<<std::endl;
-                        for(auto ArrUse:loadArrOp){
-                            Log("lllllllllllllllllllllllllllll");
-                            if(isequal(ArrUse,temp)){
-                                //由于是按顺序push的，因此比较相同位置上值是否相等没问题
-                                Log("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
+                    else if(!gepOp.empty()){
+                        auto use=def->getUse()[0];
+                        for(auto ArrUse:gepOp){
+                            if(use->toStr()==ArrUse->toStr()){
                                 ins->setMark();
                                 ins->getParent()->setMark();
                                 worklist.push_back(ins);
@@ -245,27 +241,12 @@ void DeadCodeElimination::markStore(Function* func){
                             }
                         }                        
                     }
-                    Log("6666");
                 }
             }
             ins=ins->getNext();
         }
     }
 }
-
-bool DeadCodeElimination::isequal(std::vector<Operand*>& op1,std::vector<Operand*>& op2){
-    if(op1.size()!=op2.size()){
-        return false;
-    }
-    std::cout<<op1[0]->toStr();
-    //前面的优化可能改了点东西，导致两个同名op却不是同一个operand*
-    //这里我们只比较指针，这是考虑到那个偏移量在循环过程中可能取到不同的值
-    if(op1[0]->toStr()==op2[0]->toStr()){
-        return true;
-    }
-    return false;
-}
-
 
 //移除无用指令
 bool DeadCodeElimination::remove(Function* func) {
