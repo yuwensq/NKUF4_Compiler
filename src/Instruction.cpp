@@ -88,17 +88,20 @@ bool Instruction::isCritical()
         if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
             return true;
         } else {
+            std::cout<<funcSE->getName();
             //讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
             auto func = funcSE->getFunction();
             if (func->getCritical() == 1) {
+                std::cout<<" critical"<<std::endl;
                 return true;
             }
+            std::cout<<" not critical"<<std::endl;
         }
     }
-    //涉及内存写
-    if (isStore()) {
-        return true;
-    }
+    // //涉及内存写
+    // if (isStore()) {
+    //     return true;
+    // }
     
     return false;
 }

@@ -75,11 +75,30 @@ void DeadCodeElimination::initalize(Function* func)
     }
 }
 
-void DeadCodeElimination::mark(Function* func) 
+void DeadCodeElimination::mark(Function* func)
 {
+    int loadOpNum=0;
     //计算反向支配边界
     func->computeRDF();
     
+    while(true){
+        Log("markBasic:begin\n");
+        markBasic(func);
+        Log("markBasic:end\n");
+        int temp=loadArrOp.size()+loadGloOp.size()+loadAllocOp.size();
+        if(temp>loadOpNum){
+            loadOpNum=temp;
+        }else{
+            break;
+        }
+        Log("markStore:begin\n");
+        markStore(func);
+        Log("markStore:end\n");
+    }
+} 
+
+void DeadCodeElimination::markBasic(Function* func) 
+{
     while(!worklist.empty())
     {
         //每次取出一条已标记指令，why back ? not top?
@@ -90,6 +109,9 @@ void DeadCodeElimination::mark(Function* func)
         for (auto it : uses) {
             auto def = it->getDef();
             if (def && !def->getMark()) {
+                if(def->isLoad()){
+                    addLoadOp(def);
+                }
                 def->setMark();
                 def->getParent()->setMark();
                 worklist.push_back(def);
@@ -133,6 +155,117 @@ void DeadCodeElimination::mark(Function* func)
         }
     }
 }
+
+void DeadCodeElimination::addLoadOp(Instruction* ins){
+    //获取这条load指令的src
+    Operand* use=ins->getUse()[0];
+    //如果是全局
+    if(use->isGlobal()){
+        loadGloOp.insert(use);
+    }else{
+        //如果是数组指针,获取那条数组求地址指令的所有use
+        Instruction* def=use->getDef();
+        std::cout<<def->getDef()->toStr()<<std::endl;
+        if(def->isAlloc()){
+            std::cout<<use->getType()->toStr()<<std::endl;
+            loadAllocOp.insert(use);
+        }else{
+            std::vector<Operand*> temp;
+            for(auto arrUse:def->getUse()){
+                temp.push_back(arrUse);
+                std::cout<<arrUse->toStr()<<std::endl;
+            }
+            loadArrOp.insert(temp);            
+        }
+    }
+}
+
+void DeadCodeElimination::markStore(Function* func){
+    //标记关键的store指令
+    for(auto block:func->getBlockList()){
+        Instruction* ins=block->begin();
+        while(ins!=block->end()){
+            if(ins->isStore()){
+                Log("1111");
+                Operand* dstOP=ins->getUse()[0];
+                Log("2222");
+                if(dstOP->isGlobal()){
+                    if(!loadGloOp.empty()){
+                        Log("3333");
+                        //std::cout<<dstOP->toStr()<<std::endl;
+                        //std::cout<<(*loadGloOp.begin())->toStr()<<std::endl;
+                        //全局讨论,如果那个全局变量存在，就标记store
+                        //for(auto gloOp:loadGloOp){std::cout<<gloOp->toStr()<<std::endl;}
+                        for(auto gloOp=loadGloOp.begin();gloOp!=loadGloOp.end();gloOp++){
+                            if(*gloOp==dstOP){
+                                //std::cout<<dstOP->toStr()<<" "<<(*gloOp)->toStr()<<std::endl;
+                                ins->setMark();
+                                ins->getParent()->setMark();
+                                worklist.push_back(ins);                               
+                            }
+                        }
+                        Log("4444");                        
+                    }
+                }else {
+                    Log("5555");
+                    //数组讨论，如果这条数组指令的全部useOp有存在loadArrOp中，就标记
+                    //std::cout<<dstOP->toStr()<<std::endl;
+                    Instruction* def=dstOP->getDef();//def是数组指令
+                    if(def->isAlloc()){
+                        if(!loadAllocOp.empty()){
+                            for(auto allOp:loadAllocOp){
+                                if(allOp==dstOP){
+                                    ins->setMark();
+                                    ins->getParent()->setMark();
+                                    worklist.push_back(ins);                                           
+                                }
+                            }
+                        }
+                    }
+                    else if(!loadArrOp.empty()){
+                        Log("9999");
+                        //std::cout<<def->getDef()->toStr()<<std::endl;
+                        std::vector<Operand*> temp;
+                        Log("8888");
+                        for(auto arrUse:def->getUse()){
+                            temp.push_back(arrUse);
+                            //std::cout<<arrUse->toStr()<<std::endl;
+                        }
+                        Log("7777");
+                        std::cout<<loadArrOp.empty()<<std::endl;
+                        for(auto ArrUse:loadArrOp){
+                            Log("lllllllllllllllllllllllllllll");
+                            if(isequal(ArrUse,temp)){
+                                //由于是按顺序push的，因此比较相同位置上值是否相等没问题
+                                Log("wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww");
+                                ins->setMark();
+                                ins->getParent()->setMark();
+                                worklist.push_back(ins);
+                                break;    
+                            }
+                        }                        
+                    }
+                    Log("6666");
+                }
+            }
+            ins=ins->getNext();
+        }
+    }
+}
+
+bool DeadCodeElimination::isequal(std::vector<Operand*>& op1,std::vector<Operand*>& op2){
+    if(op1.size()!=op2.size()){
+        return false;
+    }
+    std::cout<<op1[0]->toStr();
+    //前面的优化可能改了点东西，导致两个同名op却不是同一个operand*
+    //这里我们只比较指针，这是考虑到那个偏移量在循环过程中可能取到不同的值
+    if(op1[0]->toStr()==op2[0]->toStr()){
+        return true;
+    }
+    return false;
+}
+
 
 //移除无用指令
 bool DeadCodeElimination::remove(Function* func) {
