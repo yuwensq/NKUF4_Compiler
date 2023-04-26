@@ -122,10 +122,14 @@ void Function::removeCallPred(Instruction* in)
     callPreds.erase(it);
 }
 
+PureFunctionAnalyser* pureFunc = nullptr ;        // 检测纯函数
 int Function::getCritical()
 {
     if(critical!=-1) return critical;
-    auto pureFunc = new PureFunctionAnalyser(parent);
+    if(pureFunc==nullptr){
+        pureFunc = new PureFunctionAnalyser(parent);
+    }
+    //auto pureFunc = new PureFunctionAnalyser(parent);
     bool ispure = pureFunc->isPure(this);
     if(!ispure)
     {
