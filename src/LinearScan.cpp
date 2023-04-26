@@ -29,10 +29,12 @@ void LinearScan::allocateRegisters()
             computeLiveIntervals();
             spillIntervals.clear();
             success = linearScanRegisterAllocation();
-            if (success) { // all vregs can be mapped to real regs 
+            if (success)
+            { // all vregs can be mapped to real regs
                 modifyCode();
             }
-            else { // spill vregs that can't be mapped to real regs
+            else
+            { // spill vregs that can't be mapped to real regs
                 genSpillCode();
             }
         }
@@ -313,100 +315,134 @@ void LinearScan::genSpillCode()
         for (auto use : interval->uses)
         {
             auto cur_bb = use->getParent()->getParent();
-            if (interval->disp > -254)
+            MachineInstruction *cur_inst = nullptr;
+            if (interval->fpu)
             {
-                MachineInstruction *cur_inst = nullptr;
-                if (interval->fpu)
+                if (interval->disp >= -1020)
+                {
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::VLDR,
                                                     new MachineOperand(*use),
                                                     new MachineOperand(MachineOperand::REG, 11),
                                                     new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                }
                 else
+                {
+                    auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::LDR,
-                                                    new MachineOperand(*use),
-                                                    new MachineOperand(MachineOperand::REG, 11),
+                                                    internal_reg,
                                                     new MachineOperand(MachineOperand::IMM, interval->disp));
-                cur_bb->insertBefore(cur_inst, use->getParent());
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                    cur_inst = new BinaryMInstruction(cur_bb,
+                                                      BinaryMInstruction::ADD,
+                                                      new MachineOperand(*internal_reg),
+                                                      new MachineOperand(*internal_reg),
+                                                      new MachineOperand(MachineOperand::REG, 11));
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                    cur_inst = new LoadMInstruction(cur_bb,
+                                                    LoadMInstruction::VLDR,
+                                                    new MachineOperand(*use),
+                                                    new MachineOperand(*internal_reg));
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                }
             }
-            // 这里负数太小的话就load吧
             else
             {
-                auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
-                MachineInstruction *cur_inst = new LoadMInstruction(cur_bb,
-                                                                    LoadMInstruction::LDR,
-                                                                    internal_reg,
-                                                                    new MachineOperand(MachineOperand::IMM, interval->disp));
-                cur_bb->insertBefore(cur_inst, use->getParent());
-                cur_inst = new BinaryMInstruction(cur_bb,
-                                                  BinaryMInstruction::ADD,
-                                                  new MachineOperand(*internal_reg),
-                                                  new MachineOperand(*internal_reg),
-                                                  new MachineOperand(MachineOperand::REG, 11));
-                cur_bb->insertBefore(cur_inst, use->getParent());
-                if (interval->fpu)
-                    cur_inst = new LoadMInstruction(cur_bb,
-                                                    LoadMInstruction::VLDR,
-                                                    new MachineOperand(*use),
-                                                    new MachineOperand(*internal_reg));
-                else
+                // https://developer.arm.com/documentation/dui0473/m/arm-and-thumb-instructions/ldr--immediate-offset-?lang=en
+                if (interval->disp >= -4095)
+                {
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::LDR,
                                                     new MachineOperand(*use),
+                                                    new MachineOperand(MachineOperand::REG, 11),
+                                                    new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                }
+                else
+                {
+                    auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
+                    cur_inst = new LoadMInstruction(cur_bb,
+                                                    LoadMInstruction::LDR,
+                                                    internal_reg,
+                                                    new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                    cur_inst = new LoadMInstruction(cur_bb,
+                                                    LoadMInstruction::LDR,
+                                                    new MachineOperand(*use),
+                                                    new MachineOperand(MachineOperand::REG, 11),
                                                     new MachineOperand(*internal_reg));
-                cur_bb->insertBefore(cur_inst, use->getParent());
+                    cur_bb->insertBefore(cur_inst, use->getParent());
+                }
             }
         }
+
         // 在def后插入str
         for (auto def : interval->defs)
         {
             auto cur_bb = def->getParent()->getParent();
-            if (interval->disp > -254)
+            MachineInstruction *cur_inst = nullptr;
+            if (interval->fpu)
             {
-                MachineInstruction *cur_inst = nullptr;
-                if (interval->fpu)
+                if (interval->disp >= -1020)
+                {
                     cur_inst = new StoreMInstruction(cur_bb,
                                                      StoreMInstruction::VSTR,
                                                      new MachineOperand(*def),
                                                      new MachineOperand(MachineOperand::REG, 11),
                                                      new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertAfter(cur_inst, def->getParent());
+                }
                 else
+                {
+                    auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
+                    cur_inst = new LoadMInstruction(cur_bb,
+                                                    LoadMInstruction::LDR,
+                                                    internal_reg,
+                                                    new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertAfter(cur_inst, def->getParent());
+                    auto cur_inst1 = new BinaryMInstruction(cur_bb,
+                                                            BinaryMInstruction::ADD,
+                                                            new MachineOperand(*internal_reg),
+                                                            new MachineOperand(*internal_reg),
+                                                            new MachineOperand(MachineOperand::REG, 11));
+                    cur_bb->insertAfter(cur_inst1, cur_inst);
+                    auto cur_inst2 = new StoreMInstruction(cur_bb,
+                                                           StoreMInstruction::VSTR,
+                                                           new MachineOperand(*def),
+                                                           new MachineOperand(*internal_reg));
+
+                    cur_bb->insertAfter(cur_inst2, cur_inst1);
+                }
+            }
+            else
+            {
+                // https://developer.arm.com/documentation/dui0473/m/arm-and-thumb-instructions/ldr--immediate-offset-?lang=en
+                if (interval->disp >= -4095)
+                {
                     cur_inst = new StoreMInstruction(cur_bb,
                                                      StoreMInstruction::STR,
                                                      new MachineOperand(*def),
                                                      new MachineOperand(MachineOperand::REG, 11),
                                                      new MachineOperand(MachineOperand::IMM, interval->disp));
-                cur_bb->insertAfter(cur_inst, def->getParent());
-            }
-            // 这里负数太小的话就load吧
-            else
-            {
-                auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
-                auto cur_inst = new LoadMInstruction(cur_bb,
-                                                     LoadMInstruction::LDR,
-                                                     internal_reg,
-                                                     new MachineOperand(MachineOperand::IMM, interval->disp));
-                cur_bb->insertAfter(cur_inst, def->getParent());
-                auto cur_inst1 = new BinaryMInstruction(cur_bb,
-                                                        BinaryMInstruction::ADD,
-                                                        new MachineOperand(*internal_reg),
-                                                        new MachineOperand(*internal_reg),
-                                                        new MachineOperand(MachineOperand::REG, 11));
-                cur_bb->insertAfter(cur_inst1, cur_inst);
-
-                MachineInstruction *cur_inst2 = nullptr;
-                if (interval->fpu)
-                    cur_inst2 = new StoreMInstruction(cur_bb,
-                                                      StoreMInstruction::VSTR,
-                                                      new MachineOperand(*def),
-                                                      new MachineOperand(*internal_reg));
+                    cur_bb->insertAfter(cur_inst, def->getParent());
+                }
                 else
-                    cur_inst2 = new StoreMInstruction(cur_bb,
-                                                      StoreMInstruction::STR,
-                                                      new MachineOperand(*def),
-                                                      new MachineOperand(*internal_reg));
-                cur_bb->insertAfter(cur_inst2, cur_inst1);
+                {
+                    auto internal_reg = new MachineOperand(MachineOperand::VREG, SymbolTable::getLabel());
+                    cur_inst = new LoadMInstruction(cur_bb,
+                                                    LoadMInstruction::LDR,
+                                                    internal_reg,
+                                                    new MachineOperand(MachineOperand::IMM, interval->disp));
+                    cur_bb->insertAfter(cur_inst, def->getParent());
+                    auto cur_inst1 = new StoreMInstruction(cur_bb,
+                                                           StoreMInstruction::STR,
+                                                           new MachineOperand(*def),
+                                                           new MachineOperand(MachineOperand::REG, 11),
+                                                           new MachineOperand(*internal_reg));
+                    cur_bb->insertAfter(cur_inst1, cur_inst);
+                }
             }
         }
     }

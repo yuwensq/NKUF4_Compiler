@@ -141,7 +141,9 @@ bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
                 }
             }
             if (!isLocal)
+            {
                 isPure = false;
+            }
         }
     }
     return isPure;
