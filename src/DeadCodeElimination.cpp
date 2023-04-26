@@ -191,7 +191,8 @@ void DeadCodeElimination::addCriticalOp(Instruction* ins){
                     Instruction* defIns=param->getDef();
                     if(defIns->isAlloc()){
                         allocOp.insert(param);
-                    }else{
+                    }else if(defIns->isGep()){
+                        //这里要注意，有可能是memset函数，i8*参数，前一条bit指令我们不要的
                         gepOp.insert(defIns->getUse()[0]);
                     }
                 }
