@@ -9,6 +9,11 @@
         2) 如果仅有一个前驱且该前驱仅有一个后继，将基本块与前驱合并。
         3) 消除空的基本块和仅包含无条件分支的基本块。
 */
+/**
+ * removeUnreachableBlocks
+ * mergeEmptyReturnBlocks
+ * iterativelySimplifyCFG
+*/
 class SimplifyCFG
 {
 private:
@@ -17,6 +22,9 @@ private:
 public:
     SimplifyCFG(Unit *unit) : unit(unit) {}
     void pass();
+    bool removeUnreachableBlocks(Function *F);
+    bool mergeEmptyReturnBlocks(Function *F);
+    bool iterativelySimplifyCFG(Function *F);
 };
 
 #endif
