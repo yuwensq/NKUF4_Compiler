@@ -303,6 +303,10 @@ bool DeadCodeElimination::remove(Function* func) {
     if (temp.size())
         ret = true;
     for (auto i : temp) {
+        //对于指令的use操作数，这条被删除的指令可能放在这些use操作数的getUse之中，要删除这种关系
+        for(auto useOp:i->getUse()){
+            useOp->removeUse(i);
+        }
         i->getParent()->remove(i);
     }
     return ret;

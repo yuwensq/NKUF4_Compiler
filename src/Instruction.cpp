@@ -84,8 +84,21 @@ bool Instruction::isCritical()
     if (isCall()) {
         IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)(((CallInstruction*)this)->getFunc());
         //我们的那个代码里面用的llvm.memset.p0i8.i32，表示写内存
-        //Sysy判断是否为库函数
-        if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
+        //Sysy判断是否为库函数,memset需要提前到sysy判断之前，因为memset算sysy函数
+        if(funcSE->getName() == "llvm.memset.p0i8.i32"){
+            //这边判断一下，如果memset的数组，它没有用过，那么这个memset也就不要了
+            auto addr=getUse()[0];
+            Instruction* bitDef=addr->getDef();
+            if(bitDef->isBitcast()){
+                //获取了那个数组的基地址
+                auto base = bitDef->getUse()[0];             
+                //如果这个数组没有其他的use了，它就是一个无用初始化
+                if(base->getUse().size()==1){
+                    return false;
+                }
+            }
+            return true;
+        } else if (funcSE->isSysy()) {
             return true;
         } else {
             //讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
@@ -94,6 +107,15 @@ bool Instruction::isCritical()
                 return true;
             }
         }
+        // if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
+        //     return true;
+        // } else {
+        //     //讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
+        //     auto func = funcSE->getFunction();
+        //     if (func->getCritical() == 1) {
+        //         return true;
+        //     }
+        // }
     }
     //涉及内存写,如果这条store语句所在的函数有被调用，且这个函数不是纯函数，就要保留它
     if (isStore()) {
