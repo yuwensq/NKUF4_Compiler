@@ -68,6 +68,7 @@ void MachineStraight::removeSlimBlock() {
                     if (!is_direct_succ) {
                         blk->removeSucc(direct_succ);
                         blk->addSucc(last_succ);
+                        last_succ->addPred(blk);
                         ((BranchMInstruction *)ins)->setTarget(new MachineOperand(".L" + std::to_string(last_succ->getNo())));
                     }
                 }

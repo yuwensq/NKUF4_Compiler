@@ -1,6 +1,10 @@
 #include "MachineCopyProp.h"
 #include "Type.h"
 
+// #define COPYPROPDEBUG
+
+extern FILE *yyout;
+
 void MachineCopyProp::clearData()
 {
     allCopyStmts.clear();
@@ -9,6 +13,14 @@ void MachineCopyProp::clearData()
     Kill.clear();
     In.clear();
     Out.clear();
+}
+
+std::set<int> MachineCopyProp::intersection(std::set<int> &a, std::set<int> &b)
+{
+    std::vector<int> res;
+    res.resize(std::min(a.size(), b.size()));
+    auto lastPos = std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), res.begin());
+    return std::set<int>(res.begin(), lastPos);
 }
 
 void MachineCopyProp::calGenKill(MachineFunction *func)
@@ -22,7 +34,7 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
             {
                 CopyStmt cs(minst);
                 auto it = find(allCopyStmts.begin(), allCopyStmts.end(), cs);
-                int index = it - allCopyStmts.end();
+                int index = it - allCopyStmts.begin();
                 inst2CopyStmt[minst] = index;
                 if (it == allCopyStmts.end())
                     allCopyStmts.push_back(cs);
@@ -95,11 +107,48 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
 
 void MachineCopyProp::calInOut(MachineFunction *func)
 {
+    std::set<int> U;
+    for (int i = 0; i < allCopyStmts.size(); i++)
+        U.insert(i);
+    auto entry = func->getBlocks()[0];
+    In[entry].clear();
+    Out[entry] = Gen[entry];
+    for (auto mb = func->begin() + 1; mb != func->end(); mb++)
+        Out[*mb] = U;
+
+    bool outChanged = true;
+    // int sum = 0;
+    while (outChanged)
+    {
+        // sum++;
+        // Log("%d", sum);
+        outChanged = false;
+        for (auto mb = func->begin() + 1; mb != func->end(); mb++)
+        {
+            // 先计算in
+            std::set<int> in = U;
+            for (auto preB : (*mb)->getPreds())
+            {
+                in = intersection(Out[preB], in);
+            }
+            In[*mb] = in;
+            // 再计算out
+            std::set<int> midDif;
+            std::set<int> out;
+            std::set_difference(In[*mb].begin(), In[*mb].end(), Kill[*mb].begin(), Kill[*mb].end(), inserter(midDif, midDif.begin()));
+            std::set_union(Gen[*mb].begin(), Gen[*mb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
+            if (out != Out[*mb])
+            {
+                outChanged = true;
+                Out[*mb] = out;
+            }
+        }
+    }
 }
 
 bool MachineCopyProp::replaceOp(MachineFunction *func)
 {
-    return false;
+    return true;
 }
 
 /**
@@ -110,6 +159,47 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
     clearData();
     calGenKill(func);
     calInOut(func);
+#ifdef COPYPROPDEBUG
+    fprintf(yyout, "all expr\n");
+    for (auto index = 0; index < allCopyStmts.size(); index++)
+    {
+        fprintf(yyout, "%d ", index);
+        allCopyStmts[index].dst->output();
+        fprintf(yyout, " ");
+        allCopyStmts[index].src->output();
+        fprintf(yyout, "\n");
+    }
+    fprintf(yyout, "\n");
+    fprintf(yyout, "gen per bb");
+    for (auto mb = func->begin(); mb != func->end(); mb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*mb)->getNo());
+        for (auto index : Gen[*mb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nkill per bb");
+    for (auto mb = func->begin(); mb != func->end(); mb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*mb)->getNo());
+        for (auto index : Kill[*mb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nin per bb");
+    for (auto mb = func->begin(); mb != func->end(); mb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*mb)->getNo());
+        for (auto index : In[*mb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\nout per bb");
+    for (auto mb = func->begin(); mb != func->end(); mb++)
+    {
+        fprintf(yyout, "\n%%B%d\n", (*mb)->getNo());
+        for (auto index : Out[*mb])
+            fprintf(yyout, "    %d", index);
+    }
+    fprintf(yyout, "\n");
+#endif
     return replaceOp(func);
 }
 

@@ -33,6 +33,7 @@ private:
     std::unordered_map<MachineBlock *, std::set<int>> Out;
 
     void clearData();
+    std::set<int> intersection(std::set<int> &, std::set<int> &);
     void calGenKill(MachineFunction *);
     void calInOut(MachineFunction *);
     bool replaceOp(MachineFunction *);

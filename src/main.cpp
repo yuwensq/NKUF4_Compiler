@@ -16,6 +16,7 @@
 #include "PhiElim.h"
 #include "DeadCodeElimination.h"
 #include "LoopCodeMotion.h"
+#include "MachineCopyProp.h"
 using namespace std;
 
 Ast ast;
@@ -75,7 +76,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s: fail to open output file\n", outfile);
         exit(EXIT_FAILURE);
     }
-    
+
     // dump_tokens = true;
     yyparse();
     Log("语法分析成功\n");
@@ -92,15 +93,15 @@ int main(int argc, char *argv[])
     PhiElimination pe(&unit);
     LoopCodeMotion lcm(&unit);
 
-    m2r.pass(); //Only IR supported
+    m2r.pass(); // Only IR supported
     sccp.pass();
     cse.pass();
     sccp.pass();
     dce.pass();
     lcm.pass();
     pe.pass();
-    
-    Log("IR优化成功\n");/**/
+
+    Log("IR优化成功\n"); /**/
 
     if (dump_ir)
         unit.output();
@@ -109,14 +110,16 @@ int main(int argc, char *argv[])
 
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
+    // MachineCopyProp mcp(&mUnit);
     mst.pass();
     mph.pass();
+    // mcp.pass();
 
     Log("目标代码优化成功\n");
 
     LinearScan linearScan(&mUnit);
-    if (dump_asm)
-        linearScan.allocateRegisters();
+    // if (dump_asm)
+    //     linearScan.allocateRegisters();
     Log("线性扫描完成\n");
     if (dump_asm)
         mUnit.output();
