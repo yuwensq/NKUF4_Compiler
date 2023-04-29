@@ -136,6 +136,7 @@ public:
     bool isVMov() { return type == MOV && op == 2; };
     bool isVMov32() { return type == MOV && op == 3; };
     bool isCondMov() { return type == MOV && cond != MachineInstruction::NONE; };
+    bool isCall() { return type == BRANCH && op == 1; };
 };
 
 class BinaryMInstruction : public MachineInstruction
