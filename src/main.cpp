@@ -110,10 +110,10 @@ int main(int argc, char *argv[])
 
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
-    // MachineCopyProp mcp(&mUnit);
+    MachineCopyProp mcp(&mUnit);
     mst.pass();
     mph.pass();
-    // mcp.pass();
+    mcp.pass();
 
     Log("目标代码优化成功\n");
 

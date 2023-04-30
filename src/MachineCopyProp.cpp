@@ -1,5 +1,6 @@
 #include "MachineCopyProp.h"
 #include "Type.h"
+#include <unordered_set>
 
 // #define COPYPROPDEBUG
 
@@ -23,6 +24,34 @@ std::set<int> MachineCopyProp::intersection(std::set<int> &a, std::set<int> &b)
     return std::set<int>(res.begin(), lastPos);
 }
 
+int MachineCopyProp::getHash(MachineOperand *op)
+{
+    if (op->isImm() || op->isLabel())
+        return 0;
+    int res = 0;
+    res = op->getReg();
+    if (op->isReg())
+        res = -res - 1;
+    return res;
+}
+
+int MachineCopyProp::hasReturn(MachineInstruction *minst)
+{
+    auto funcName = minst->getUse()[0]->getLabel();
+    funcName = funcName.substr(1, funcName.size() - 1);
+    auto se = globals->lookup(funcName);
+    if (se == nullptr)
+        return 0;
+    auto retType = static_cast<FunctionType *>(se->getType())->getRetType();
+    if (retType->isVoid())
+        return 0;
+    if (retType->isInt())
+        return 1;
+    else if (retType->isFloat())
+        return 2;
+    return 0;
+}
+
 void MachineCopyProp::calGenKill(MachineFunction *func)
 {
     // cal gen
@@ -30,6 +59,31 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
     {
         for (auto minst : mb->getInsts())
         {
+            if (minst->getDef().size() > 0 || minst->isCall())
+            {
+                MachineOperand *def = nullptr;
+                int retType = 0;
+                if (minst->isCall())
+                {
+                    retType = hasReturn(minst);
+                    if (retType == 0)
+                        continue;
+                }
+                else
+                    def = minst->getDef()[0];
+                std::set<int> gen = Gen[mb];
+                for (auto index : gen)
+                {
+                    auto &cs = allCopyStmts[index];
+                    if (!minst->isCall() && (*cs.dst == *def || *cs.src == *def))
+                    {
+                        Gen[mb].erase(index);
+                    }
+                    else if (minst->isCall())
+                    {
+                    }
+                }
+            }
             if (minst->isMov() || minst->isVMov32())
             {
                 CopyStmt cs(minst);
@@ -40,33 +94,6 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
                     allCopyStmts.push_back(cs);
                 Gen[mb].insert(index);
             }
-            else
-            {
-                if (minst->getDef().size() > 0 || minst->isCall())
-                {
-                    MachineOperand *def = nullptr;
-                    if (minst->isCall())
-                    {
-                        auto funcName = minst->getUse()[0]->getLabel();
-                        funcName = funcName.substr(1, funcName.size() - 1);
-                        auto se = globals->lookup(funcName);
-                        def = new MachineOperand(MachineOperand::REG, 0, static_cast<FunctionType *>(se->getType())->getRetType()->isFloat());
-                    }
-                    else
-                        def = minst->getDef()[0];
-                    std::set<int> gen = Gen[mb];
-                    for (auto index : gen)
-                    {
-                        auto &cs = allCopyStmts[index];
-                        if (*cs.dst == *def || *cs.src == *def)
-                        {
-                            Gen[mb].erase(index);
-                        }
-                    }
-                    if (minst->isCall())
-                        delete def;
-                }
-            }
         }
     }
     // cal kill
@@ -74,32 +101,28 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
     {
         for (auto minst : mb->getInsts())
         {
+            if (minst->getDef().size() > 0 || minst->isCall())
+            {
+                MachineOperand *def = nullptr;
+                if (minst->isCall())
+                {
+                    def = getDefReg(minst);
+                    if (def == nullptr)
+                        continue;
+                }
+                else
+                    def = minst->getDef()[0];
+                for (int i = 0; i < allCopyStmts.size(); i++)
+                {
+                    if (*allCopyStmts[i].dst == *def || *allCopyStmts[i].src == *def)
+                        Kill[mb].insert(i);
+                }
+                if (minst->isCall())
+                    delete def;
+            }
             if (minst->isMov() || minst->isVMov32())
             {
                 Kill[mb].erase(inst2CopyStmt[minst]);
-            }
-            else
-            {
-                if (minst->getDef().size() > 0 || minst->isCall())
-                {
-                    MachineOperand *def = nullptr;
-                    if (minst->isCall())
-                    {
-                        auto funcName = minst->getUse()[0]->getLabel();
-                        funcName = funcName.substr(1, funcName.size() - 1);
-                        auto se = globals->lookup(funcName);
-                        def = new MachineOperand(MachineOperand::REG, 0, static_cast<FunctionType *>(se->getType())->getRetType()->isFloat());
-                    }
-                    else
-                        def = minst->getDef()[0];
-                    for (int i = 0; i < allCopyStmts.size(); i++)
-                    {
-                        if (*allCopyStmts[i].dst == *def || *allCopyStmts[i].src == *def)
-                            Kill[mb].insert(i);
-                    }
-                    if (minst->isCall())
-                        delete def;
-                }
             }
         }
     }
@@ -148,7 +171,65 @@ void MachineCopyProp::calInOut(MachineFunction *func)
 
 bool MachineCopyProp::replaceOp(MachineFunction *func)
 {
-    return true;
+    bool res = true;
+    for (auto mb : func->getBlocks())
+    {
+        std::unordered_map<int, MachineOperand *> op2Src;
+        for (auto index : In[mb])
+        {
+            op2Src[getHash(allCopyStmts[index].dst)] = allCopyStmts[index].src;
+        }
+        for (auto minst : mb->getInsts())
+        {
+            auto uses = minst->getUse();
+            bool change = false;
+            for (auto use : uses)
+            {
+                if (use->isImm() || use->isLabel())
+                    continue;
+                if (op2Src.find(getHash(use)) != op2Src.end())
+                {
+                    auto new_use = new MachineOperand(*op2Src[getHash(use)]);
+                    change = minst->replaceUse(use, new_use);
+                }
+            }
+            if (change)
+            {
+                res = false;
+                continue;
+            }
+            if (minst->getDef().size() > 0 || minst->isCall())
+            {
+                MachineOperand *def = nullptr;
+                if (minst->isCall())
+                {
+                    def = getDefReg(minst);
+                    if (def == nullptr)
+                        continue;
+                }
+                else
+                    def = minst->getDef()[0];
+                std::set<int> in = In[mb];
+                for (auto index : in)
+                {
+                    auto &cs = allCopyStmts[index];
+                    if (*cs.dst == *def || *cs.src == *def)
+                    {
+                        In[mb].erase(index);
+                        op2Src.erase(getHash(cs.dst));
+                    }
+                }
+                if (minst->isCall())
+                    delete def;
+            }
+            if (minst->isMov() || minst->isVMov32())
+            {
+                In[mb].insert(inst2CopyStmt[minst]);
+                op2Src[getHash(minst->getDef()[0])] = minst->getUse()[0];
+            }
+        }
+    }
+    return res;
 }
 
 /**
@@ -205,9 +286,12 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
 
 void MachineCopyProp::pass()
 {
+    Log("汇编复制传播开始");
+    int num = 0;
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
         while (!copyProp(*func))
-            ;
+            Log("pass%dover", ++num);
     }
+    Log("汇编复制传播结束");
 }

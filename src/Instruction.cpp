@@ -1207,7 +1207,7 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
         }
         auto new_base = genMachineVReg();
         cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new_base, new MachineOperand(*base), new MachineOperand(*internal_reg1)));
-        base = new_base;
+        base = new MachineOperand(*new_base);
     }
     // for (unsigned long int i = 2; i < operands.size(); i++)
     // {

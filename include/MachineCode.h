@@ -113,6 +113,7 @@ public:
     std::vector<MachineOperand *> &getDef() { return def_list; };
     std::vector<MachineOperand *> &getUse() { return use_list; };
     MachineBlock *getParent() { return parent; };
+    virtual bool replaceUse(MachineOperand *, MachineOperand *) { return false; };
     bool isStack() { return type == STACK; };
     // 这个几个函数有的写的比较死，就用op的几个，要注意后期改代码的时候op的值
     bool isPOP() { return type == STACK && this->op == 1; }
@@ -162,6 +163,27 @@ public:
     {
         use_list[1] = new MachineOperand(MachineOperand::IMM, stack_size);
     }
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                if (rep->isImm())
+                {
+                    if (i == 0)
+                        break;
+                    if (!(op == ADD || op == SUB || op == AND || op == OR))
+                        break;
+                }
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -180,6 +202,22 @@ public:
     {
         use_list[1] = new MachineOperand(MachineOperand::IMM, use_list[1]->getVal() + offset);
     }
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -194,6 +232,22 @@ public:
     StoreMInstruction(MachineBlock *p, int op,
                       MachineOperand *src1, MachineOperand *src2, MachineOperand *src3 = nullptr,
                       int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -210,6 +264,20 @@ public:
     MovMInstruction(MachineBlock *p, int op,
                     MachineOperand *dst, MachineOperand *src,
                     int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -246,6 +314,22 @@ public:
     CmpMInstruction(MachineBlock *p, int op,
                     MachineOperand *src1, MachineOperand *src2,
                     int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -280,6 +364,22 @@ public:
     VcvtMInstruction(MachineBlock *p, int op,
                      MachineOperand *dst, MachineOperand *src,
                      int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -297,6 +397,22 @@ public:
     MlaMInstruction(MachineBlock *p, MachineOperand *dst,
                     MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
                     int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -306,6 +422,22 @@ public:
     MlsMInstruction(MachineBlock *p, MachineOperand *dst,
                     MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
                     int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 
@@ -314,6 +446,22 @@ class VNegMInstruction : public MachineInstruction
 public:
     VNegMInstruction(MachineBlock *p, MachineOperand *dst,
                      MachineOperand *src, int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (int i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
     void output();
 };
 

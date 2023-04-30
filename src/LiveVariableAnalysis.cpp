@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <chrono>
 
+extern FILE *yyout;
+
 void LiveVariableAnalysis::pass(MachineUnit *unit)
 {
     for (auto &func : unit->getFuncs())
@@ -75,7 +77,9 @@ void LiveVariableAnalysis::computeUsePos(MachineFunction *func)
         {
             auto uses = inst->getUse();
             for (auto &use : uses)
+            {
                 all_uses[*use].insert(use);
+            }
         }
     }
 }
