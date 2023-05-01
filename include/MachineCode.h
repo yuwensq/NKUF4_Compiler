@@ -266,6 +266,8 @@ public:
                     int cond = MachineInstruction::NONE);
     bool replaceUse(MachineOperand *old, MachineOperand *rep)
     {
+        if (rep->isImm() && (op == VMOV || op == VMOV32))
+            return false;
         for (int i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)

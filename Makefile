@@ -8,7 +8,7 @@ SYSLIB_PATH ?= sysyruntimelibrary
 
 INC = $(addprefix -I, $(INC_PATH))
 SRC = $(shell find $(SRC_PATH)  -name "*.cpp")
-CFLAGS = -O0 -g -Wall -std=c++17 $(INC)
+CFLAGS = -O2 -g -Wall -std=c++17 $(INC)
 FLEX ?= $(SRC_PATH)/lexer.l
 LEXER ?= $(addsuffix .cpp, $(basename $(FLEX)))
 BISON ?= $(SRC_PATH)/parser.y
@@ -43,7 +43,7 @@ $(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp
 	@clang++ $(CFLAGS) -c -o $@ $<
 
 $(BINARY):$(OBJ)
-	@clang++ -O0 -g -Wall -Werror -o  $@ $^
+	@clang++ -O2 -g -Wall -Werror -o  $@ $^
 
 app:$(LEXER) $(PARSER) $(BINARY)
 

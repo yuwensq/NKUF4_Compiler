@@ -24,32 +24,46 @@ std::set<int> MachineCopyProp::intersection(std::set<int> &a, std::set<int> &b)
     return std::set<int>(res.begin(), lastPos);
 }
 
+bool MachineCopyProp::couldKill(MachineInstruction *minst, CopyStmt &cs)
+{
+    if (minst->getDef().size() > 0)
+    {
+        auto def = minst->getDef()[0];
+        return (*cs.dst == *def || *cs.src == *def);
+    }
+
+    auto isReg = [&](MachineOperand *op, int regNo, bool fpu)
+    {
+        bool isr = (op->isReg() && op->getReg() == regNo);
+        return (fpu ? (isr && op->isFReg()) : isr);
+    };
+    if (minst->isCall())
+    {
+        for (int i = 0; i < 4; i++)
+            if (isReg(cs.dst, i, false) || isReg(cs.src, i, false))
+                return true;
+        for (int i = 0; i < 16; i++)
+            if (isReg(cs.dst, i, true) || isReg(cs.src, i, true))
+                return true;
+    }
+    return false;
+}
+
 int MachineCopyProp::getHash(MachineOperand *op)
 {
+    /* 普通的虚拟寄存器直接返回编号，r系列的rx哈希为-x-33，s系列的sx哈希为-x-1 */
     if (op->isImm() || op->isLabel())
         return 0;
     int res = 0;
     res = op->getReg();
     if (op->isReg())
-        res = -res - 1;
+    {
+        if (!op->isFReg())
+            res = -res - 33;
+        else
+            res = -res - 1;
+    }
     return res;
-}
-
-int MachineCopyProp::hasReturn(MachineInstruction *minst)
-{
-    auto funcName = minst->getUse()[0]->getLabel();
-    funcName = funcName.substr(1, funcName.size() - 1);
-    auto se = globals->lookup(funcName);
-    if (se == nullptr)
-        return 0;
-    auto retType = static_cast<FunctionType *>(se->getType())->getRetType();
-    if (retType->isVoid())
-        return 0;
-    if (retType->isInt())
-        return 1;
-    else if (retType->isFloat())
-        return 2;
-    return 0;
 }
 
 void MachineCopyProp::calGenKill(MachineFunction *func)
@@ -61,30 +75,18 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
         {
             if (minst->getDef().size() > 0 || minst->isCall())
             {
-                MachineOperand *def = nullptr;
-                int retType = 0;
-                if (minst->isCall())
-                {
-                    retType = hasReturn(minst);
-                    if (retType == 0)
-                        continue;
-                }
-                else
-                    def = minst->getDef()[0];
                 std::set<int> gen = Gen[mb];
                 for (auto index : gen)
                 {
                     auto &cs = allCopyStmts[index];
-                    if (!minst->isCall() && (*cs.dst == *def || *cs.src == *def))
+                    if (couldKill(minst, cs))
                     {
                         Gen[mb].erase(index);
                     }
-                    else if (minst->isCall())
-                    {
-                    }
                 }
             }
-            if (minst->isMov() || minst->isVMov32())
+            // 这里不要cond mov吧，cond mov应该影响不大
+            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
             {
                 CopyStmt cs(minst);
                 auto it = find(allCopyStmts.begin(), allCopyStmts.end(), cs);
@@ -103,24 +105,13 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
         {
             if (minst->getDef().size() > 0 || minst->isCall())
             {
-                MachineOperand *def = nullptr;
-                if (minst->isCall())
-                {
-                    def = getDefReg(minst);
-                    if (def == nullptr)
-                        continue;
-                }
-                else
-                    def = minst->getDef()[0];
                 for (int i = 0; i < allCopyStmts.size(); i++)
                 {
-                    if (*allCopyStmts[i].dst == *def || *allCopyStmts[i].src == *def)
+                    if (couldKill(minst, allCopyStmts[i]))
                         Kill[mb].insert(i);
                 }
-                if (minst->isCall())
-                    delete def;
             }
-            if (minst->isMov() || minst->isVMov32())
+            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
             {
                 Kill[mb].erase(inst2CopyStmt[minst]);
             }
@@ -193,36 +184,25 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
                     change = minst->replaceUse(use, new_use);
                 }
             }
+
             if (change)
-            {
                 res = false;
-                continue;
-            }
+
             if (minst->getDef().size() > 0 || minst->isCall())
             {
-                MachineOperand *def = nullptr;
-                if (minst->isCall())
-                {
-                    def = getDefReg(minst);
-                    if (def == nullptr)
-                        continue;
-                }
-                else
-                    def = minst->getDef()[0];
                 std::set<int> in = In[mb];
                 for (auto index : in)
                 {
                     auto &cs = allCopyStmts[index];
-                    if (*cs.dst == *def || *cs.src == *def)
+                    if (couldKill(minst, cs))
                     {
                         In[mb].erase(index);
                         op2Src.erase(getHash(cs.dst));
                     }
                 }
-                if (minst->isCall())
-                    delete def;
             }
-            if (minst->isMov() || minst->isVMov32())
+
+            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
             {
                 In[mb].insert(inst2CopyStmt[minst]);
                 op2Src[getHash(minst->getDef()[0])] = minst->getUse()[0];
@@ -293,5 +273,5 @@ void MachineCopyProp::pass()
         while (!copyProp(*func))
             Log("pass%dover", ++num);
     }
-    Log("汇编复制传播结束");
+    Log("汇编复制传播结束\n");
 }

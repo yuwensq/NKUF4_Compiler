@@ -118,8 +118,8 @@ int main(int argc, char *argv[])
     Log("目标代码优化成功\n");
 
     LinearScan linearScan(&mUnit);
-    // if (dump_asm)
-    //     linearScan.allocateRegisters();
+    if (dump_asm)
+        linearScan.allocateRegisters();
     Log("线性扫描完成\n");
     if (dump_asm)
         mUnit.output();
