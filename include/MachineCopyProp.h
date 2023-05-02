@@ -26,14 +26,16 @@ private:
 
     std::vector<CopyStmt> allCopyStmts;
     std::unordered_map<MachineInstruction *, int> inst2CopyStmt;
+    std::unordered_map<int, bool> copyStmtChanged;
 
     std::unordered_map<MachineBlock *, std::set<int>> Gen;
     std::unordered_map<MachineBlock *, std::set<int>> Kill;
     std::unordered_map<MachineBlock *, std::set<int>> In;
     std::unordered_map<MachineBlock *, std::set<int>> Out;
 
+    void addZeroToMov();
     void clearData();
-    std::set<int> intersection(std::set<int> &, std::set<int> &);
+    void intersection(std::set<int> &, std::set<int> &, std::set<int> &);
     bool couldKill(MachineInstruction *, CopyStmt &);
     int getHash(MachineOperand *);
     void calGenKill(MachineFunction *);

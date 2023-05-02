@@ -6,22 +6,47 @@
 
 extern FILE *yyout;
 
+void MachineCopyProp::addZeroToMov()
+{
+    for (auto func : munit->getFuncs())
+    {
+        for (auto mb : func->getBlocks())
+        {
+            auto it = mb->getInsts().begin();
+            while (it != mb->getInsts().end())
+            {
+                auto minst = *it;
+                if ((minst->isAdd() || minst->isSub()) && minst->getUse()[1]->isImm() && minst->getUse()[1]->getVal() == 0)
+                {
+                    if (*minst->getDef()[0] == *minst->getUse()[0])
+                    {
+                        it = mb->getInsts().erase(it);
+                        continue;
+                    }
+                    auto movInst = new MovMInstruction(minst->getParent(), MovMInstruction::MOV, new MachineOperand(*minst->getDef()[0]), new MachineOperand(*minst->getUse()[0]));
+                    *it = movInst;
+                }
+                it++;
+            }
+        }
+    }
+}
+
 void MachineCopyProp::clearData()
 {
     allCopyStmts.clear();
     inst2CopyStmt.clear();
+    copyStmtChanged.clear();
     Gen.clear();
     Kill.clear();
     In.clear();
     Out.clear();
 }
 
-std::set<int> MachineCopyProp::intersection(std::set<int> &a, std::set<int> &b)
+void MachineCopyProp::intersection(std::set<int> &a, std::set<int> &b, std::set<int> &out)
 {
-    std::vector<int> res;
-    res.resize(std::min(a.size(), b.size()));
-    auto lastPos = std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), res.begin());
-    return std::set<int>(res.begin(), lastPos);
+    out.clear();
+    std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), inserter(out, out.begin()));
 }
 
 bool MachineCopyProp::couldKill(MachineInstruction *minst, CopyStmt &cs)
@@ -131,21 +156,25 @@ void MachineCopyProp::calInOut(MachineFunction *func)
         Out[*mb] = U;
 
     bool outChanged = true;
-    // int sum = 0;
     while (outChanged)
     {
-        // sum++;
-        // Log("%d", sum);
         outChanged = false;
         for (auto mb = func->begin() + 1; mb != func->end(); mb++)
         {
             // 先计算in
-            std::set<int> in = U;
-            for (auto preB : (*mb)->getPreds())
+            std::set<int> in[2];
+            if ((*mb)->getPreds().size() > 0)
+                in[0] = Out[(*mb)->getPreds()[0]];
+            auto it = (*mb)->getPreds().begin() + 1;
+            auto overPos = (*mb)->getPreds().end();
+            int turn = 1;
+            for (it; it != overPos; it++)
             {
-                in = intersection(Out[preB], in);
+                intersection(Out[*it], in[turn ^ 1], in[turn]);
+                turn ^= 1;
             }
-            In[*mb] = in;
+            In[*mb] = in[turn ^ 1];
+
             // 再计算out
             std::set<int> midDif;
             std::set<int> out;
@@ -168,7 +197,8 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
         std::unordered_map<int, MachineOperand *> op2Src;
         for (auto index : In[mb])
         {
-            op2Src[getHash(allCopyStmts[index].dst)] = allCopyStmts[index].src;
+            if (!copyStmtChanged[index])
+                op2Src[getHash(allCopyStmts[index].dst)] = allCopyStmts[index].src;
         }
         for (auto minst : mb->getInsts())
         {
@@ -204,6 +234,8 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
 
             if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
             {
+                if (change)
+                    copyStmtChanged[inst2CopyStmt[minst]] = true;
                 In[mb].insert(inst2CopyStmt[minst]);
                 op2Src[getHash(minst->getDef()[0])] = minst->getUse()[0];
             }
@@ -219,7 +251,9 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
 {
     clearData();
     calGenKill(func);
+    Log("cal genkill over");
     calInOut(func);
+    Log("cal inout over");
 #ifdef COPYPROPDEBUG
     fprintf(yyout, "all expr\n");
     for (auto index = 0; index < allCopyStmts.size(); index++)
@@ -267,6 +301,7 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
 void MachineCopyProp::pass()
 {
     Log("汇编复制传播开始");
+    addZeroToMov();
     int num = 0;
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
