@@ -2,6 +2,7 @@
 #include "MachineCode.h"
 #include <iostream>
 #include <algorithm>
+#include <queue>
 #include <chrono>
 
 extern FILE *yyout;
@@ -45,26 +46,30 @@ void LiveVariableAnalysis::computeDefUse(MachineFunction *func)
 
 void LiveVariableAnalysis::iterate(MachineFunction *func)
 {
+    std::set<MachineBlock *> workList;
     for (auto &block : func->getBlocks())
-        block->live_in.clear();
-    bool change;
-    change = true;
-    while (change)
     {
-        change = false;
-        for (auto &block : func->getBlocks())
+        block->live_in.clear();
+        workList.insert(block);
+    }
+
+    while (!workList.empty())
+    {
+        auto block = *workList.begin();
+        workList.erase(workList.begin());
+        block->live_out.clear();
+        auto old = block->live_in;
+        for (auto &succ : block->getSuccs())
         {
-            block->live_out.clear();
-            auto old = block->live_in;
-            for (auto &succ : block->getSuccs())
-            {
-                block->live_out.insert(succ->live_in.begin(), succ->live_in.end());
-            }
-            block->live_in = use[block];
-            set_difference(block->live_out.begin(), block->live_out.end(),
-                           def[block].begin(), def[block].end(), inserter(block->live_in, block->live_in.end()));
-            if (old != block->live_in)
-                change = true;
+            block->live_out.insert(succ->live_in.begin(), succ->live_in.end());
+        }
+        block->live_in = use[block];
+        set_difference(block->live_out.begin(), block->live_out.end(),
+                       def[block].begin(), def[block].end(), inserter(block->live_in, block->live_in.end()));
+        if (old != block->live_in)
+        {
+            for (auto &pred : block->getPreds())
+                workList.insert(pred);
         }
     }
 }

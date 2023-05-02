@@ -1,5 +1,6 @@
 #include "MachineCopyProp.h"
 #include "Type.h"
+#include <queue>
 #include <unordered_set>
 
 // #define COPYPROPDEBUG
@@ -152,39 +153,41 @@ void MachineCopyProp::calInOut(MachineFunction *func)
     auto entry = func->getBlocks()[0];
     In[entry].clear();
     Out[entry] = Gen[entry];
+    std::set<MachineBlock *> workList;
     for (auto mb = func->begin() + 1; mb != func->end(); mb++)
-        Out[*mb] = U;
-
-    bool outChanged = true;
-    while (outChanged)
     {
-        outChanged = false;
-        for (auto mb = func->begin() + 1; mb != func->end(); mb++)
-        {
-            // 先计算in
-            std::set<int> in[2];
-            if ((*mb)->getPreds().size() > 0)
-                in[0] = Out[(*mb)->getPreds()[0]];
-            auto it = (*mb)->getPreds().begin() + 1;
-            auto overPos = (*mb)->getPreds().end();
-            int turn = 1;
-            for (it; it != overPos; it++)
-            {
-                intersection(Out[*it], in[turn ^ 1], in[turn]);
-                turn ^= 1;
-            }
-            In[*mb] = in[turn ^ 1];
+        Out[*mb] = U;
+        workList.insert(*mb);
+    }
 
-            // 再计算out
-            std::set<int> midDif;
-            std::set<int> out;
-            std::set_difference(In[*mb].begin(), In[*mb].end(), Kill[*mb].begin(), Kill[*mb].end(), inserter(midDif, midDif.begin()));
-            std::set_union(Gen[*mb].begin(), Gen[*mb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
-            if (out != Out[*mb])
-            {
-                outChanged = true;
-                Out[*mb] = out;
-            }
+    while (!workList.empty())
+    {
+        auto mb = *workList.begin();
+        workList.erase(workList.begin());
+        // 先计算in
+        std::set<int> in[2];
+        if (mb->getPreds().size() > 0)
+            in[0] = Out[mb->getPreds()[0]];
+        auto it = mb->getPreds().begin() + 1;
+        auto overPos = mb->getPreds().end();
+        int turn = 1;
+        for (it; it != overPos; it++)
+        {
+            intersection(Out[*it], in[turn ^ 1], in[turn]);
+            turn ^= 1;
+        }
+        In[mb] = in[turn ^ 1];
+
+        // 再计算out
+        std::set<int> midDif;
+        std::set<int> out;
+        std::set_difference(In[mb].begin(), In[mb].end(), Kill[mb].begin(), Kill[mb].end(), inserter(midDif, midDif.begin()));
+        std::set_union(Gen[mb].begin(), Gen[mb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
+        if (out != Out[mb])
+        {
+            Out[mb] = out;
+            for (auto &succ : mb->getSuccs())
+                workList.insert(succ);
         }
     }
 }

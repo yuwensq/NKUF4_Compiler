@@ -107,7 +107,7 @@ private:
     /**
      * 求两个集合的交集，stl那个不太好用，封装一下
      */
-    std::set<int> intersection(std::set<int> &, std::set<int> &);
+    void intersection(std::set<int> &, std::set<int> &, std::set<int> &);
     /**
      * 数据流分析，计算每个基本块的in集合和out集合
      */

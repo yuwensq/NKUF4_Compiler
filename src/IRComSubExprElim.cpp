@@ -1,4 +1,5 @@
 #include "IRComSubExprElim.h"
+#include <queue>
 
 // #define IRCSEDEBUG
 
@@ -450,12 +451,10 @@ void IRComSubExprElim::calGenAndKill(Function *func)
     Log("fin genkill");
 }
 
-std::set<int> IRComSubExprElim::intersection(std::set<int> &a, std::set<int> &b)
+void IRComSubExprElim::intersection(std::set<int> &a, std::set<int> &b, std::set<int> &out)
 {
-    std::vector<int> res;
-    res.resize(std::min(a.size(), b.size()));
-    auto lastPos = std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), res.begin());
-    return std::set<int>(res.begin(), lastPos);
+    out.clear();
+    std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), inserter(out, out.begin()));
 }
 
 void IRComSubExprElim::calInAndOut(Function *func)
@@ -467,35 +466,41 @@ void IRComSubExprElim::calInAndOut(Function *func)
         U.insert(i);
     auto entry = func->getEntry();
     inBB[entry].clear();
-    for (auto bb = func->begin(); bb != func->end(); bb++)
-        outBB[*bb] = U; // 这里直接用等号不会出错吧
-    bool outChanged = true;
-    // int sum = 0;
-    while (outChanged)
+    outBB[entry] = genBB[entry];
+    std::set<BasicBlock *> workList;
+    for (auto bb = func->begin() + 1; bb != func->end(); bb++)
     {
-        // sum++;
-        // Log("%d", sum);
-        outChanged = false;
-        for (auto bb = func->begin(); bb != func->end(); bb++)
+        outBB[*bb] = U; // 这里直接用等号不会出错吧
+        workList.insert(*bb);
+    }
+    // int sum = 0;
+    while (!workList.empty())
+    {
+        auto bb = *workList.begin();
+        workList.erase(workList.begin());
+        // 先计算in
+        std::set<int> in[2];
+        if (bb->getNumOfPred() > 0)
+            in[0] = outBB[*bb->pred_begin()];
+        auto it = bb->pred_begin() + 1;
+        auto overPos = bb->pred_end();
+        int turn = 1;
+        for (it; it != overPos; it++)
         {
-            // 先计算in
-            if (*bb != entry)
-            {
-                std::set<int> in = U;
-                for (auto preB = (*bb)->pred_begin(); preB != (*bb)->pred_end(); preB++)
-                {
-                    in = intersection(outBB[*preB], in);
-                }
-                inBB[*bb] = in;
-            }
-            // 再计算out
-            std::set<int> midDif;
-            std::set<int> out;
-            std::set_difference(inBB[*bb].begin(), inBB[*bb].end(), killBB[*bb].begin(), killBB[*bb].end(), inserter(midDif, midDif.begin()));
-            std::set_union(genBB[*bb].begin(), genBB[*bb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
-            if (out != outBB[*bb])
-                outChanged = true;
-            outBB[*bb] = out;
+            intersection(outBB[*it], in[turn ^ 1], in[turn]);
+            turn ^= 1;
+        }
+        inBB[bb] = in[turn ^ 1];
+        // 再计算out
+        std::set<int> midDif;
+        std::set<int> out;
+        std::set_difference(inBB[bb].begin(), inBB[bb].end(), killBB[bb].begin(), killBB[bb].end(), inserter(midDif, midDif.begin()));
+        std::set_union(genBB[bb].begin(), genBB[bb].end(), midDif.begin(), midDif.end(), inserter(out, out.begin()));
+        if (out != outBB[bb])
+        {
+            outBB[bb] = out;
+            for (auto succ = bb->succ_begin(); succ != bb->succ_end(); succ++)
+                workList.insert(*succ);
         }
     }
     Log("fin inout");
