@@ -32,6 +32,7 @@ void Global2Local::recordGlobals() {
                             write[*it].insert(entry);
                     }
     }
+    // printAllRecord();
     // 初始化一个二维的matrix, 行idx,列idx,且值为0
     // idx就是函数的总个数，猜测这个矩阵用来表示函数之间的调用关系
     vector<vector<int>> matrix(idx, vector<int>(idx));
@@ -76,5 +77,58 @@ void Global2Local::recordGlobals() {
     }
     
     //main函数的store清空，why？？？？？？？？？？？？？？？
+    // printAllRecord();
     write[unit->getMain()].clear();
+    printAllRecord();
+}
+
+void Global2Local::printAllRecord() {
+    //打印globals
+    cout<<"globals:"<<endl;
+    for(auto it:globals){
+        cout<<it.first->toStr()<<" :: "<<endl;
+        for(auto it1:it.second){
+            cout<<it1.first->getSymPtr()->toStr()<<" : ";
+            for(auto it2:it1.second){
+                if(it2->getDef()) cout<<it2->getDef()->toStr()<<" ";
+                else cout<<"store ";
+            }
+            cout<<endl;            
+        }
+    }
+    cout<<endl;
+    //打印usedGlobals
+    cout<<"usedGlobals:"<<endl;
+    for(auto it:usedGlobals){
+        cout<<it.first->getSymPtr()->toStr()<<" : ";
+        for(auto it1:it.second){
+            cout<<it1->toStr()<<" ";
+        }
+        cout<<endl;
+    }
+    cout<<endl;
+    //打印read
+    cout<<"read:"<<endl;
+    for(auto it:read){
+        cout<<it.first->getSymPtr()->toStr()<<" : ";
+        for(auto it1:it.second){
+            cout<<it1->toStr()<<" ";
+        }
+        cout<<endl;
+    }
+    cout<<endl;
+    //打印write
+    cout<<"write:"<<endl;
+    for(auto it:write){
+        if(it.first){
+            cout<<it.first->getSymPtr()->toStr()<<" : ";
+            if(!it.second.empty()){
+                for(auto it1:it.second){
+                    cout<<it1->toStr()<<" ";
+                }
+            }            
+        }
+        cout<<endl;
+    }
+    cout<<endl;
 }

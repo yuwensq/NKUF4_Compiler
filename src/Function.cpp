@@ -9,11 +9,11 @@ extern FILE *yyout;
 
 Function::Function(Unit *u, SymbolEntry *s)
 {
-    u->insertFunc(this);
     entry = new BasicBlock(this);
     ((IdentifierSymbolEntry*)s)->setFunction(this);
     sym_ptr = s;
     parent = u;
+    u->insertFunc(this);
 }
 
 Function::~Function()
