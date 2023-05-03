@@ -22,6 +22,7 @@ private:
     std::unordered_set<SymbolEntry *> declare_list;
     // 这个用来记录每个函数符号表项对应的函数，用于方便的根据se找到对应的函数
     std::map<SymbolEntry *, Function *> se2func;
+    Function* main;
 
 public:
     Unit() = default;
@@ -38,6 +39,7 @@ public:
     void printInitValOfArray(ArrayType *, double *, int) const;
     Function *se2Func(SymbolEntry *se);
     void genMachineCode(MachineUnit *munit);
+    Function* getMain() { return main; };
 };
 
 #endif

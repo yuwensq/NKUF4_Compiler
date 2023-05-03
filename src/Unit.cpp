@@ -9,6 +9,10 @@ extern FILE *yyout;
 void Unit::insertFunc(Function *f)
 {
     func_list.push_back(f);
+    if(f->getSymPtr()){
+        if (f->getSymPtr()->toStr() == "@main")
+            main = f;        
+    }
 }
 
 void Unit::removeFunc(Function *func)

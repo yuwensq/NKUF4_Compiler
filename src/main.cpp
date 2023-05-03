@@ -17,6 +17,8 @@
 #include "DeadCodeElimination.h"
 #include "LoopCodeMotion.h"
 #include "MachineCopyProp.h"
+#include "Global2Local.h"
+
 using namespace std;
 
 Ast ast;
@@ -86,6 +88,7 @@ int main(int argc, char *argv[])
     ast.genCode(&unit);
     Log("中间代码生成成功\n");
 
+    Global2Local g2l(&unit);
     Mem2Reg m2r(&unit);
     IRSparseCondConstProp sccp(&unit);
     IRComSubExprElim cse(&unit);
@@ -93,6 +96,7 @@ int main(int argc, char *argv[])
     PhiElimination pe(&unit);
     LoopCodeMotion lcm(&unit);
 
+    //g2l.pass();
     m2r.pass(); // Only IR supported
     sccp.pass();
     cse.pass();
