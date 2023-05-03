@@ -4,9 +4,9 @@ using namespace std;
 
 void Global2Local::pass() {
     recordGlobals();
-    // auto iter = unit->begin();
-    // while (iter != unit->end())
-    //     pass(*iter++);
+    auto iter = unit->begin();
+    while (iter != unit->end())
+        pass(*iter++);
     // unstoreGlobal2Const();
 }
 
@@ -76,10 +76,150 @@ void Global2Local::recordGlobals() {
         }
     }
     
-    //main函数的store清空，why？？？？？？？？？？？？？？？
+    //main函数的store清空，why？
     // printAllRecord();
     write[unit->getMain()].clear();
     printAllRecord();
+}
+
+//对每一个函数执行pass
+void Global2Local::pass(Function* func) {
+    //funcGlobals为这个函数直接出现的那个全局变量（store&load&gep）
+    auto funcGlobals = usedGlobals[func];
+    if (funcGlobals.empty())
+        return;
+    //g2l是这样的，这个map中，前面是存的那个全局符号表项，后面存的要替换它的地址操作数
+    map<SymbolEntry*, Operand*> g2l;
+    //step1：遍历globals中每一个符号表项，在enrty插入alloc-load-store，替换原函数中load和store的操作数
+    for (auto g : funcGlobals) {
+        //如果是常量变量或常数组的话，不处理，也就是全局声明 const a=2；不处理它（交给后面优化）
+        if (((IdentifierSymbolEntry*)g)->getConstant()) {
+            continue;
+        }
+        //我们load或store全局的时候，是用指针去取值的
+        auto type = ((PointerType*)(g->getType()))->getType();
+        //先不处理全局数组，也就是现在我们就关注全局的变量（int&float)
+        if (type->isArray())
+            continue;
+        //获取有这个全局变量的指令集合
+        auto ins = this->globals[g][func];
+        //接下来我们要将有全局的指令进行转化，拆分成若干条其他的指令（无关全局）
+        auto newSe = new TemporarySymbolEntry(new PointerType(type), SymbolTable::getLabel());
+        auto newAddr = new Operand(newSe);
+        g2l[g] = newAddr;
+        auto entry = func->getEntry();
+        // 函数入口load 出口store 
+        // 倘若调了其他函数 （1）如果用了store过的global为参，调用前需store （2）若被调函数store global，返回到本函数需load
+        // 这里需要随便来一个se type对就行
+        // 插入指令：alloc-load-store在entry的最开始
+        auto alloc = new AllocaInstruction(newAddr, new TemporarySymbolEntry(type, 0));
+        alloc->setParent(entry);
+        entry->insertFront(alloc,false);
+        SymbolEntry* addr_se;
+        addr_se = new IdentifierSymbolEntry(*((IdentifierSymbolEntry*)g));
+        addr_se->setType(new PointerType(type));
+        auto addr = new Operand(addr_se);
+        auto dst = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+        auto load = new LoadInstruction(dst, addr);
+        load->setParent(entry);
+        for (auto in = entry->begin(); in != entry->end(); in = in->getNext())
+            if (!in->isAlloc()) {
+                entry->insertBefore(load, in);
+                break;
+            }
+        auto store = new StoreInstruction(newAddr, dst);
+        store->setParent(entry);
+        entry->insertBefore(load, store);
+        //entry->insertAfter(store, load);
+
+        //替换原函数中的load和store指令
+        for (auto in : ins) {
+            if (in->isLoad()) {
+                auto addr = in->getUse()[0];
+                in->replaceUse(addr, newAddr);
+            } else if (in->isStore()) {
+                auto addr = in->getUse()[0];
+                in->replaceUse(addr, newAddr);
+            } else
+                assert(0);
+        }
+    }
+    //处理非main函数中的ret：找到这个函数的每一条返回语句，在它之前又插入load-store
+    for (auto block : func->getBlockList()) {
+        auto in = block->rbegin();
+        if (in->isRet())
+            //遍历这个函数所有store
+            //write对应store全局的指令，考虑call调用的其他函数有的write，但把main函数清空
+            //也是考虑到main函数的ret其实我们不用考虑，因为不会有函数调用main，是否这样理解？
+            for (auto it : write[func]) {
+                if (!g2l[it])
+                    continue;
+                auto type = ((PointerType*)(it->getType()))->getType();
+                //仍不考虑数组
+                if (type->isArray())
+                    continue;
+                auto addr_se = new IdentifierSymbolEntry(*((IdentifierSymbolEntry*)it));
+                addr_se->setType(new PointerType(type));
+                auto addr = new Operand(addr_se);
+                auto dst = new Operand( new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+                auto load = new LoadInstruction(dst, g2l[it]);
+                load->setParent(block);
+                block->insertBefore(load, in);
+                auto store = new StoreInstruction(addr, dst);
+                store->setParent(block);
+                block->insertBefore(store, in);
+            }
+    }
+    //处理所有call指令：如果被调函数要读某个全局，那么调用前要load+store；如果要写某个全局，那么调用后要load+store
+    for (auto block : func->getBlockList()) {
+        for (auto in = block->begin(); in != block->end(); in = in->getNext()) {
+            if (in->isCall()) {
+                //获取被调函数f
+                auto f = ((IdentifierSymbolEntry*)(((CallInstruction*)in)->getFunc()))->getFunction();
+                if (!f)
+                    continue;
+                //遍历f中每一个load相关的全局操作数g：
+                for (auto g : read[f]) {
+                    auto type = ((PointerType*)(g->getType()))->getType();
+                    if (type->isArray())
+                        continue;
+                    // 此时函数没有用到g 也就没必要多这一步了
+                    if (!g2l[g])
+                        continue;
+                    auto addr_se = new IdentifierSymbolEntry(*((IdentifierSymbolEntry*)g));
+                    addr_se->setType(new PointerType(type));
+                    auto addr = new Operand(addr_se);
+                    auto dst = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+                    auto load = new LoadInstruction(dst, g2l[g]);
+                    load->setParent(block);
+                    block->insertBefore(load, in);
+                    auto store = new StoreInstruction(addr, dst);
+                    store->setParent(block);
+                    block->insertBefore(store, in);
+                }
+                //遍历g中每一个store相关的全局操作数g：
+                for (auto g : write[f]) {
+                    auto type = ((PointerType*)(g->getType()))->getType();
+                    if (type->isArray())
+                        continue;
+                    if (!g2l[g])
+                        continue;
+                    auto addr_se = new IdentifierSymbolEntry(*((IdentifierSymbolEntry*)g));
+                    addr_se->setType(new PointerType(type));
+                    auto addr = new Operand(addr_se);
+                    auto dst = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+                    auto load = new LoadInstruction(dst, addr);
+                    load->setParent(block);
+                    auto store = new StoreInstruction(g2l[g], dst);
+                    store->setParent(block);
+                    block->insertBefore(in, store);
+                    block->insertBefore(in, load);                    
+                    // block->insertAfter(store, in);
+                    // block->insertAfter(load, in);
+                }
+            }
+        }
+    }
 }
 
 void Global2Local::printAllRecord() {

@@ -474,6 +474,7 @@ ConstDef
             se = new IdentifierSymbolEntry(TypeSystem::constFloatType, $1, identifiers->getLevel());
         identifiers->install($1, se);
         ((IdentifierSymbolEntry*)se)->setValue($3->getValue());
+        ((IdentifierSymbolEntry*)se)->setConstant();
         $$ = new DeclStmt(new Id(se), $3);
         delete []$1;
     }
@@ -498,6 +499,7 @@ ConstDef
             arrType = new ArrayType(indexs, TypeSystem::constFloatType);
         assert(arrType != nullptr);
         se = new IdentifierSymbolEntry(arrType, $1, identifiers->getLevel());
+        ((IdentifierSymbolEntry*)se)->setConstant();
         $<se>$ = se;
         identifiers->install($1, se);
         initArray = new ExprNode*[arrType->getSize() / arrType->getBaseType()->getSize()] {};

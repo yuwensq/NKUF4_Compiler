@@ -118,6 +118,7 @@ private:
     bool sysy;
     double *arrayValue;
     Function *func = nullptr;
+    bool constant = false;
 
     Operand *addr; // The address of the identifier.
     Operand *argAddr;
@@ -146,6 +147,8 @@ public:
     bool isInitial() { return (initial || arrayValue != nullptr); };
     Function *getFunction() { return func; };
     void setFunction(Function *func) { this->func = func; }
+    void setConstant() { constant = true; };
+    bool getConstant() const { return constant; };
 
     // You can add any function you need here.
 };
