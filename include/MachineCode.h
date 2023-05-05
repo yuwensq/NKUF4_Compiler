@@ -564,6 +564,23 @@ public:
     void printLTORG(); // 打印文字池
     int getLtorgNum() { return ltorg_num; };
     void output();
+    /* 这里两个优化都用到这个函数，放到MachineUnit里面吧 */
+    static int getHash(MachineOperand *op)
+    {
+        /* 普通的虚拟寄存器直接返回编号，r系列的rx哈希为-x-33，s系列的sx哈希为-x-1 */
+        if (op->isImm() || op->isLabel())
+            return 0;
+        int res = 0;
+        res = op->getReg();
+        if (op->isReg())
+        {
+            if (!op->isFReg())
+                res = -res - 33;
+            else
+                res = -res - 1;
+        }
+        return res;
+    }
 };
 
 #endif

@@ -18,6 +18,7 @@
 #include "LoopCodeMotion.h"
 #include "MachineCopyProp.h"
 #include "Global2Local.h"
+#include "MachineDeadCodeElim.h"
 
 using namespace std;
 
@@ -96,7 +97,7 @@ int main(int argc, char *argv[])
     PhiElimination pe(&unit);
     LoopCodeMotion lcm(&unit);
 
-    //g2l.pass();
+    // g2l.pass();
     m2r.pass(); // Only IR supported
     sccp.pass();
     cse.pass();
@@ -115,9 +116,11 @@ int main(int argc, char *argv[])
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
     MachineCopyProp mcp(&mUnit);
+    MachineDeadCodeElim mdce(&mUnit);
     mst.pass();
     mph.pass();
     mcp.pass();
+    mdce.pass();
 
     Log("目标代码优化成功\n");
 

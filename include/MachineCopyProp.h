@@ -37,7 +37,6 @@ private:
     void clearData();
     void intersection(std::set<int> &, std::set<int> &, std::set<int> &);
     bool couldKill(MachineInstruction *, CopyStmt &);
-    int getHash(MachineOperand *);
     void calGenKill(MachineFunction *);
     void calInOut(MachineFunction *);
     bool replaceOp(MachineFunction *);
