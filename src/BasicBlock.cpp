@@ -43,6 +43,17 @@ void BasicBlock::insertBefore(Instruction *dst, Instruction *src)
     dst->setParent(this);
 }
 
+// insert the instruction dst after src.
+void BasicBlock::insertAfter(Instruction* dst, Instruction* src) {
+    dst->setNext(src->getNext());
+    src->getNext()->setPrev(dst);
+
+    dst->setPrev(src);
+    src->setNext(dst);
+
+    dst->setParent(this);
+}
+
 // remove the instruction from intruction list.
 void BasicBlock::remove(Instruction *inst)
 {
@@ -61,8 +72,9 @@ void BasicBlock::output() const
             fprintf(yyout, ", %%B%d", (*i)->getNo());
     }
     fprintf(yyout, "\n");
-    for (auto i = head->getNext(); i != head; i = i->getNext())
-        i->output();
+    for (auto i = head->getNext(); i != head; i = i->getNext()){
+        i->output();        
+    }
 }
 
 void BasicBlock::addSucc(BasicBlock *bb)

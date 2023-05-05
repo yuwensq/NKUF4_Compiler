@@ -92,6 +92,7 @@ void Global2Local::pass(Function* func) {
     map<SymbolEntry*, Operand*> g2l;
     //step1：遍历globals中每一个符号表项，在enrty插入alloc-load-store，替换原函数中load和store的操作数
     for (auto g : funcGlobals) {
+        //cout<<func->getSymPtr()->toStr()<<" : "<<g->toStr()<<endl;
         //如果是常量变量或常数组的话，不处理，也就是全局声明 const a=2；不处理它（交给后面优化）
         if (((IdentifierSymbolEntry*)g)->getConstant()) {
             continue;
@@ -129,8 +130,8 @@ void Global2Local::pass(Function* func) {
             }
         auto store = new StoreInstruction(newAddr, dst);
         store->setParent(entry);
-        entry->insertBefore(load, store);
-        //entry->insertAfter(store, load);
+        // entry->insertBefore(load, store);
+        entry->insertAfter(store, load);
 
         //替换原函数中的load和store指令
         for (auto in : ins) {
@@ -212,10 +213,10 @@ void Global2Local::pass(Function* func) {
                     load->setParent(block);
                     auto store = new StoreInstruction(g2l[g], dst);
                     store->setParent(block);
-                    block->insertBefore(in, store);
-                    block->insertBefore(in, load);                    
-                    // block->insertAfter(store, in);
-                    // block->insertAfter(load, in);
+                    // block->insertBefore(in, store);
+                    // block->insertBefore(in, load);                    
+                    block->insertAfter(store, in);
+                    block->insertAfter(load, in);
                 }
             }
         }
