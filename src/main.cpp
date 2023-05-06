@@ -121,6 +121,7 @@ int main(int argc, char *argv[])
     mph.pass();
     mcp.pass();
     mdce.pass();
+    mst.pass();
 
     Log("目标代码优化成功\n");
 

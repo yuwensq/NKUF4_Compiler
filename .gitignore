@@ -11,3 +11,4 @@ parser.h
 *.bin
 *.s
 Makefile*
+*.core

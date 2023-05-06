@@ -667,12 +667,8 @@ void MachineBlock::output()
     {
         iter->output();
         inst_num++;
-        if (iter->isRet()) // 这里在每个函数返回语句处打印一个文字池
-        {
-            this->getParent()->getParent()->printLTORG();
-        }
-        else if (inst_num >= 768) // 文字池最多离ldr 4KB
-        { // 这里，每隔256条指令，打一个文字池
+        if (inst_num >= 888) // 文字池最多离ldr 4KB
+        {                    // 这里，每隔888条指令，打一个文字池
             inst_num = 0;
             int ltorg_num = this->getParent()->getParent()->getLtorgNum();
             fprintf(yyout, "\tb .LT%d\n", ltorg_num);
@@ -779,9 +775,7 @@ void MachineUnit::PrintGlobalDecl()
     std::vector<SymbolEntry *> constVar;
     for (auto se : global_vars)
     {
-        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst())
-            || (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst())
-            || (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
+        if ((se->getType()->isInt() && ((IntType *)se->getType())->isConst()) || (se->getType()->isFloat() && ((FloatType *)se->getType())->isConst()) || (se->getType()->isArray() && ((ArrayType *)se->getType())->isConst()))
         {
             constVar.push_back(se);
         }
@@ -934,5 +928,3 @@ void MachineUnit::output()
         iter->output();
     printLTORG();
 }
-
-
