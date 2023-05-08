@@ -1,6 +1,7 @@
 #ifndef __SYMBOLTABLE_H__
 #define __SYMBOLTABLE_H__
 
+#include "Type.h"
 #include <string>
 #include <utility>
 #include <map>
@@ -145,6 +146,16 @@ public:
     void setArrayValue(double *arrayValue) { this->arrayValue = arrayValue; };
     double *getArrayValue() { return this->arrayValue; };
     bool isInitial() { return (initial || arrayValue != nullptr); };
+    bool isAllZero()
+    {
+        if (!isInitial() || !type->isArray())
+            return false;
+        int size = static_cast<ArrayType*>(type)->getSize() / TypeSystem::intType->getSize();
+        for (int i = 0; i < size; i++)
+            if (arrayValue[i] != 0)
+                return false;
+        return true;
+    };
     Function *getFunction() { return func; };
     void setFunction(Function *func) { this->func = func; }
     void setConstant() { constant = true; };

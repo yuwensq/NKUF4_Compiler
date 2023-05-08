@@ -11,7 +11,7 @@ void Unit::insertFunc(Function *f)
     func_list.push_back(f);
     if (f->getSymPtr()->toStr() == "@main")
     {
-        main = f;      
+        main = f;
     }
 }
 
@@ -52,7 +52,7 @@ void Unit::printInitValOfArray(ArrayType *type, double *initVal, int startPos) c
 /***
  * 由于没有在语法分析的时候建立se2func这个map，这里在
  * 查询se2func的时候逐步填充其内容
-*/
+ */
 Function *Unit::se2Func(SymbolEntry *se)
 {
     if (se2func.find(se) != se2func.end())
@@ -90,7 +90,7 @@ void Unit::output() const
         else
         {
             auto initValue = se->getArrayValue();
-            if (initValue == nullptr)
+            if (initValue == nullptr || se->isAllZero())
             {
                 fprintf(yyout, "%s = global %s zeroinitializer, align 4\n", se->toStr().c_str(), se->getType()->toStr().c_str());
             }

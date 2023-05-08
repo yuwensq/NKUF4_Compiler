@@ -792,7 +792,7 @@ void MachineUnit::PrintGlobalDecl()
         {
             if (se->getType()->isArray())
             {
-                if (((IdentifierSymbolEntry *)se)->isInitial()) // 数组有初始化
+                if (((IdentifierSymbolEntry *)se)->isInitial() && !((IdentifierSymbolEntry *)se)->isAllZero()) // 数组有初始化
                 {
                     fprintf(yyout, ".global %s\n", se->toStr().c_str() + 1);
                     fprintf(yyout, ".size %s, %d\n", se->toStr().c_str() + 1, se->getType()->getSize() / 8);

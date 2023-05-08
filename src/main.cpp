@@ -98,13 +98,14 @@ int main(int argc, char *argv[])
     LoopCodeMotion lcm(&unit);
 
     // g2l.pass();
-    m2r.pass(); // Only IR supported
-    sccp.pass();
-    cse.pass();
-    sccp.pass();
-    dce.pass();
-    lcm.pass();
-    pe.pass();
+    // m2r.pass(); // Only IR supported
+    // sccp.pass();
+    // cse.pass();
+    // sccp.pass();
+    // cse.pass();
+    // dce.pass();
+    // lcm.pass();
+    // pe.pass();
 
     Log("IR优化成功\n"); /**/
 
@@ -117,11 +118,11 @@ int main(int argc, char *argv[])
     MachineStraight mst(&mUnit);
     MachineCopyProp mcp(&mUnit);
     MachineDeadCodeElim mdce(&mUnit);
-    mst.pass();
-    mph.pass();
-    mcp.pass();
-    mdce.pass();
-    mst.pass();
+    // mst.pass();
+    // mph.pass();
+    // mcp.pass();
+    // mdce.pass();
+    // mst.pass();
 
     Log("目标代码优化成功\n");
 

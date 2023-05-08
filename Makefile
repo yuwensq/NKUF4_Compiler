@@ -168,6 +168,8 @@ test:app
 					fi
 				fi
 			fi
+			awk "BEGIN {printf \"\t asm code lines:\"}"
+			awk "{print NR}" $${ASM} | tail -n1
 		fi
 	done
 	echo "\033[1;33mTotal: $(TESTCASE_NUM)\t\033[1;32mAccept: $${success}\t\033[1;31mFail: $$(($(TESTCASE_NUM) - $${success}))\033[0m"
