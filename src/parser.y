@@ -18,6 +18,7 @@
     std::stack<std::vector<int>> dimesionStack; // 维度栈
     ExprNode **initArray = nullptr; // 这个存储当前数组的初始化数组的基地址
     int idx; // 这个是上边那个initArray的索引
+    extern int yylineno;
 }
 
 %code requires {
@@ -210,7 +211,10 @@ UnaryExp
             delete []$1;
             assert(se != nullptr);
         }
-        $$ = new CallExpr(se, $3);
+        ExprNode* param = $3;
+        if (strcmp($1, "_sysy_starttime") == 0 || strcmp($1, "_sysy_stoptime") == 0)
+            param = new Constant(new ConstantSymbolEntry(TypeSystem::intType, yylineno));
+        $$ = new CallExpr(se, param);
     }
     | ADD UnaryExp {$$ = $2;}
     | SUB UnaryExp {

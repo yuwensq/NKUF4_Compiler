@@ -33,6 +33,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
 {
     std::set<BasicBlock *> Reachable;
     std::queue<BasicBlock *> q;
+    Reachable.insert(F->getEntry());
     q.push(F->getEntry());
     while (!q.empty())
     {
@@ -71,7 +72,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
         else if (bb != F->getEntry() && bb->begin()->getNext() == bb->end() && bb->begin()->isUncond())
         {
             assert(bb->getNumOfSucc() == 1);
-            auto& succ = succs[0];
+            auto &succ = succs[0];
             succ->removePred(bb);
             for (auto pred : preds)
             {
@@ -103,9 +104,10 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
             }
             for (auto phi = succ->begin(); phi != succ->end(); phi = phi->getNext())
             {
-                if (!phi->isPhi()) break;
-                auto phinode = dynamic_cast<PhiInstruction*>(phi);
-                auto& srcs = phinode->getSrcs();
+                if (!phi->isPhi())
+                    break;
+                auto phinode = dynamic_cast<PhiInstruction *>(phi);
+                auto &srcs = phinode->getSrcs();
                 auto rep = srcs.end();
                 for (auto it = srcs.begin(); it != srcs.end(); it++)
                 {
@@ -153,9 +155,10 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 succ->addPred(pred);
                 for (auto phi = succ->begin(); phi != succ->end(); phi = phi->getNext())
                 {
-                    if (!phi->isPhi()) break;
-                    auto phinode = dynamic_cast<PhiInstruction*>(phi);
-                    auto& srcs = phinode->getSrcs();
+                    if (!phi->isPhi())
+                        break;
+                    auto phinode = dynamic_cast<PhiInstruction *>(phi);
+                    auto &srcs = phinode->getSrcs();
                     auto rep = srcs.end();
                     for (auto it = srcs.begin(); it != srcs.end(); it++)
                     {

@@ -360,6 +360,34 @@ LINECOMMENT \/\/[^\n]*
     globals->install(yytext, se);
     return ID;
 }
+"starttime" {
+    if(dump_tokens)
+        DEBUG_FOR_LAB4(yytext);
+    char *lexeme;
+    lexeme = new char[7 + strlen(yytext)];
+    char* sysy = (char *)"_sysy_";
+    strcpy(lexeme, sysy);
+    strcpy(lexeme + 6, yytext);
+    yylval.strtype = lexeme;
+    Type* funcType = new FunctionType(TypeSystem::voidType, {TypeSystem::intType});
+    SymbolEntry* se = new IdentifierSymbolEntry(funcType, "_sysy_starttime", globals->getLevel(), true);
+    globals->install("_sysy_starttime", se);
+    return ID;
+}
+"stoptime" {
+    if(dump_tokens)
+        DEBUG_FOR_LAB4(yytext);
+    char *lexeme;
+    lexeme = new char[7 + strlen(yytext)];
+    char* sysy = (char *)"_sysy_";
+    strcpy(lexeme, sysy);
+    strcpy(lexeme + 6, yytext);
+    yylval.strtype = lexeme;
+    Type* funcType = new FunctionType(TypeSystem::voidType, {TypeSystem::intType});
+    SymbolEntry* se = new IdentifierSymbolEntry(funcType, "_sysy_stoptime", globals->getLevel(), true);
+    globals->install("_sysy_stoptime", se);
+    return ID;
+}
 {DECIMIAL} {
     if(dump_tokens)
         DEBUG_FOR_LAB4(string("NUMBER\t") + string(yytext));
