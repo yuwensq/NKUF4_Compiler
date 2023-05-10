@@ -18,6 +18,7 @@ class Global2Local {
     void recordGlobals();
     void pass(Function* function);
     void unstoreGlobal2Const();
+    bool isConstGlobalArray(std::pair<SymbolEntry *const, std::map<Function *, std::vector<Instruction *>>> &it);
     void printAllRecord();
 };
 

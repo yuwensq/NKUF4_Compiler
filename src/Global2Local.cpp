@@ -1,4 +1,5 @@
 #include "Global2Local.h"
+#include "PureFunctionAnalyser.h"
 #include <numeric>
 using namespace std;
 
@@ -7,7 +8,7 @@ void Global2Local::pass() {
     auto iter = unit->begin();
     while (iter != unit->end())
         pass(*iter++);
-    // unstoreGlobal2Const();
+    unstoreGlobal2Const();
 }
 
 void Global2Local::recordGlobals() {
@@ -41,8 +42,9 @@ void Global2Local::recordGlobals() {
     for (auto it : func2idx)
         for (auto it1 : it.first->getCallPred()){
             Function* funcPred=it1->getParent()->getParent();
-            //比如编号为3的函数里面有一个call调用了编号为1的函数，那么matrix[3][1]=1
-            matrix[func2idx[funcPred]][it.second] = 1;            
+            //比如编号为3的函数里面有一个call调用了编号为1的函数，那么matrix[3][1]+=1
+            //注意可能有多次对相同函数的调用，每次要+1，而非只有1
+            matrix[func2idx[funcPred]][it.second] += 1;            
         }
     //outDeg记录每一个函数均调用了多少个其他的函数
     vector<int> outDeg(idx, 0);
@@ -79,7 +81,7 @@ void Global2Local::recordGlobals() {
     //main函数的store清空，why？
     // printAllRecord();
     write[unit->getMain()].clear();
-    printAllRecord();
+    // printAllRecord();
 }
 
 //对每一个函数执行pass
@@ -221,6 +223,145 @@ void Global2Local::pass(Function* func) {
             }
         }
     }
+}
+
+//处理常量数组+常量变量+
+//没有store的变量+
+//没有store，且全部偏移都为常数的数组->封装一个新的operand操作数，其se为constant代替
+void Global2Local::unstoreGlobal2Const() {
+    for (auto it : globals) {
+        // std::cout<<it.first->getType()->toStr()<<std::endl;
+        auto type = ((PointerType*)(it.first->getType()))->getType();
+        //我们先考虑简单的，没有store的全局变量以及const全局变量，直接替换
+        if(!type->isArray()){
+            bool store = false;
+            //in为这个全局操作数的指令vector
+            for (auto it1 : it.second)
+                for (auto in : it1.second)
+                    if (in->isStore()) {
+                        store = true;
+                        break;
+                    }
+            //如果没有任何的store这个全局的指令
+            if (!store) {
+                auto name = it.first->toStr().substr(1); //去掉那个@
+                auto entry = identifiers->lookup(name);
+                auto operand = new Operand(new ConstantSymbolEntry(type, ((IdentifierSymbolEntry*)entry)->getValue()));
+                for (auto it1 : it.second)
+                    for (auto in : it1.second) {
+                        //这个in只可能是load指令
+                        auto def = in->getDef();
+                        //这里不会死循环吗，应该是不会，因为def的use会越来越少（随着replace）
+                        while (def->use_begin() != def->use_end()) {
+                            auto use = *(def->use_begin());
+                            use->replaceUse(def, operand);
+                        }
+                        in->getParent()->remove(in);
+                    }
+            }
+        }else{
+            //这边是用来处理常量（全局）数组的
+            //首先判断是否是可以替换的数组
+            if(isConstGlobalArray(it)){
+                auto name = it.first->toStr().substr(1);
+                // 全局数组的操作数entry
+                auto entry = identifiers->lookup(name);
+                // //这个rmList似乎没有清掉
+                // vector<Instruction*> rmvList;
+                for (auto it1 : it.second){
+                   for (auto in : it1.second){
+                        //处理gep中用到了全局数组
+                        //eg.定义a[2][3]，使用a[1][2]
+                        if (in->isGep()) {
+                            auto def = in->getDef();
+                            vector<Operand*> useOp = in->getUse();
+                            vector<int> indexes = ((ArrayType*)type)->getIndexs();
+                            //计算总偏移,如果这条gep指令，它有一个偏移不是常数，就不处理它
+                            //4组3行2列 a[4][3][2]
+                            //取a[3][2][1]，最后一组3* (3*2) + 2* (2) + 1
+                            int shift=0,totalIndex=1;
+                            bool constantGep=true;
+                            for(int i=useOp.size()-1;i>0;i--){
+                                if(!useOp[i]->getEntry()->isConstant()){
+                                    constantGep=false;
+                                    break;
+                                }
+                                int value=((ConstantSymbolEntry*)useOp[i]->getEntry())->getValue(); 
+                                shift+=value*totalIndex;
+                                totalIndex*=indexes[i-1];
+                            }
+                            if(!constantGep){
+                                continue;
+                            }
+                            //遍历这个def的所有use指令
+                            for (auto it2 = def->use_begin(); it2 != def->use_end(); it2++) {
+                                //如果它是store，我们不处理的，我们这边只讨论它数组以及是load
+                                //考虑load，所有用到load定值的use全部直接用那个值去替代
+                                if ((*it2)->isLoad()) {
+                                    auto loadDst = (*it2)->getDef();
+                                    double* valArr =((IdentifierSymbolEntry*)entry)->getArrayValue();
+                                    double val = 0;
+                                    //获取对应偏移的值
+                                    if (valArr)
+                                        val = valArr[shift];
+                                    Type* elementType=((ArrayType*)type)->getBaseType();
+                                    auto operand = new Operand(new ConstantSymbolEntry(elementType, val));
+                                    while (loadDst->use_begin() != loadDst->use_end()) {
+                                        auto use = *(loadDst->use_begin());
+                                        use->replaceUse(loadDst, operand);
+                                    }
+                                    (*it2)->getParent()->remove(*it2);
+                                    in->getParent()->remove(in);
+                                }
+                                //考虑数组,从数组地址中，依照偏移量，取出那个地址上的值，然后封装成一个const操作数
+                                if ((*it2)->isGep()) {
+                                    assert(true);
+                                }
+                            }
+                        }                        
+                    }
+                }
+            }
+        }            
+    }
+}
+
+//判断全局数组是否为“常量”
+bool Global2Local::isConstGlobalArray(std::pair<SymbolEntry *const, std::map<Function *, std::vector<Instruction *>>> &it){
+    //step1:是否声明为const
+    SymbolEntry *se = it.first;
+    if(((IdentifierSymbolEntry*)se)->getConstant()){
+        return true;
+    }
+    //step2:
+    //如果我们有一条Gep用到全局
+    //我们研究是否它的def有对应use指令为store，若有，则不处理它；
+    //若这条gep的def又被gep指令所用，我们研究这条子gep的def是否被store所用，可以不断研究下去,此处我们只考虑二维
+    for (auto it1 : it.second){
+        for (auto in : it1.second){
+            //如果gep指令中用到了全局
+            if (in->isGep()) {
+                auto def = in->getDef();
+                for (auto it2 = def->use_begin(); it2 != def->use_end(); it2++) {
+                    if ((*it2)->isGep()) {
+                        auto gepDef = (*it2)->getDef();
+                        for (auto it3 = gepDef->use_begin();it3 != gepDef->use_end(); it3++) {
+                            if ((*it3)->isGep() || (*it3)->isStore()) {
+                                // 最多考虑二维数组
+                                return false;
+                            }
+                        }
+                    }
+                    if ((*it2)->isStore()) {
+                        return false;
+                    }
+                }
+            }            
+        }
+    }
+    //step3:考虑传入全局数组作为函数参数，而这个函数又内部修改了全局变量
+
+    return true;
 }
 
 void Global2Local::printAllRecord() {
