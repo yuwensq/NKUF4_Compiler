@@ -8,11 +8,16 @@ class FunctionInline
 private:
     Unit *unit;
     // 存函数的被调用语句
-    std::map<Function*, std::set<Instruction*>> callIns;
+    std::map<Function *, std::set<Instruction *>> callIns;
+    BasicBlock *entryBlock;
+    std::map<BasicBlock*, std::pair<Instruction*, Operand*>> exitBlocks;
     void clearData();
     void preProcess();
-    bool shouldBeInlined(Function*);
-    void doInline(Function*);
+    bool shouldBeInlined(Function *);
+    Operand* copyOp(Operand*);
+    void copyFunc(Function *, Function*);
+    void merge(Function *, Instruction *);
+    void doInline(Function *);
 
 public:
     FunctionInline(Unit *unit) : unit(unit) {}
