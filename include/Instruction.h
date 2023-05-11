@@ -478,6 +478,7 @@ public:
             operands[1]->removeUse(this);
             operands[1] = rep;
             rep->addUse(this);
+            src = rep;
         }
     }
     void replaceDef(Operand *rep)
@@ -485,6 +486,7 @@ public:
         operands[0]->setDef(nullptr);
         operands[0] = rep;
         operands[0]->setDef(this);
+        dst = rep;
     }
     Instruction *copy() { return new BitcastInstruction(*this); }
 };

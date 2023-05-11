@@ -295,7 +295,7 @@ bool IRComSubExprElim::localCSE(Function *func)
     // return true;
     static int round = 0;
     round++;
-    Log("局部子表达式删除开始，round%d\n", round);
+    Log("局部子表达式删除开始，round%d", round);
     bool result = true;
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
@@ -320,7 +320,7 @@ bool IRComSubExprElim::localCSE(Function *func)
             }
         }
     }
-    Log("局部子表达式删除结束，round%d\n", round);
+    Log("局部子表达式删除结束，round%d", round);
     return result;
 }
 
@@ -622,7 +622,7 @@ bool IRComSubExprElim::globalCSE(Function *func)
 {
     static int round = 0;
     round++;
-    Log("全局子表达式删除开始，round%d\n", round);
+    Log("全局子表达式删除开始，round%d", round);
     exprVec.clear();
     ins2Expr.clear();
     expr2Op.clear();
@@ -673,7 +673,7 @@ bool IRComSubExprElim::globalCSE(Function *func)
     }
     fprintf(yyout, "\n");
 #endif
-    Log("全局子表达式删除结束，round%d\n", round);
+    Log("全局子表达式删除结束，round%d", round);
     return result;
 }
 

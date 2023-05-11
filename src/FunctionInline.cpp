@@ -104,12 +104,8 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
             auto def = newInst->getDef();
             if (def != nullptr)
             {
-                if (op2op.find(def) == op2op.end()) {
-                    if (inst->isAlloc())
-                        op2op[def] = 
-                    else
-                        op2op[def] = copyOp(def);
-                }
+                if (op2op.find(def) == op2op.end())
+                    op2op[def] = copyOp(def);
                 newInst->replaceDef(op2op[def]);
             }
             auto uses = newInst->getUse();
