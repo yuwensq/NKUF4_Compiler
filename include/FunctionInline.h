@@ -15,7 +15,7 @@ private:
     void preProcess();
     bool shouldBeInlined(Function *);
     Operand* copyOp(Operand*);
-    void copyFunc(Function *, Function*);
+    void copyFunc(Instruction *, Function*);
     void merge(Function *, Instruction *);
     void doInline(Function *);
 

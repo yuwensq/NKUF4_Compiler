@@ -101,7 +101,7 @@ int Function::getParamNumber(Operand *param)
             return i;
         i++;
     }
-    return 0;
+    return -1;
 }
 
 void Function::addCallPred(Instruction* in) 

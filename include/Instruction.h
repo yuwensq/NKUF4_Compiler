@@ -26,10 +26,10 @@ public:
     bool isGep() const { return instType == GEP; };
     bool isBinaryCal() const { return instType == BINARY || instType == CMP; };
     bool isUnaryCal() const { return instType == ZEXT || instType == XOR || instType == FPTSI || instType == SITFP; };
-    bool isFICal() const {return instType == FPTSI || instType == SITFP;};
+    bool isFICal() const { return instType == FPTSI || instType == SITFP; };
     bool isBinary() const { return instType == BINARY; };
     bool isBitcast() const { return instType == BITCAST; };
-    bool isCmp() const {return instType == CMP; };
+    bool isCmp() const { return instType == CMP; };
     void setParent(BasicBlock *);
     void setNext(Instruction *);
     void setPrev(Instruction *);
@@ -46,6 +46,7 @@ public:
     virtual void genMachineCode(AsmBuilder *) = 0;
     std::vector<Operand *> &getOperands() { return operands; }
 
+    virtual Instruction *copy() { return nullptr; }
     virtual Operand *getDef() { return nullptr; }
     virtual std::vector<Operand *> getUse() { return {}; }
     std::vector<Operand *> replaceAllUsesWith(Operand *); // Mem2Reg
@@ -54,7 +55,7 @@ public:
     int getOpCode() const { return opcode; }
     int getType() const { return instType; }
     void unsetMark() { mark = false; };
-    void setMark() { mark = true; };    
+    void setMark() { mark = true; };
     bool getMark() { return mark; };
     bool isCritical();
 
@@ -114,6 +115,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new AllocaInstruction(*this); }
 
 private:
     SymbolEntry *se;
@@ -146,6 +148,7 @@ public:
             rep->addUse(this);
         }
     }
+    Instruction *copy() { return new LoadInstruction(*this); }
 };
 
 class StoreInstruction : public Instruction
@@ -171,6 +174,7 @@ public:
             rep->addUse(this);
         }
     }
+    Instruction *copy() { return new StoreInstruction(*this); }
 };
 
 class BinaryInstruction : public Instruction
@@ -216,6 +220,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new BinaryInstruction(*this); }
 
 private:
     bool floatVersion;
@@ -263,6 +268,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new CmpInstruction(*this); }
 
 private:
     bool floatVersion;
@@ -277,6 +283,7 @@ public:
     void setBranch(BasicBlock *);
     BasicBlock *getBranch();
     void genMachineCode(AsmBuilder *);
+    Instruction *copy() { return new UncondBrInstruction(*this); }
 
 protected:
     BasicBlock *branch;
@@ -304,6 +311,7 @@ public:
             rep->addUse(this);
         }
     }
+    Instruction *copy() { return new CondBrInstruction(*this); }
 
 protected:
     BasicBlock *true_branch;
@@ -348,6 +356,7 @@ public:
             }
         }
     }
+    Instruction *copy() { return new CallInstruction(*this); }
 
 private:
     SymbolEntry *func;
@@ -385,6 +394,7 @@ public:
             rep->addUse(this);
         }
     }
+    Instruction *copy() { return new RetInstruction(*this); }
 };
 
 class XorInstruction : public Instruction // not指令
@@ -413,6 +423,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new XorInstruction(*this); }
 };
 
 class ZextInstruction : public Instruction // bool转为int
@@ -441,6 +452,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new ZextInstruction(*this); }
 
 private:
     bool b2i;
@@ -448,28 +460,33 @@ private:
 
 class BitcastInstruction : public Instruction
 {
-    Operand* dst;
-    Operand* src;
+    Operand *dst;
+    Operand *src;
+
 public:
-    BitcastInstruction(Operand* dst, Operand* src, BasicBlock* insert_bb = nullptr);
+    BitcastInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb = nullptr);
     ~BitcastInstruction();
-    Operand* getSrc() {return src;}
+    Operand *getSrc() { return src; }
     void output() const;
-    void genMachineCode(AsmBuilder*);
-    Operand* getDef() { return operands[0]; }
-    std::vector<Operand*> getUse() { return {operands[1]}; }
-    void replaceUse(Operand* old, Operand* rep) {
-        if (operands[1] == old) {
+    void genMachineCode(AsmBuilder *);
+    Operand *getDef() { return operands[0]; }
+    std::vector<Operand *> getUse() { return {operands[1]}; }
+    void replaceUse(Operand *old, Operand *rep)
+    {
+        if (operands[1] == old)
+        {
             operands[1]->removeUse(this);
             operands[1] = rep;
             rep->addUse(this);
         }
     }
-    void replaceDef(Operand* rep) {
+    void replaceDef(Operand *rep)
+    {
         operands[0]->setDef(nullptr);
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new BitcastInstruction(*this); }
 };
 
 class GepInstruction : public Instruction
@@ -507,6 +524,7 @@ public:
             }
         }
     }
+    Instruction *copy() { return new GepInstruction(*this); }
 
 private:
     bool type2 = false;
@@ -538,6 +556,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new F2IInstruction(*this); }
 };
 
 class I2FInstruction : public Instruction
@@ -566,6 +585,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new I2FInstruction(*this); }
 };
 
 class PhiInstruction : public Instruction
@@ -582,11 +602,11 @@ public:
     Operand *getAddr() { return addr; }
     Operand *getEdge(BasicBlock *block) { return (srcs.find(block) != srcs.end()) ? srcs[block] : nullptr; }
     std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
-    bool findSrc(BasicBlock* block);
-    Operand* getBlockSrc(BasicBlock* block);
-    void removeBlockSrc(BasicBlock* block);
-    void addSrc(BasicBlock* block, Operand* src);
-    void removeUse(Operand* use);
+    bool findSrc(BasicBlock *block);
+    Operand *getBlockSrc(BasicBlock *block);
+    void removeBlockSrc(BasicBlock *block);
+    void addSrc(BasicBlock *block, Operand *src);
+    void removeUse(Operand *use);
 
     void genMachineCode(AsmBuilder *)
     {
@@ -621,6 +641,7 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    Instruction *copy() { return new PhiInstruction(*this); }
 };
 
 #endif

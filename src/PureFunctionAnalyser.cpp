@@ -95,7 +95,6 @@ int PureFunctionAnalyser::getArgNumber(Operand *op)
     Assert(arg_addr->getUse()[0]->isStore(), "???");
     auto arg = arg_addr->getUse()[0]->getUse()[1];
     return func->getParamNumber(arg);
-    return 0;
 }
 
 bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
