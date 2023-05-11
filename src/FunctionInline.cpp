@@ -104,8 +104,12 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
             auto def = newInst->getDef();
             if (def != nullptr)
             {
-                if (op2op.find(def) == op2op.end())
-                    op2op[def] = copyOp(def);
+                if (op2op.find(def) == op2op.end()) {
+                    if (inst->isAlloc())
+                        op2op[def] = 
+                    else
+                        op2op[def] = copyOp(def);
+                }
                 newInst->replaceDef(op2op[def]);
             }
             auto uses = newInst->getUse();
@@ -141,11 +145,11 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
     {
         auto oldBlk = pa.first;
         auto newBlk = pa.second;
-        for (auto pred = oldBlk->pred_begin(); pred != oldBlk->pred_end(); pred++)
-        {
-            newBlk->addPred(blk2blk[*pred]);
-            blk2blk[*pred]->addSucc(newBlk);
-        }
+        // for (auto pred = oldBlk->pred_begin(); pred != oldBlk->pred_end(); pred++)
+        // {
+        //     newBlk->addPred(blk2blk[*pred]);
+        //     blk2blk[*pred]->addSucc(newBlk);
+        // }
         for (auto succ = oldBlk->succ_begin(); succ != oldBlk->succ_end(); succ++)
         {
             newBlk->addSucc(blk2blk[*succ]);
@@ -209,6 +213,17 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
 
 void FunctionInline::merge(Function *func, Instruction *callInst)
 {
+    // entryBlock中如果有alloc，移到func的entry中吧
+    std::vector<Instruction *> movList;
+    auto entry = func->getEntry();
+    for (auto inst = entryBlock->begin(); inst != entryBlock->end(); inst = inst->getNext())
+        if (inst->isAlloc())
+            movList.push_back(inst);
+    for (auto inst : movList)
+    {
+        entryBlock->remove(inst);
+        entry->insertFront(inst, static_cast<AllocaInstruction *>(inst)->getEntry()->getType()->isArray());
+    }
     // 把callInst之后的指令全部移到tailB中
     auto headB = callInst->getParent();
     auto tailB = new BasicBlock(func);
@@ -246,6 +261,7 @@ void FunctionInline::merge(Function *func, Instruction *callInst)
     new UncondBrInstruction(entryBlock, headB);
     headB->cleanAllSucc();
     headB->addSucc(entryBlock);
+    entryBlock->addPred(headB);
     // tailB设置前驱关系
     PhiInstruction *phiInst = nullptr;
     if (retValue != nullptr)
@@ -296,11 +312,16 @@ void FunctionInline::pass()
     Log("Function Inline start");
     clearData();
     preProcess();
+    std::set<Function *> removeList;
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
-        if (shouldBeInlined(*func))
+        if ((*func) != unit->getMain() && shouldBeInlined(*func))
+        {
             doInline(*func);
-        unit->removeFunc(*func);
+            removeList.insert(*func);
+        }
     }
+    for (auto fun : removeList)
+        unit->removeFunc(fun);
     Log("Function Inline over");
 }

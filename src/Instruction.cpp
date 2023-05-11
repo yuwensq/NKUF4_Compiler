@@ -626,6 +626,7 @@ void AllocaInstruction::genMachineCode(AsmBuilder *builder)
     auto cur_func = builder->getFunction();
     int offset = cur_func->AllocSpace(se->getType()->getSize() / TypeSystem::intType->getSize() * 4);
     dynamic_cast<TemporarySymbolEntry *>(operands[0]->getEntry())->setOffset(-offset);
+    Log("%s %d %x", operands[0]->getEntry()->toStr().c_str(), offset, operands[0]->getEntry());
 }
 
 void LoadInstruction::genMachineCode(AsmBuilder *builder)
@@ -969,6 +970,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         {
             auto arraySE = (TemporarySymbolEntry *)(bitcast->getSrc()->getEntry());
             int offset = arraySE->getOffset();
+            Log("%s %d %x", bitcast->getUse()[0]->toStr().c_str(), offset, arraySE);
             operand = genMachineVReg();
             auto fp = genMachineReg(11);
             /*这里改成这样比较好*/
