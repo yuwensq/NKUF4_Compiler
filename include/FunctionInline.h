@@ -11,6 +11,7 @@ private:
     std::map<Function *, std::set<Instruction *>> callIns;
     BasicBlock *entryBlock;
     std::map<BasicBlock*, std::pair<Instruction*, Operand*>> exitBlocks;
+    std::set<Function*> inlinedFuncs;
     void clearData();
     void preProcess();
     bool shouldBeInlined(Function *);

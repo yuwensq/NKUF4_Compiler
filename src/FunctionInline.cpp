@@ -1,10 +1,13 @@
 #include "FunctionInline.h"
+#include <queue>
 
-#define INLINEDEBUG
+// #define INLINEDEBUG
 
 void FunctionInline::clearData()
 {
     callIns.clear();
+    exitBlocks.clear();
+    inlinedFuncs.clear();
 }
 
 void FunctionInline::preProcess()
@@ -54,6 +57,8 @@ Operand *FunctionInline::copyOp(Operand *op)
 
 void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
 {
+    entryBlock = nullptr;
+    exitBlocks.clear();
     auto callerFunc = calledInst->getParent()->getParent();
     auto params = calledInst->getUse();
     std::map<BasicBlock *, BasicBlock *> blk2blk;
@@ -64,7 +69,7 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
     for (auto bb : calleeFunc->getBlockList())
     {
         auto newBB = new BasicBlock(callerFunc);
-        if (bb == callerFunc->getEntry())
+        if (bb == calleeFunc->getEntry())
             entryBlock = newBB;
         blk2blk[bb] = newBB;
 
@@ -181,10 +186,85 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
             }
         }
     }
+#ifdef INLINEDEBUG
+    std::queue<BasicBlock *> q;
+    std::set<BasicBlock *> color;
+    q.push(entryBlock);
+    color.insert(entryBlock);
+    while (!q.empty())
+    {
+        auto nowB = q.front();
+        q.pop();
+        if (nowB == entryBlock)
+            nowB->output();
+        for (auto succ = nowB->succ_begin(); succ != nowB->succ_end(); succ++)
+            if (!color.count(*succ))
+            {
+                q.push(*succ);
+                color.insert(*succ);
+            }
+    }
+#endif
 }
 
 void FunctionInline::merge(Function *func, Instruction *callInst)
 {
+    // 把callInst之后的指令全部移到tailB中
+    auto headB = callInst->getParent();
+    auto tailB = new BasicBlock(func);
+    auto tailHead = tailB->end();
+    tailHead->setNext(callInst->getNext());
+    callInst->getNext()->setPrev(tailHead);
+    auto tailEnd = headB->rbegin();
+    tailEnd->setNext(tailHead);
+    tailHead->setPrev(tailEnd);
+    for (auto inst = tailB->begin(); inst != tailB->end(); inst = inst->getNext())
+        inst->setParent(tailB);
+    callInst->setNext(headB->end());
+    headB->end()->setPrev(callInst);
+    // tailB继承headB后继关系
+    for (auto succ = headB->succ_begin(); succ != headB->succ_end(); succ++)
+    {
+        (*succ)->addPred(tailB);
+        tailB->addSucc(*succ);
+        for (auto inst = (*succ)->begin(); inst != (*succ)->end(); inst = inst->getNext())
+        {
+            if (!inst->isPhi())
+                break;
+            auto &srcs = static_cast<PhiInstruction *>(inst)->getSrcs();
+            if (srcs.find(headB) != srcs.end())
+            {
+                auto op = srcs[headB];
+                srcs.erase(headB);
+                srcs.insert(std::make_pair(tailB, op));
+            }
+        }
+    }
+    // headB设置后继关系
+    auto retValue = callInst->getDef();
+    headB->remove(callInst);
+    new UncondBrInstruction(entryBlock, headB);
+    headB->cleanAllSucc();
+    headB->addSucc(entryBlock);
+    // tailB设置前驱关系
+    PhiInstruction *phiInst = nullptr;
+    if (retValue != nullptr)
+    {
+        phiInst = new PhiInstruction(retValue, nullptr);
+        retValue->setDef(phiInst);
+        tailB->insertFront(phiInst, false);
+    }
+    for (auto pa : exitBlocks)
+    {
+        auto pred = pa.first;
+        auto inst = pa.second.first;
+        auto retOp = pa.second.second;
+        pred->addSucc(tailB);
+        tailB->addPred(pred);
+        static_cast<UncondBrInstruction *>(inst)->setBranch(tailB);
+        if (phiInst != nullptr)
+            phiInst->addSrc(pred, retOp);
+    }
 }
 
 void FunctionInline::doInline(Function *func)
@@ -192,11 +272,23 @@ void FunctionInline::doInline(Function *func)
     for (auto calledInst : callIns[func])
     {
         auto callerFunc = calledInst->getParent()->getParent();
+        if (inlinedFuncs.count(callerFunc))
+            continue;
         // 把原来的函数复制一份
         copyFunc(calledInst, func);
         // 合并
         merge(callerFunc, calledInst);
     }
+    inlinedFuncs.insert(func);
+    // for (auto &pa : callIns)
+    // {
+    //     if (pa.first == func)
+    //         continue;
+    //     auto calls = pa.second;
+    //     for (auto inst : calls)
+    //         if (inst->getParent()->getParent() == func)
+    //             pa.second.erase(inst);
+    // }
 }
 
 void FunctionInline::pass()
@@ -208,6 +300,7 @@ void FunctionInline::pass()
     {
         if (shouldBeInlined(*func))
             doInline(*func);
+        unit->removeFunc(*func);
     }
     Log("Function Inline over");
 }

@@ -58,52 +58,61 @@ Instruction *Instruction::getPrev()
     return prev;
 }
 
-bool Instruction::isCritical() 
+bool Instruction::isCritical()
 {
-    if (isRet()) 
+    if (isRet())
     {
-        //只有一个return;那么就是关键指令
+        // 只有一个return;那么就是关键指令
         if (getUse().empty())
             return true;
-        //下面讨论return有返回值
-        //这边的preds取的应该是调用了当前函数的那些call指令
+        // 下面讨论return有返回值
+        // 这边的preds取的应该是调用了当前函数的那些call指令
         auto callPreds = parent->getParent()->getCallPred();
-        //如果为空，那么关键
+        // 如果为空，那么关键
         if (callPreds.empty())
             return true;
         // 只要有接收ret值的就要返回true
         for (auto it : callPreds)
             if (it->getDef()->usersNum())
                 return true;
-        //当前函数的return语句有返回值，当前的函数有被call指令调用，但这若干条call指令的结果都没有被使用，那么返回false
+        // 当前函数的return语句有返回值，当前的函数有被call指令调用，但这若干条call指令的结果都没有被使用，那么返回false
         return false;
     }
     // input/output
     // a function is essential if it is a sysy/memset function or it has a array param or it call a essential function or修改全局
     // 论文说：call指令都不能删，毕竟考虑到它可能修改全局变量这样，不过仔细设计倒也不是不行
-    if (isCall()) {
-        IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)(((CallInstruction*)this)->getFunc());
-        //我们的那个代码里面用的llvm.memset.p0i8.i32，表示写内存
-        //Sysy判断是否为库函数,memset需要提前到sysy判断之前，因为memset算sysy函数
-        if(funcSE->getName() == "llvm.memset.p0i8.i32"){
-            //这边判断一下，如果memset的数组，它没有用过，那么这个memset也就不要了
-            auto addr=getUse()[0];
-            Instruction* bitDef=addr->getDef();
-            if(bitDef->isBitcast()){
-                //获取了那个数组的基地址
-                auto base = bitDef->getUse()[0];             
-                //如果这个数组没有其他的use了，它就是一个无用初始化
-                if(base->getUse().size()==1){
+    if (isCall())
+    {
+        IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)(((CallInstruction *)this)->getFunc());
+        // 我们的那个代码里面用的llvm.memset.p0i8.i32，表示写内存
+        // Sysy判断是否为库函数,memset需要提前到sysy判断之前，因为memset算sysy函数
+        if (funcSE->getName() == "llvm.memset.p0i8.i32")
+        {
+            // 这边判断一下，如果memset的数组，它没有用过，那么这个memset也就不要了
+            auto addr = getUse()[0];
+            Instruction *bitDef = addr->getDef();
+            if (bitDef->isBitcast())
+            {
+                // 获取了那个数组的基地址
+                auto base = bitDef->getUse()[0];
+                // 如果这个数组没有其他的use了，它就是一个无用初始化
+                if (base->getUse().size() == 1)
+                {
                     return false;
                 }
             }
             return true;
-        } else if (funcSE->isSysy()) {
+        }
+        else if (funcSE->isSysy())
+        {
             return true;
-        } else {
-            //讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
+        }
+        else
+        {
+            // 讨论是否是纯函数->不是纯函数或者调用的函数有不是纯函数的话，就是关键函数
             auto func = funcSE->getFunction();
-            if (func->getCritical() == 1) {
+            if (func->getCritical() == 1)
+            {
                 return true;
             }
         }
@@ -117,16 +126,17 @@ bool Instruction::isCritical()
         //     }
         // }
     }
-    //涉及内存写,如果这条store语句所在的函数有被调用，且这个函数不是纯函数，就要保留它
-    if (isStore()) {
-        auto func=parent->getParent();
+    // 涉及内存写,如果这条store语句所在的函数有被调用，且这个函数不是纯函数，就要保留它
+    if (isStore())
+    {
+        auto func = parent->getParent();
         auto callPreds = func->getCallPred();
-        //如果为空，那么没有call调用这条store所在函数
-        if (!callPreds.empty()&& func->getCritical() == 1)
+        // 如果为空，那么没有call调用这条store所在函数
+        if (!callPreds.empty() && func->getCritical() == 1)
             return true;
         return false;
     }
-    
+
     return false;
 }
 
@@ -317,7 +327,9 @@ UncondBrInstruction::UncondBrInstruction(BasicBlock *to, BasicBlock *insert_bb) 
 
 void UncondBrInstruction::output() const
 {
-    fprintf(yyout, "  br label %%B%d\n", branch->getNo());
+    if (branch == nullptr)
+        Log("branch is null");
+    fprintf(yyout, "  br label %%B%d\n", branch ? branch->getNo() : -1);
 }
 
 void UncondBrInstruction::setBranch(BasicBlock *bb)
@@ -389,8 +401,9 @@ CallInstruction::CallInstruction(Operand *dst, SymbolEntry *func, std::vector<Op
     this->funcAddPred();
 }
 
-void CallInstruction::funcAddPred() {
-    IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)func;
+void CallInstruction::funcAddPred()
+{
+    IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)func;
     if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32")
         funcSE->getFunction()->addCallPred(this);
 }
@@ -940,9 +953,9 @@ void CondBrInstruction::genMachineCode(AsmBuilder *builder)
 
 void CallInstruction::genMachineCode(AsmBuilder *builder)
 {
-    auto cur_block = builder->getBlock();    
-    
-    auto funcSE = (IdentifierSymbolEntry*)(this->func);
+    auto cur_block = builder->getBlock();
+
+    auto funcSE = (IdentifierSymbolEntry *)(this->func);
     if (funcSE->getName() == "llvm.memset.p0i8.i32")
     {
         MachineOperand *operand;
@@ -952,9 +965,9 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         auto r1 = genMachineReg(1);
         auto r2 = genMachineReg(2);
         auto int8Ptr = operands[1];
-        auto bitcast = (BitcastInstruction*)(int8Ptr->getDef());
+        auto bitcast = (BitcastInstruction *)(int8Ptr->getDef());
         {
-            auto arraySE = (TemporarySymbolEntry*)(bitcast->getSrc()->getEntry());
+            auto arraySE = (TemporarySymbolEntry *)(bitcast->getSrc()->getEntry());
             int offset = arraySE->getOffset();
             operand = genMachineVReg();
             auto fp = genMachineReg(11);
@@ -1010,7 +1023,7 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
             else
                 cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
         }
-        else 
+        else
             cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(sum), param));
         sum++;
     }
@@ -1234,21 +1247,24 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, base));
 }
 
-BitcastInstruction::BitcastInstruction(Operand* dst, Operand* src, BasicBlock* insert_bb) : Instruction(BITCAST, insert_bb), dst(dst), src(src) {
+BitcastInstruction::BitcastInstruction(Operand *dst, Operand *src, BasicBlock *insert_bb) : Instruction(BITCAST, insert_bb), dst(dst), src(src)
+{
     operands.push_back(dst);
     operands.push_back(src);
     dst->setDef(this);
     src->addUse(this);
 }
 
-BitcastInstruction::~BitcastInstruction() {
+BitcastInstruction::~BitcastInstruction()
+{
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
         delete operands[0];
     operands[1]->removeUse(this);
 }
 
-void BitcastInstruction::output() const {
+void BitcastInstruction::output() const
+{
     std::string dst = operands[0]->toStr();
     std::string src = operands[1]->toStr();
     std::string dst_type = operands[0]->getType()->toStr();
@@ -1420,25 +1436,32 @@ void PhiInstruction::addEdge(BasicBlock *block, Operand *src)
     src->addUse(this);
 }
 
-bool PhiInstruction::findSrc(BasicBlock* block){
-    for (auto it = srcs.begin(); it != srcs.end(); it++) {
-        if(it->first==block){
+bool PhiInstruction::findSrc(BasicBlock *block)
+{
+    for (auto it = srcs.begin(); it != srcs.end(); it++)
+    {
+        if (it->first == block)
+        {
             return true;
         }
     }
     return false;
 }
 
-Operand* PhiInstruction::getBlockSrc(BasicBlock* block) {
+Operand *PhiInstruction::getBlockSrc(BasicBlock *block)
+{
     if (srcs.find(block) != srcs.end())
         return srcs[block];
     return nullptr;
 }
 
-void PhiInstruction::removeBlockSrc(BasicBlock* block){
-    for (auto it = srcs.begin(); it != srcs.end(); it++) {
-        if(it->first==block){
-            //使用erase时容器失效
+void PhiInstruction::removeBlockSrc(BasicBlock *block)
+{
+    for (auto it = srcs.begin(); it != srcs.end(); it++)
+    {
+        if (it->first == block)
+        {
+            // 使用erase时容器失效
             srcs.erase(block);
             removeUse(it->second);
             it->second->removeUse(this);
@@ -1448,13 +1471,15 @@ void PhiInstruction::removeBlockSrc(BasicBlock* block){
     return;
 }
 
-void PhiInstruction::addSrc(BasicBlock* block, Operand* src) {
+void PhiInstruction::addSrc(BasicBlock *block, Operand *src)
+{
     operands.push_back(src);
     srcs.insert(std::make_pair(block, src));
     src->addUse(this);
 }
 
-void PhiInstruction::removeUse(Operand* use) {
+void PhiInstruction::removeUse(Operand *use)
+{
     auto it = find(operands.begin() + 1, operands.end(), use);
     if (it != operands.end())
         operands.erase(it);

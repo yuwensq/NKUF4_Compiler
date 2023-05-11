@@ -2,7 +2,7 @@
 #include "debug.h"
 #include <queue>
 
-#define PUREFUNCDEBUG
+// #define PUREFUNCDEBUG
 
 void PureFunctionAnalyser::analyseCallRelation()
 {

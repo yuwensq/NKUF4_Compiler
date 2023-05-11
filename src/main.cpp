@@ -19,6 +19,7 @@
 #include "MachineCopyProp.h"
 #include "Global2Local.h"
 #include "MachineDeadCodeElim.h"
+#include "FunctionInline.h"
 
 using namespace std;
 
@@ -97,6 +98,7 @@ int main(int argc, char *argv[])
     DeadCodeElimination dce(&unit);
     PhiElimination pe(&unit);
     LoopCodeMotion lcm(&unit);
+    FunctionInline finline(&unit);
 
     // g2l.pass();
     m2r.pass(); // Only IR supported
@@ -106,6 +108,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
+    finline.pass();
     lcm.pass();
     pe.pass();
 
