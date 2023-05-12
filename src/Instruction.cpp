@@ -1176,7 +1176,9 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
         base = new MachineOperand(*base);
     }
     Type *arrType = ((PointerType *)operands[1]->getType())->getType();
-    std::vector<int> indexs = ((ArrayType *)arrType)->getIndexs();
+    std::vector<int> indexs = {};
+    if (arrType->isArray())
+        indexs = ((ArrayType *)arrType)->getIndexs();
     std::vector<int> imms; // 这个专门用来记录索引中的立即数比如说a[10][i][3] 就存一个{0, 2}这样子
     for (unsigned long int i = 2; i < operands.size(); i++)
     {

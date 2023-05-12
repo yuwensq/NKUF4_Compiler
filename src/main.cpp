@@ -109,7 +109,12 @@ int main(int argc, char *argv[])
     cse.pass();
     dce.pass();
     finline.pass();
-    lcm.pass();
+    sccp.pass();
+    cse.pass();
+    sccp.pass();
+    cse.pass();
+    // dce.pass();
+    // lcm.pass();
     pe.pass();
 
     Log("IR优化成功\n"); /**/
@@ -127,7 +132,7 @@ int main(int argc, char *argv[])
     // mcp.pass();
     // mdce.pass();
     // mst.pass();
-    // Log("目标代码优化成功\n");
+    Log("目标代码优化成功\n");
 
     LinearScan linearScan(&mUnit);
     if (dump_asm)
