@@ -32,9 +32,14 @@ void FunctionInline::preProcess()
 
 bool FunctionInline::shouldBeInlined(Function *func)
 {
+    // 直接递归不内联
     for (auto inst : callIns[func])
         if (inst->getParent()->getParent() == func)
             return false;
+    // 参数大于10内联
+    // if (func->getParams().size() >= 10)
+    //     return true;
+    // 指令数太多不内联
     long long inst_num = 0;
     for (auto bb : func->getBlockList())
     {

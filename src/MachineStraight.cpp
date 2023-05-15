@@ -13,13 +13,17 @@ void MachineStraight::getSlimBlock()
         {
             if (blk->getInsts().size() == 1 && blk->getInsts()[0]->isUBranch())
             {
+                // 先不处理entry块
+                if (blk == func->getEntry())
+                    continue;
                 blk2blk[blk->getNo()] = std::make_pair(blk, blk->getSuccs()[0]);
             }
         }
     }
 }
 
-void MachineStraight::removeSlimBlock() {
+void MachineStraight::removeSlimBlock()
+{
     std::string label;
     std::stringstream ss;
     MachineBlock *direct_succ;
@@ -58,14 +62,16 @@ void MachineStraight::removeSlimBlock() {
                     // Log("7");
                     while (blk2blk.find(target_no) != blk2blk.end())
                     {
-                        if (is_direct_succ) {
+                        if (is_direct_succ)
+                        {
                             direct_succ = blk2blk[target_no].first;
                             is_direct_succ = false;
                         }
                         last_succ = blk2blk[target_no].second;
                         target_no = last_succ->getNo();
                     }
-                    if (!is_direct_succ) {
+                    if (!is_direct_succ)
+                    {
                         blk->removeSucc(direct_succ);
                         blk->addSucc(last_succ);
                         last_succ->addPred(blk);
@@ -73,6 +79,17 @@ void MachineStraight::removeSlimBlock() {
                     }
                 }
             }
+        }
+        auto entry = func->getEntry();
+        if (entry->getInsts().size() == 1 && entry->getInsts()[0]->isUBranch())
+        {
+            auto succ = entry->getSuccs()[0];
+            entry->removeSucc(succ);
+            succ->removePred(entry);
+            func->RemoveBlock(entry);
+            func->RemoveBlock(succ);
+            func->InsertFront(succ);
+            func->setEntry(succ);
         }
     }
 }

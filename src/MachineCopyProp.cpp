@@ -134,7 +134,7 @@ void MachineCopyProp::calInOut(MachineFunction *func)
     std::set<int> U;
     for (int i = 0; i < allCopyStmts.size(); i++)
         U.insert(i);
-    auto entry = func->getBlocks()[0];
+    auto entry = func->getEntry();
     In[entry].clear();
     Out[entry] = Gen[entry];
     std::set<MachineBlock *> workList;

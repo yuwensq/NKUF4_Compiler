@@ -742,20 +742,23 @@ void MachineFunction::output()
     (new MovMInstruction(entry, MovMInstruction::MOV, fp, sp))->output();
     int stackSize = stack_size;
     auto stSize = new MachineOperand(MachineOperand::IMM, stackSize);
-    if (AsmBuilder::isLegalImm(stackSize))
+    if (stack_size != 0)
     {
-        (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, stSize))->output();
-    }
-    else
-    {
-        if (stackSize & 0xff)
-            (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff)))->output();
-        if (stackSize & 0xff00)
-            (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff00)))->output();
-        if (stackSize & 0xff0000)
-            (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff0000)))->output();
-        if (stackSize & 0xff000000)
-            (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff000000)))->output();
+        if (AsmBuilder::isLegalImm(stackSize))
+        {
+            (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, stSize))->output();
+        }
+        else
+        {
+            if (stackSize & 0xff)
+                (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff)))->output();
+            if (stackSize & 0xff00)
+                (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff00)))->output();
+            if (stackSize & 0xff0000)
+                (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff0000)))->output();
+            if (stackSize & 0xff000000)
+                (new BinaryMInstruction(entry, BinaryMInstruction::SUB, sp, sp, new MachineOperand(MachineOperand::IMM, stackSize & 0xff000000)))->output();
+        }
     }
     // 这一点是最坑的，按照龟腚来说arm里面的栈指针应该8字节对齐，如果不对齐的话，可能有问题
     // 然后这里就先算数右移三位再算数左移三位，8字节对齐一下，要不会发现浮点数有时候很奇怪

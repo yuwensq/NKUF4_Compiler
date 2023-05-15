@@ -521,8 +521,11 @@ private:
     int stack_size;
     std::set<int> saved_regs;
     SymbolEntry *sym_ptr;
+    MachineBlock *entry;
 
 public:
+    void setEntry(MachineBlock *block) { entry = block; };
+    MachineBlock *getEntry() { return entry; };
     std::vector<MachineBlock *> &getBlocks() { return block_list; };
     std::vector<MachineBlock *>::iterator begin() { return block_list.begin(); };
     std::vector<MachineBlock *>::iterator end() { return block_list.end(); };
@@ -538,6 +541,7 @@ public:
         return this->stack_size;
     };
     void InsertBlock(MachineBlock *block) { this->block_list.push_back(block); };
+    void InsertFront(MachineBlock *block) { this->block_list.insert(this->block_list.begin(), block); };
     void RemoveBlock(MachineBlock *block) { this->block_list.erase(std::find(this->block_list.begin(), this->block_list.end(), block)); };
     void addSavedRegs(int regno) { saved_regs.insert(regno); };
     std::vector<MachineOperand *> getAllSavedRegs();

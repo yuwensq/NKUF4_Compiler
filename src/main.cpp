@@ -123,15 +123,15 @@ int main(int argc, char *argv[])
         unit.output();
     unit.genMachineCode(&mUnit);
     Log("目标代码生成成功\n");
-    // MachinePeepHole mph(&mUnit, 2);
-    // MachineStraight mst(&mUnit);
-    // MachineCopyProp mcp(&mUnit);
-    // MachineDeadCodeElim mdce(&mUnit);
-    // mst.pass();
-    // mph.pass();
-    // mcp.pass();
-    // mdce.pass();
-    // mst.pass();
+    MachinePeepHole mph(&mUnit, 2);
+    MachineStraight mst(&mUnit);
+    MachineCopyProp mcp(&mUnit);
+    MachineDeadCodeElim mdce(&mUnit);
+    mst.pass();
+    mph.pass();
+    mcp.pass();
+    mdce.pass();
+    mst.pass();
     Log("目标代码优化成功\n");
 
     LinearScan linearScan(&mUnit);
