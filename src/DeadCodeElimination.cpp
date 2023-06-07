@@ -210,11 +210,18 @@ void DeadCodeElimination::markStore(Function* func){
                 Operand* dstOP=ins->getUse()[0];
                 //全局的标记
                 if(dstOP->isGlobal()){
-                    if(count(gloOp.begin(),gloOp.end(),dstOP)){
-                        ins->setMark();
-                        ins->getParent()->setMark();
-                        worklist.push_back(ins);                             
+                    for(auto glo:gloOp){
+                        if(dstOP->toStr()==glo->toStr()){
+                            ins->setMark();
+                            ins->getParent()->setMark();
+                            worklist.push_back(ins);                                    
+                        }
                     }
+                    // if(count(gloOp.begin(),gloOp.end(),dstOP)){
+                    //     ins->setMark();
+                    //     ins->getParent()->setMark();
+                    //     worklist.push_back(ins);                             
+                    // }
                 //alloc或gep的标记
                 }else {
                     Instruction* def=dstOP->getDef();//def是gep或alloc指令
