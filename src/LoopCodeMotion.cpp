@@ -414,6 +414,15 @@ void LoopCodeMotion::printLoopConst(std::vector<Instruction*> LoopConstInstructi
 //计算循环不变信息，返回指令的向量集合,同时将不变的操作数存入LoopConst（需要大量补充？？？？？？？？）
 //循环不变运算可以是一元/二元/赋值/等等，这边具体参考我们已经有的所有可能的中间代码指令类型，需要仔细设计
 std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<BasicBlock*> Loop,Function* func){
+    loopStoreOperands.clear();
+    for(auto block:Loop){
+        for(auto ins=block->begin();ins!=block->end();ins=ins->getNext()){
+            if(ins->isStore()){
+                loopStoreOperands.insert(ins->getUse()[0]);
+            }
+        }
+    }
+
     std::vector<Instruction*> LoopConstInstructions;
     std::set<Operand*>Operands; //避免重复
     //我们只能够保证，加入了loopConst的那些操作数，就代表了在循环中至少存在它的一条定值语句被标记为循环不变指令
@@ -612,30 +621,52 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
 
 bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
 {
+    //考虑函数内联后，对样例37的特殊处理
+    Operand* loadUse=ins->getUse()[0];
+    for(auto use:loopStoreOperands){
+        if(use->toStr()==loadUse->toStr()){
+            return true;
+        }
+    }
+
     Instruction* temp=ins->getNext();
     BasicBlock* block=ins->getParent();
     std::vector<Operand*> affectedOperands;
     affectedOperands.push_back(ins->getDef());
-    while(temp!=block->end()){
-        // //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
-        // if(temp->isStore()){return true;}
-        //如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
-        for(auto use:temp->getUse())
-        {
-            if(count(affectedOperands.begin(),affectedOperands.end(),use))
+    //函数内联后出现了一个问题，有的基本块莫名被断成两半，因此
+    //如果一个基本块，以直接跳转结尾，就继续跳到那个基本块处理
+    //直到遇到一个cmp语句+分支跳转的基本块停下
+    while(true){
+        while(temp!=block->end()){
+            // //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
+            // if(temp->isStore()){return true;}
+            //如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
+            for(auto use:temp->getUse())
             {
-                //如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
-                //如果遇到受影响的store，那么也返回true
-                //如果遇到call，参数中含有受影响的，也直接返回true
-                if(temp->isCmp()||temp->isStore()||temp->isCall())
+                if(count(affectedOperands.begin(),affectedOperands.end(),use))
                 {
-                    return true;
+                    //如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
+                    //如果遇到受影响的store，那么也返回true
+                    //如果遇到call，参数中含有受影响的，也直接返回true
+                    if(temp->isCmp()||temp->isStore()||temp->isCall())
+                    {
+                        return true;
+                    }
+                    affectedOperands.push_back(temp->getDef());
+                    break;
                 }
-                affectedOperands.push_back(temp->getDef());
-                break;
             }
+            temp=temp->getNext();
         }
-        temp=temp->getNext();
+        //如果是无条件跳转的话,更新
+        Instruction* last=temp->getPrev();
+        if(last->isUncond()){
+            block = ((UncondBrInstruction*)last)->getBranch();
+            temp = block->begin();
+        }
+        else{
+            break;
+        }        
     }
     return false;
 }

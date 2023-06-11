@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
-    // lcm.pass();
+    lcm.pass();
     // pe.pass();
 
     Log("IR优化成功\n"); /**/
