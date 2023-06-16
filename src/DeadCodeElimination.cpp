@@ -208,6 +208,7 @@ void DeadCodeElimination::markStore(Function* func){
         while(ins!=block->end()){
             if(ins->isStore()){
                 Operand* dstOP=ins->getUse()[0];
+                Operand* srcOp=ins->getUse()[1];
                 //全局的标记
                 if(dstOP->isGlobal()){
                     for(auto glo:gloOp){
@@ -233,9 +234,31 @@ void DeadCodeElimination::markStore(Function* func){
                                 if(allOp->toStr()==dstOP->toStr()){
                                     ins->setMark();
                                     ins->getParent()->setMark();
-                                    worklist.push_back(ins);                                           
+                                    worklist.push_back(ins);    
+                                    break;                                       
                                 }
                             }
+                        }
+                        //考虑函数内联处理后的情况，这个函数中有数组参数，此时这条指令被抹除了，我们需要找到函数内联后
+                        //实参数组与形参数组，二者之间联系的那条指令，就是一条store，将实参地址存入某一个**类型的形参中
+                        //如果这条store它的use[1]是某一个关键ArrUse数组的首地址，它的use[0]就是一个**类型的操作数
+                        //而后面倘若又load了这个**类型的地址到一个新的数组变量中，那么就要把它加入gepOp
+                        Instruction* srcDef=srcOp->getDef();
+                        //避免参数的store，所以先行判断srcDef存在
+                        if(srcDef&&srcDef->isGep()){
+                            Operand* op1=srcDef->getUse()[0];
+                            for(auto ArrUse:gepOp){
+                                if(op1->toStr()==ArrUse->toStr()){
+                                    //是关键的
+                                    std::vector<Instruction *> loadIns = dstOP->getUse();
+                                    for(auto loads:loadIns){
+                                        if(loads->isLoad()){
+                                            gepOp.insert(loads->getDef());
+                                        }
+                                    }
+                                    break; 
+                                }
+                            }                                
                         }
                     }
                     else if(!gepOp.empty()){
@@ -247,6 +270,34 @@ void DeadCodeElimination::markStore(Function* func){
                                 worklist.push_back(ins);
                                 break;    
                             }
+                        }                                               
+                    }
+                }
+            }
+            //补充一下，如%t176 = getelementptr inbounds [6 x i32], [6 x i32]* %t363, i32 0, i32 0   
+            //363被标记了，那么如果gep指令，use[0]是363，use[1:]偏移是0，就也把176放进去
+            if(ins->isGep()){
+                std::vector<Operand *> useOp = ins->getUse();
+                if(useOp[0]->getType()->isPtr()){
+                    if(((PointerType*)useOp[0]->getType())->getType()->isArray()){
+                        //std::cout<<useOp[0]->toStr()<<std::endl;
+                        if(!gepOp.empty()){
+                            for(auto ArrUse:gepOp){
+                                if(useOp[0]->toStr()==ArrUse->toStr()){
+                                    bool allzero=true;
+                                    for(auto i=1;i<useOp.size();i++){
+                                        if(useOp[i]->toStr()!="0"){
+                                            allzero=false;
+                                            break;
+                                        }
+                                    }
+                                    if(allzero){
+                                        gepOp.insert(ins->getDef());
+                                        //std::cout<<(ins->getDef())->toStr()<<std::endl;                                        
+                                    }
+                                    break;    
+                                }
+                            }                                               
                         }                        
                     }
                 }
