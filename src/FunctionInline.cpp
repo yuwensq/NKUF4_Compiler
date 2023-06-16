@@ -68,6 +68,7 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
     auto params = calledInst->getUse();
     std::map<BasicBlock *, BasicBlock *> blk2blk;
     std::map<Operand *, Operand *> op2op;
+    // std::map<Operand*, Operand*> arg2Src; // 这个存储指针参数的源头，因为指针参数用的时候要先load，这里存的就是store
     blk2blk.clear();
     op2op.clear();
     // 先复制每个基本块
@@ -102,6 +103,15 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 exitBlocks[newBB] = std::make_pair(uncondIns, retValue);
                 break;
             }
+            // else if (inst->isAlloc())
+            // {
+            //     if (static_cast<IdentifierSymbolEntry *>(static_cast<AllocaInstruction *>(inst)->getEntry())->isParam())
+            //         continue;
+            // }
+            // else if (inst->isStore() && calleeFunc->getParamNumber(inst->getUse()[1]) != -1)
+            // {
+            //     continue;
+            // }
             auto newInst = inst->copy();
             Assert(newInst != nullptr, "这里为啥嘞");
             newInst->setParent(newBB);
