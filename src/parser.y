@@ -624,7 +624,7 @@ FuncDef
     } 
     BlockStmt {
         SymbolEntry* se;
-        se = identifiers->lookup($2);
+        se = globals->lookup($2);
         assert(se != nullptr);
         $$ = new FunctionDef(se, (DeclStmt*)$5, $8);
         SymbolTable* top = identifiers;

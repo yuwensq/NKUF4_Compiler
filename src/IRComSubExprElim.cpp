@@ -421,17 +421,20 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                 {
                     if (!exprVec[i].inst->isLoad())
                         continue;
-                    if (invalidate(inst, exprVec[i].inst))
+                    if (invalidate(inst, exprVec[i].inst)) {
                         killBB[*bb].insert(i);
+                        if ((*bb)->getNo() == 36)
+                            Log("dawang %d", i);
+                    }
                 }
             }
             if (inst->getDef() != nullptr)
             {
-                if (!skip(inst))
-                {
-                    int ind = ins2Expr[inst];
-                    killBB[*bb].erase(ind);
-                }
+                // if (!skip(inst))
+                // {
+                //     int ind = ins2Expr[inst];
+                //     killBB[*bb].erase(ind);
+                // }
                 // 这两种写法是不是等价呀，不过上边这种更快
                 for (auto useInst : inst->getDef()->getUse())
                 {

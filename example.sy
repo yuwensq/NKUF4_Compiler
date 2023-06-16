@@ -1,10 +1,21 @@
-int x(int a[])
-{
-    return a[0];
+int sum;
+int count = 0;
+
+int getA() {
+  count = count + 1;
+  return count;
 }
 
-int main()
-{
-    int a[3] = {1, 2, 3};
-    return x(a);
+void f1(int a) {
+  sum = sum + a;
+  a = getA();
+  sum = sum + a;
+  {
+    if (1) {
+      int a = getA();
+      sum = sum + a;
+    }
+    sum = sum + a;
+  }
+  sum = sum + a;
 }

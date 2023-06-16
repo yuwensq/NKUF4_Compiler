@@ -405,7 +405,9 @@ void CallInstruction::funcAddPred()
 {
     IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)func;
     if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32")
+    {
         funcSE->getFunction()->addCallPred(this);
+    }
 }
 
 CallInstruction::~CallInstruction() {}

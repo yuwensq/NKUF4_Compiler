@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
     // g2l.pass();
     m2r.pass(); // Only IR supported
-    spcfg.pass();
+    // spcfg.pass();
     sccp.pass();
     cse.pass();
     sccp.pass();
