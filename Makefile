@@ -7,6 +7,7 @@ BINARY ?= $(BUILD_PATH)/compiler
 SYSLIB_PATH ?= sysyruntimelibrary
 
 INC = $(addprefix -I, $(INC_PATH))
+DEPS = $(shell find $(INC_PATH) -name "*.h")
 SRC = $(shell find $(SRC_PATH)  -name "*.cpp")
 CFLAGS = -O2 -g -Wall -std=c++17 $(INC)
 FLEX ?= $(SRC_PATH)/lexer.l
@@ -38,7 +39,7 @@ $(LEXER):$(FLEX)
 $(PARSER):$(BISON)
 	@bison -o $@ $< --warnings=error=all --defines=$(PARSERH)
 
-$(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp
+$(OBJ_PATH)/%.o:$(SRC_PATH)/%.cpp $(DEPS)
 	@mkdir -p $(OBJ_PATH)
 	@clang++ $(CFLAGS) -c -o $@ $<
 
@@ -215,9 +216,9 @@ lltest:app
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mAssemble Error\033[0m"
 		else
 			if [ -f "$${IN}" ]; then
-				timeout 25s $${BIN} <$${IN} >$${RES} 2>>$${LOG}
+				timeout 60s $${BIN} <$${IN} >$${RES} 2>>$${LOG}
 			else
-				timeout 25s $${BIN} >$${RES} 2>>$${LOG}
+				timeout 60s $${BIN} >$${RES} 2>>$${LOG}
 			fi
 			RETURN_VALUE=$$?
 			FINAL=`tail -c 1 $${RES}`

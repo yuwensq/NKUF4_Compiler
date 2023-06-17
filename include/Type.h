@@ -2,6 +2,7 @@
 #define __TYPE_H__
 #include <vector>
 #include <string>
+#include "debug.h"
 
 class Type
 {
@@ -32,7 +33,7 @@ public:
     bool isArray() const { return kind == ARRAY; };
     bool isFloat() const { return kind == FLOAT; };
     int getKind() const { return kind; }
-    virtual int getSize() const { return 0; }
+    virtual long long getSize() const { return 0; }
     virtual bool isConst() const {return false;}
     virtual bool isStr() const {return false;}
 };
@@ -40,27 +41,27 @@ public:
 class IntType : public Type
 {
 private:
-    int size;
+    long long size;
     bool constant;
 
 public:
-    IntType(int size, bool constant = false) : Type(size == 1 ? Type::BOOL : Type::INT), size(size), constant(constant) {}
+    IntType(long long size, bool constant = false) : Type(size == 1 ? Type::BOOL : Type::INT), size(size), constant(constant) {}
     std::string toStr();
     bool isConst() const { return constant; }
-    int getSize() const { return size; }
+    long long getSize() const { return size; }
 };
 
 class FloatType : public Type
 {
 private:
-    int size;
+    long long size;
     bool constant;
 
 public:
-    FloatType(int size, bool constant = false) : Type(Type::FLOAT), size(size), constant(constant){};
+    FloatType(long long size, bool constant = false) : Type(Type::FLOAT), size(size), constant(constant){};
     std::string toStr();
     bool isConst() const { return constant; }
-    int getSize() const { return size; }
+    long long getSize() const { return size; }
 };
 
 class VoidType : public Type
@@ -85,7 +86,7 @@ public:
     };
     std::vector<Type *>& getParamsType() { return paramsType; }
     std::string toStr();
-    int getSize() const { return returnType->getSize(); }
+    long long getSize() const { return returnType->getSize(); }
 };
 
 class PointerType : public Type
@@ -100,7 +101,7 @@ public:
     };
     std::string toStr();
     Type *getType() const { return valueType; }
-    int getSize() const { return 32; }
+    long long getSize() const { return 32; }
 };
 
 class TypeSystem
@@ -131,7 +132,7 @@ private:
     // 数组的索引范围
     std::vector<int> indexs;
     Type *baseType;
-    int size;
+    long long size;
 
 public:
     ArrayType(std::vector<int> indexs, Type *baseType = TypeSystem::intType) : Type(Type::ARRAY), indexs(indexs), baseType(baseType)
@@ -146,7 +147,7 @@ public:
     std::string toStr();
     std::vector<int> getIndexs() { return indexs; }
     Type *getBaseType() { return baseType; }
-    int getSize() const { return size; }
+    long long getSize() const { return size; }
     bool isConst() const { return baseType->isConst(); }
 };
 
