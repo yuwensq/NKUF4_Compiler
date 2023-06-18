@@ -109,7 +109,7 @@ void MachineOperand::output()
             fprintf(yyout, "addr_%s_%d", this->label.c_str(), this->getParent()->getParent()->getParent()->getParent()->getLtorgNum());
         break;
     default:
-        printf("%d\n", this->type);
+        // fprintf(yyout, "%d\n", this->type);
         assert(0);
         break;
     }

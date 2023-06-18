@@ -1,60 +1,47 @@
-int x[600][600][600];
-int y[600][600][600];
- 
-int main()
-{
-    int i,j,k;
-    int f;
-    int N;
+const int maxN = 1005;
+int parent[maxN];
 
-    N = getint ();
-    f = getint ();
+int find(int root) {
+  if (parent[root] == root)
+    return root;
+  else {
+    parent[root] = find(parent[root]);
+    return parent[root];
+  }
+}
 
-    starttime();
+void merge(int p, int q) {
+  int root_p, root_q;
+  root_p = find(p);
+  root_q = find(q);
+  if (root_p != root_q) {
+    parent[root_q] = root_p;
+  }
+  return;
+}
 
-    i = 0;
-    j = 0;
-    k = 0;
+int main() {
+  int n = getint(), m = getint(), i;
+  int p, q;
+  i = 0;
+  while (i < n) {
+    parent[i] = i;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < m) {
+    p = getint();
+    q = getint();
+    merge(p, q);
+    i = i + 1;
+  }
 
-    while (i<N) {
-      j = 0;
-      k = 0;
-      while (j<N) {
-        k = 0;
-	    while (k<N) {
-	      x[i][j][k] = 1;
-	      y[i][j][k] = 0;
-          k = k + 1;
-	    }
-        j = j + 1;
-      }
-      i = i + 1;
-    }
-
-    i = 1;
-    j = 1;
-    k = 1;
-
-    while (i<N - 1) {
-      j = 1;
-      k = 1;
-      while (j<N - 1) {
-        k = 1;
-	    while (k<N - 1) {
-	       x[i][j][k] =  ( x[i-1][j][k] + x[i+1][j][k] + x[i][j-1][k] +
-			    x[i][j+1][k] + x[i][j][k-1] + x[i][j][k+1]	) / f;
-          k = k + 1;
-	    }
-        j = j + 1;
-      }
-      i = i + 1;
-    }
-
-    stoptime();
-	
-    putarray (N, x[0][0]);
-    putarray (N, x[N/2][N/2]);
-    putarray (N, x[i-1][j-1]);
-
-    return 0;
+  int clusters = 0;
+  i = 0;
+  while (i < n) {
+    if (parent[i] == i) clusters = clusters + 1;
+    i = i + 1;
+  }
+  putint(clusters);
+  return 0;
 }

@@ -421,7 +421,8 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                 {
                     if (!exprVec[i].inst->isLoad())
                         continue;
-                    if (invalidate(inst, exprVec[i].inst)) {
+                    if (invalidate(inst, exprVec[i].inst))
+                    {
                         killBB[*bb].insert(i);
                         if ((*bb)->getNo() == 36)
                             Log("dawang %d", i);
@@ -488,7 +489,7 @@ void IRComSubExprElim::calInAndOut(Function *func)
         auto it = bb->pred_begin() + 1;
         auto overPos = bb->pred_end();
         int turn = 1;
-        for (it; it != overPos; it++)
+        for (; it != overPos; it++)
         {
             intersection(outBB[*it], in[turn ^ 1], in[turn]);
             turn ^= 1;

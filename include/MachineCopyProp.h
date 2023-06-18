@@ -10,8 +10,8 @@ struct CopyStmt
     CopyStmt(MachineInstruction *inst)
     {
         Assert(inst->isMov() || inst->isVMov32(), "这里应该传入一个mov指令");
-        dst = inst->getDef()[0];
-        src = inst->getUse()[0];
+        dst = new MachineOperand(*inst->getDef()[0]);
+        src = new MachineOperand(*inst->getUse()[0]);
     }
     bool operator==(const CopyStmt &other) const
     {

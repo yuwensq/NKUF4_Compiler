@@ -155,7 +155,7 @@ void MachineCopyProp::calInOut(MachineFunction *func)
         auto it = mb->getPreds().begin() + 1;
         auto overPos = mb->getPreds().end();
         int turn = 1;
-        for (it; it != overPos; it++)
+        for (; it != overPos; it++)
         {
             intersection(Out[*it], in[turn ^ 1], in[turn]);
             turn ^= 1;
@@ -222,7 +222,16 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
             if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
             {
                 if (change)
+                {
                     copyStmtChanged[inst2CopyStmt[minst]] = true;
+                    // 如果修改了原来的mov指令，可能要重新生成一条copystmt
+                    CopyStmt cs(minst);
+                    auto it = find(allCopyStmts.begin(), allCopyStmts.end(), cs);
+                    int index = it - allCopyStmts.begin();
+                    inst2CopyStmt[minst] = index;
+                    if (it == allCopyStmts.end())
+                        allCopyStmts.push_back(cs);
+                }
                 In[mb].insert(inst2CopyStmt[minst]);
                 op2Src[getHash(minst->getDef()[0])] = minst->getUse()[0];
             }
@@ -293,7 +302,8 @@ void MachineCopyProp::pass()
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
         while (!copyProp(*func))
-            Log("pass%dover", ++num);
+            break;
+        Log("pass%dover", ++num);
     }
     Log("汇编复制传播结束\n");
 }
