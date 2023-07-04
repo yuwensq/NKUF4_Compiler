@@ -70,7 +70,7 @@ ll1:app
 	@$(BINARY) -o example.ll -i example.sy 
 
 llrun:app
-	@$(BINARY) -o example.ll -i example.sy -O2
+	@$(BINARY) -o example.ll -i example.sy 
 	clang -o example example.ll sysyruntimelibrary/sylib.c
 	./example 
 	echo $$?

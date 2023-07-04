@@ -10,7 +10,7 @@ extern FILE *yyout;
 Function::Function(Unit *u, SymbolEntry *s)
 {
     entry = new BasicBlock(this);
-    ((IdentifierSymbolEntry*)s)->setFunction(this);
+    ((IdentifierSymbolEntry *)s)->setFunction(this);
     sym_ptr = s;
     parent = u;
     u->insertFunc(this);
@@ -101,23 +101,25 @@ int Function::getParamNumber(Operand *param)
     for (auto pa : params)
     {
         if (pa == param)
+        {
             return i;
+        }
         i++;
     }
     return -1;
 }
 
-void Function::addCallPred(Instruction* in) 
+void Function::addCallPred(Instruction *in)
 {
     assert(in->isCall());
     auto func = in->getParent()->getParent();
-    //递归调用
+    // 递归调用
     if (func == this)
         recur = true;
     this->callPreds.push_back(in);
 }
 
-void Function::removeCallPred(Instruction* in)
+void Function::removeCallPred(Instruction *in)
 {
     assert(in->isCall());
     auto it = find(callPreds.begin(), callPreds.end(), in);
@@ -125,35 +127,45 @@ void Function::removeCallPred(Instruction* in)
     callPreds.erase(it);
 }
 
-PureFunctionAnalyser* pureFunc = nullptr ;        // 检测纯函数
+PureFunctionAnalyser *pureFunc = nullptr; // 检测纯函数
 int Function::getCritical()
 {
-    if(critical!=-1) return critical;
-    if(pureFunc==nullptr){
+    if (critical != -1)
+        return critical;
+    if (pureFunc == nullptr)
+    {
         pureFunc = new PureFunctionAnalyser(parent);
     }
-    //auto pureFunc = new PureFunctionAnalyser(parent);
+    // auto pureFunc = new PureFunctionAnalyser(parent);
     bool ispure = pureFunc->isPure(this);
-    if(!ispure)
+    if (!ispure)
     {
         critical = 1;
         return critical;
     }
     else
-    {   
-        for (auto block : block_list) {
-            for (auto it = block->begin(); it != block->end(); it = it->getNext()) {
-                //这个函数调用了critical的函数
-                if (it->isCall()) {
-                    IdentifierSymbolEntry* funcSE =(IdentifierSymbolEntry*)(((CallInstruction*)it)->getFunc());
-                    Function* func = funcSE->getFunction();
-                    if(this == func) continue; //递归call略去
-                    if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32") {
+    {
+        for (auto block : block_list)
+        {
+            for (auto it = block->begin(); it != block->end(); it = it->getNext())
+            {
+                // 这个函数调用了critical的函数
+                if (it->isCall())
+                {
+                    IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)(((CallInstruction *)it)->getFunc());
+                    Function *func = funcSE->getFunction();
+                    if (this == func)
+                        continue; // 递归call略去
+                    if (funcSE->isSysy() || funcSE->getName() == "llvm.memset.p0i8.i32")
+                    {
                         critical = 1;
                         return critical;
-                    } else {
+                    }
+                    else
+                    {
                         int subCritical = func->getCritical();
-                        if(subCritical==1){
+                        if (subCritical == 1)
+                        {
                             critical = 1;
                             return critical;
                         }
@@ -166,10 +178,11 @@ int Function::getCritical()
     }
 }
 
-BasicBlock* Function::getMarkBranch(BasicBlock* block)
+BasicBlock *Function::getMarkBranch(BasicBlock *block)
 {
-    set<BasicBlock*> blocks;
-    while (true) {
+    set<BasicBlock *> blocks;
+    while (true)
+    {
         auto order = idoms[block->order];
         block = preOrder2dom[order]->block;
         if (blocks.count(block))
@@ -313,34 +326,38 @@ void Function::computeDomFrontier()
     }
 }
 
-void Function::computeRDFSTree(BasicBlock* exit) {
+void Function::computeRDFSTree(BasicBlock *exit)
+{
     TreeNode::Num = 0;
     int len = block_list.size();
-    //先根遍历DFS树（Treenode*类型的vector）重置大小
+    // 先根遍历DFS树（Treenode*类型的vector）重置大小
     preOrder2DFS.resize(len);
-    bool* visited = new bool[len]{};
-    //因为是逆的DFS树，所以根为exit，DFSTreeRoot->num=Num++
+    bool *visited = new bool[len]{};
+    // 因为是逆的DFS树，所以根为exit，DFSTreeRoot->num=Num++
     DFSTreeRoot = new TreeNode(exit);
-    //这边这个num=0
+    // 这边这个num=0
     preOrder2DFS[DFSTreeRoot->num] = DFSTreeRoot;
-    //逆向DFS搜索
+    // 逆向DFS搜索
     reverseSearch(DFSTreeRoot, visited);
     delete[] visited;
 }
 
-//逆向DFS搜索，搭建DFS树preOrder2DFS
-void Function::reverseSearch(TreeNode* node, bool* visited) {
-    //找到当前的node在block_list中相对begin的偏移n
+// 逆向DFS搜索，搭建DFS树preOrder2DFS
+void Function::reverseSearch(TreeNode *node, bool *visited)
+{
+    // 找到当前的node在block_list中相对begin的偏移n
     int n = getIndex(node->block);
-    //标记访问n
+    // 标记访问n
     visited[n] = true;
-    //这个block不能直接等同于node->block吗
+    // 这个block不能直接等同于node->block吗
     auto block = block_list[n];
-    //遍历所有pre，因为是逆向~
-    for (auto it = block->pred_begin(); it != block->pred_end(); it++) {
+    // 遍历所有pre，因为是逆向~
+    for (auto it = block->pred_begin(); it != block->pred_end(); it++)
+    {
         int idx = getIndex(*it);
-        if (!visited[idx]) {
-            TreeNode* child = new TreeNode(*it);
+        if (!visited[idx])
+        {
+            TreeNode *child = new TreeNode(*it);
             preOrder2DFS[child->num] = child;
             child->parent = node;
             node->addChild(child);
@@ -349,25 +366,29 @@ void Function::reverseSearch(TreeNode* node, bool* visited) {
     }
 }
 
-//semidominator，简称为sdom(w)，可以看做是对idom的一种逼近。
-void Function::computeRSdom(BasicBlock* exit) {
+// semidominator，简称为sdom(w)，可以看做是对idom的一种逼近。
+void Function::computeRSdom(BasicBlock *exit)
+{
     int len = block_list.size();
-    //sdoms和idoms都是int列表
+    // sdoms和idoms都是int列表
     sdoms.resize(len);
-    int* ancestors = new int[len];
-    //sdoms初始从0到len-1；ancestors初始为-1
-    for (int i = 0; i < len; i++) {
+    int *ancestors = new int[len];
+    // sdoms初始从0到len-1；ancestors初始为-1
+    for (int i = 0; i < len; i++)
+    {
         sdoms[i] = i;
         ancestors[i] = -1;
     }
-    //根据算法，需要以reverse preorder的方式处理每一个节点
-    for (auto it = preOrder2DFS.rbegin(); (*it)->block != exit; it++) {
+    // 根据算法，需要以reverse preorder的方式处理每一个节点
+    for (auto it = preOrder2DFS.rbegin(); (*it)->block != exit; it++)
+    {
         auto block = (*it)->block;
         int s = block->order;
-        //遍历当前基本块的每一个后继（也就是逆向DFS的每一个前驱）
-        //情况1：小于s；情况2：大于s，设为q，递归地求sdom(sdom(...(sdom(q)))直到<s
-        //取上面两种的最小值
-        for (auto it1 = block->succ_begin(); it1 != block->succ_end(); it1++) {
+        // 遍历当前基本块的每一个后继（也就是逆向DFS的每一个前驱）
+        // 情况1：小于s；情况2：大于s，设为q，递归地求sdom(sdom(...(sdom(q)))直到<s
+        // 取上面两种的最小值
+        for (auto it1 = block->succ_begin(); it1 != block->succ_end(); it1++)
+        {
             int z = eval((*it1)->order, ancestors);
             if (sdoms[z] < sdoms[s])
                 sdoms[s] = sdoms[z];
@@ -377,44 +398,53 @@ void Function::computeRSdom(BasicBlock* exit) {
     delete[] ancestors;
 }
 
-//逆向直接支配
-void Function::computeRIdom(BasicBlock* exit) {
+// 逆向直接支配
+void Function::computeRIdom(BasicBlock *exit)
+{
     int len = block_list.size();
     idoms.resize(len);
     domTreeRoot = new TreeNode(exit, 0);
     preOrder2dom.resize(len);
     preOrder2dom[exit->order] = domTreeRoot;
     idoms[exit->order] = 0;
-    for (auto it = preOrder2DFS.begin() + 1; it != preOrder2DFS.end(); it++) {
+    for (auto it = preOrder2DFS.begin() + 1; it != preOrder2DFS.end(); it++)
+    {
         int p = LCA((*it)->parent->num, sdoms[(*it)->num]);
         idoms[(*it)->num] = p;
         auto parent = preOrder2dom[p];
-        TreeNode* node = new TreeNode((*it)->block, 0);
+        TreeNode *node = new TreeNode((*it)->block, 0);
         node->parent = parent;
         parent->addChild(node);
         preOrder2dom[(*it)->num] = node;
     }
 }
 
-//逆向支配边界
-void Function::computeRDF() {
-    //给这个函数的每一个有ret语句的基本块的后面都链接到同一个exit基本块
-    BasicBlock* exit = new BasicBlock(this);
-    for (auto b : block_list) {
-        if (b->rbegin()->isRet()) {
+// 逆向支配边界
+void Function::computeRDF()
+{
+    // 给这个函数的每一个有ret语句的基本块的后面都链接到同一个exit基本块
+    BasicBlock *exit = new BasicBlock(this);
+    for (auto b : block_list)
+    {
+        if (b->rbegin()->isRet())
+        {
             b->addSucc(exit);
             exit->addPred(b);
         }
     }
-    //逆向DFS（以exit为根DFSTreeRoot），其序列存储到preOrder2DFS，静态变量Num从0开始
+    // 逆向DFS（以exit为根DFSTreeRoot），其序列存储到preOrder2DFS，静态变量Num从0开始
     computeRDFSTree(exit);
     computeRSdom(exit);
     computeRIdom(exit);
-    for (auto block : block_list) {
-        if (block->getNumOfSucc() >= 2) {
-            for (auto it = block->succ_begin(); it != block->succ_end(); it++) {
+    for (auto block : block_list)
+    {
+        if (block->getNumOfSucc() >= 2)
+        {
+            for (auto it = block->succ_begin(); it != block->succ_end(); it++)
+            {
                 int runner = (*it)->order;
-                while (runner != idoms[block->order]) {
+                while (runner != idoms[block->order])
+                {
                     preOrder2DFS[runner]->block->domFrontier.insert(block);
                     runner = idoms[runner];
                 }
@@ -448,7 +478,7 @@ void Function::de_phi()
                 pred->addSucc(splitBlock);
                 pred->removeSucc(bb);
                 splitBlock->addPred(pred);
-                
+
                 new UncondBrInstruction(bb, splitBlock);
                 splitBlock->addSucc(bb);
                 bb->addPred(splitBlock);
@@ -477,17 +507,18 @@ void Function::de_phi()
         while (bb->begin() != bb->end())
         {
             auto i = bb->begin();
-            if (!i->isPhi()) break;
+            if (!i->isPhi())
+                break;
             bb->remove(i);
         }
     }
-    
+
     for (auto &&[block, ins] : pcopy)
     {
-        set<Operand*> defs;
+        set<Operand *> defs;
         for (auto &in : ins)
             defs.insert(in->getDef());
-        vector<Instruction*> temp;
+        vector<Instruction *> temp;
         for (auto it = ins.begin(); it != ins.end();)
         {
             if (defs.count((*it)->getUse()[0]) == 0)
@@ -522,4 +553,3 @@ void Function::de_phi()
             block->insertBefore(in, endIns);
     }
 }
-

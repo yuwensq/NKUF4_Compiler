@@ -1,7 +1,9 @@
 #include "FunctionInline.h"
 #include <queue>
+extern FILE *yyout;
 
 // #define INLINEDEBUG
+// #define DEBUGPTR
 
 void FunctionInline::clearData()
 {
@@ -66,9 +68,13 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
     exitBlocks.clear();
     auto callerFunc = calledInst->getParent()->getParent();
     auto params = calledInst->getUse();
+    // for (auto param : calleeFunc->getParams())
+    //     fprintf(yyout, "%s\n", param->toStr().c_str());
     std::map<BasicBlock *, BasicBlock *> blk2blk;
     std::map<Operand *, Operand *> op2op;
-    // std::map<Operand*, Operand*> arg2Src; // 这个存储指针参数的源头，因为指针参数用的时候要先load，这里存的就是store
+    std::map<Operand *, Operand *> addr2arg; // 就是传数组的时候要先alloc一个更高维度的指针，
+                                             // 这个结构记录这个指针和数组参数的映射
+    std::map<Operand *, Operand *> dst2addr;
     blk2blk.clear();
     op2op.clear();
     // 先复制每个基本块
@@ -103,15 +109,35 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 exitBlocks[newBB] = std::make_pair(uncondIns, retValue);
                 break;
             }
-            // else if (inst->isAlloc())
-            // {
-            //     if (static_cast<IdentifierSymbolEntry *>(static_cast<AllocaInstruction *>(inst)->getEntry())->isParam())
-            //         continue;
-            // }
-            // else if (inst->isStore() && calleeFunc->getParamNumber(inst->getUse()[1]) != -1)
-            // {
-            //     continue;
-            // }
+#ifndef DEBUGPTR
+            else if (inst->isAlloc())
+            {
+                // 这个就是跳过为数组参数alloc空间
+                if (static_cast<IdentifierSymbolEntry *>(static_cast<AllocaInstruction *>(inst)->getEntry())->isParam())
+                    continue;
+            }
+            else if (inst->isStore() && calleeFunc->getParamNumber(inst->getUse()[1]) != -1 && inst->getUse()[0]->getType()->isPtr() && static_cast<PointerType *>(inst->getUse()[0]->getType())->getType()->isPtr())
+            {
+                // inst->output();
+                // fprintf(yyout, "%d\n", calleeFunc->getParamNumber(inst->getUse()[1]));
+                addr2arg[inst->getUse()[0]] = params[calleeFunc->getParamNumber(inst->getUse()[1])];
+                continue;
+            }
+            else if (inst->isLoad())
+            {
+                auto use = inst->getUse()[0];
+                auto type = use->getType();
+                // 这里限制放的有点宽，如果后边要扩展指针操作，这里和上边就要改
+                if (type->isPtr() && static_cast<PointerType *>(type)->getType()->isPtr())
+                {
+                    auto dst = inst->getDef();
+                    if (op2op.find(dst) == op2op.end())
+                        op2op[dst] = copyOp(dst);
+                    dst2addr[op2op[dst]] = inst->getUse()[0];
+                    continue;
+                }
+            }
+#endif
             auto newInst = inst->copy();
             Assert(newInst != nullptr, "这里为啥嘞");
             newInst->setParent(newBB);
@@ -150,7 +176,25 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 callIns[func].insert(newInst);
             }
         }
+
+#ifndef DEBUGPTR
+        // 处理指针传参的问题
+        for (auto inst = newBB->begin(); inst != newBB->end(); inst = inst->getNext())
+        {
+            std::vector<Operand *> uses = inst->getUse();
+            for (auto use : uses)
+            {
+                if (dst2addr.find(use) != dst2addr.end())
+                {
+                    auto newOp = addr2arg[dst2addr[use]];
+                    assert(newOp);
+                    inst->replaceUse(use, addr2arg[dst2addr[use]]);
+                }
+            }
+        }
+#endif
     }
+
     // 再把每个基本块连起来
     for (auto pa : blk2blk)
     {

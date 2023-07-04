@@ -265,7 +265,7 @@ bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
 
 bool IRComSubExprElim::skip(Instruction *inst)
 {
-    if (inst->isBinaryCal() || inst->isUnaryCal() || inst->isGep() || inst->isLoad())
+    if ((inst->isBinaryCal() && !inst->isCmp()) || inst->isUnaryCal() || inst->isGep() || inst->isLoad())
         return false;
     return true;
 }
@@ -424,7 +424,7 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                     if (invalidate(inst, exprVec[i].inst))
                     {
                         killBB[*bb].insert(i);
-                        if ((*bb)->getNo() == 36)
+                        if ((*bb)->getNo() == 275)
                             Log("dawang %d", i);
                     }
                 }
