@@ -109,11 +109,11 @@ int main(int argc, char *argv[])
     cse.pass();
     dce.pass();
     finline.pass();
-    // sccp.pass();
-    // cse.pass();
-    // sccp.pass();
-    // cse.pass();
-    // dce.pass();
+    sccp.pass();
+    cse.pass();
+    sccp.pass();
+    cse.pass();
+    dce.pass();
     // lcm.pass();
     // pe.pass();
 
