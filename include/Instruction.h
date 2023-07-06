@@ -357,9 +357,11 @@ public:
         }
     }
     Instruction *copy() { return new CallInstruction(*this); }
+    void setTailCall(bool tailCall) { this->isTailCall = tailCall; }
 
 private:
     SymbolEntry *func;
+    bool isTailCall;
 };
 
 class RetInstruction : public Instruction

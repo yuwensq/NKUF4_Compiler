@@ -398,6 +398,7 @@ CallInstruction::CallInstruction(Operand *dst, SymbolEntry *func, std::vector<Op
         operand->addUse(this);
     }
     this->func = func;
+    this->isTailCall = false;
     this->funcAddPred();
 }
 
@@ -428,7 +429,7 @@ void CallInstruction::output() const
         }
         fprintf(yyout, "%s %s", operands[i]->getType()->toStr().c_str(), operands[i]->toStr().c_str());
     }
-    fprintf(yyout, ")\n");
+    fprintf(yyout, ")%d\n", this->isTailCall);
 }
 
 RetInstruction::RetInstruction(Operand *src, BasicBlock *insert_bb) : Instruction(RET, insert_bb)
@@ -536,7 +537,7 @@ MachineOperand *Instruction::genMOperand(Operand *ope, AsmBuilder *builder = nul
                     auto cur_block = builder->getBlock();
                     auto cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::VLDR, new MachineOperand(*mope), new MachineOperand(MachineOperand::REG, 11), new MachineOperand(MachineOperand::IMM, 4 * -(argNum + 1)));
                     cur_block->InsertInst(cur_inst);
-                    cur_block->addUInst(cur_inst);
+                    cur_block->getParent()->addUInst(cur_inst);
                 }
             }
             else
@@ -551,7 +552,7 @@ MachineOperand *Instruction::genMOperand(Operand *ope, AsmBuilder *builder = nul
                     auto cur_block = builder->getBlock();
                     auto cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::LDR, new MachineOperand(*mope), new MachineOperand(MachineOperand::REG, 11), new MachineOperand(MachineOperand::IMM, 4 * -(argNum + 1)));
                     cur_block->InsertInst(cur_inst);
-                    cur_block->addUInst(cur_inst);
+                    cur_block->getParent()->addUInst(cur_inst);
                 }
             }
         }
@@ -1123,10 +1124,10 @@ void RetInstruction::genMachineCode(AsmBuilder *builder)
     // 恢复保存的寄存器，这里还不知道，先欠着
     auto curr_inst = new StackMInstrcuton(cur_bb, StackMInstrcuton::VPOP, {});
     cur_bb->InsertInst(curr_inst);
-    cur_bb->addUInst(curr_inst);
+    cur_bb->getParent()->addUInst(curr_inst);
     curr_inst = new StackMInstrcuton(cur_bb, StackMInstrcuton::POP, {});
     cur_bb->InsertInst(curr_inst);
-    cur_bb->addUInst(curr_inst);
+    cur_bb->getParent()->addUInst(curr_inst);
     // bx指令
     cur_bb->InsertInst(new BranchMInstruction(cur_bb, BranchMInstruction::BX, genMachineReg(14)));
 }

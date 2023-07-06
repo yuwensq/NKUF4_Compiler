@@ -3,10 +3,11 @@
 #include <sstream>
 #include <string>
 
+#define PRINTLOG
+
 void MachineStraight::getSlimBlock()
 {
     // 得到每个只有一条b指令的基本块及其后继基本块
-    blk2blk.clear();
     for (auto &func : unit->getFuncs())
     {
         for (auto &blk : func->getBlocks())
@@ -94,10 +95,76 @@ void MachineStraight::removeSlimBlock()
     }
 }
 
+void MachineStraight::getJunctions()
+{
+    for (auto &func : unit->getFuncs())
+    {
+        for (auto &blk : func->getBlocks())
+        {
+            if (blk->getPreds().size() == 1 && blk->getPreds()[0]->getSuccs().size() == 1)
+            {
+                Assert((*blk->getPreds()[0]->rbegin())->isBranch(), "最后一条指令应该是无条件跳转");
+                junctions.insert(blk);
+            }
+        }
+    }
+}
+
+void MachineStraight::mergeJunctions()
+{
+    std::unordered_set<MachineBlock *> color;
+    for (auto &blk : junctions)
+    {
+        if (color.count(blk))
+            continue;
+        auto headBlk = blk;
+        while (junctions.count(headBlk))
+            headBlk = headBlk->getPreds()[0];
+        auto junctionBlk = headBlk->getSuccs()[0];
+        while (junctions.count(junctionBlk))
+        {
+            Log("%d %d", headBlk->getNo(), junctionBlk->getNo());
+            color.insert(junctionBlk);
+            // 合并两个基本块
+            // 先删除最后一个b指令
+            auto lastBranch = *headBlk->rbegin();
+            headBlk->eraseInst(lastBranch);
+            // 把第二个块的指令放到第一个块里
+            for (auto &ins : junctionBlk->getInsts())
+            {
+                headBlk->InsertInst(ins);
+                ins->setParent(headBlk);
+            }
+            // 修改第一个块的后继关系
+            headBlk->getSuccs().clear();
+            headBlk->getSuccs().assign(junctionBlk->getSuccs().begin(), junctionBlk->getSuccs().end());
+            for (auto &succs : headBlk->getSuccs())
+            {
+                succs->removePred(junctionBlk);
+                succs->addPred(headBlk);
+            }
+            // 最后删除这个基本块
+            junctionBlk->getParent()->RemoveBlock(junctionBlk);
+            junctionBlk = junctionBlk->getSuccs().size() > 0 ? junctionBlk->getSuccs()[0] : nullptr;
+        }
+    }
+}
+
 void MachineStraight::pass()
 {
+    blk2blk.clear();
+    junctions.clear();
+#ifdef PRINTLOG
     Log("伸直化开始");
+#endif
     getSlimBlock();
     removeSlimBlock();
+#ifdef PRINTLOG
+    Log("伸直化阶段1完成");
+#endif
+    getJunctions();
+    mergeJunctions();
+#ifdef PRINTLOG
     Log("伸直化完成\n");
+#endif
 }

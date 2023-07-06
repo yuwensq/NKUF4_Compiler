@@ -199,11 +199,10 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
                 {
                     auto new_use = new MachineOperand(*op2Src[getHash(use)]);
                     change = minst->replaceUse(use, new_use);
+                    if (change)
+                        res = false;
                 }
             }
-
-            if (change)
-                res = false;
 
             if (minst->getDef().size() > 0 || minst->isCall())
             {
@@ -302,7 +301,7 @@ void MachineCopyProp::pass()
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
         while (!copyProp(*func))
-            break;
+            ;
         Log("pass%dover", ++num);
     }
     Log("汇编复制传播结束\n");

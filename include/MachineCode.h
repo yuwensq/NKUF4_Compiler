@@ -8,16 +8,12 @@
 #include "debug.h"
 #include "SymbolTable.h"
 
-/* Hint:
+/*
  * MachineUnit: Compiler unit
  * MachineFunction: Function in assembly code
  * MachineInstruction: Single assembly instruction
- * MachineOperand: Operand in assembly instruction, such as immediate number, register, address label */
-
-/* Todo:
- * We only give the example code of "class BinaryMInstruction" and "class AccessMInstruction" (because we believe in you !!!),
- * You need to complete other the member function, especially "output()" ,
- * After that, you can use "output()" to print assembly code . */
+ * MachineOperand: Operand in assembly instruction, such as immediate number, register, address label
+ */
 
 class MachineUnit;
 class MachineFunction;
@@ -113,6 +109,7 @@ public:
     std::vector<MachineOperand *> &getDef() { return def_list; };
     std::vector<MachineOperand *> &getUse() { return use_list; };
     MachineBlock *getParent() { return parent; };
+    void setParent(MachineBlock *parent) { this->parent = parent; };
     virtual bool replaceUse(MachineOperand *, MachineOperand *) { return false; };
     bool isStack() { return type == STACK; };
     // 这个几个函数有的写的比较死，就用op的几个，要注意后期改代码的时候op的值
@@ -297,7 +294,7 @@ public:
                        int cond = MachineInstruction::NONE);
     void setTarget(MachineOperand *dst)
     {
-        Assert(this->op == B, "不能修改target");
+        Assert(this->op == B || this->op == BL, "不能修改target");
         use_list.clear();
         use_list.push_back(dst);
         dst->setParent(this);
@@ -475,7 +472,6 @@ private:
     int no;
     std::vector<MachineBlock *> pred, succ;
     std::vector<MachineInstruction *> inst_list;
-    std::vector<MachineInstruction *> unsure_insts;
 
 public:
     std::set<MachineOperand *> live_in;
@@ -498,8 +494,6 @@ public:
     void insertBefore(MachineInstruction *, MachineInstruction *);
     void insertAfter(MachineInstruction *, MachineInstruction *);
     void insertFront(MachineInstruction *inst) { this->inst_list.insert(inst_list.begin(), inst); };
-    void backPatch(std::vector<MachineOperand *>);
-    void addUInst(MachineInstruction *inst) { unsure_insts.push_back(inst); };
     void eraseInst(MachineInstruction *inst)
     {
         this->inst_list.erase(find(inst_list.begin(), inst_list.end(), inst));
@@ -522,6 +516,7 @@ private:
     std::set<int> saved_regs;
     SymbolEntry *sym_ptr;
     MachineBlock *entry;
+    std::vector<MachineInstruction *> unsure_insts;
 
 public:
     void setEntry(MachineBlock *block) { entry = block; };
@@ -543,6 +538,8 @@ public:
     void InsertBlock(MachineBlock *block) { this->block_list.push_back(block); };
     void InsertFront(MachineBlock *block) { this->block_list.insert(this->block_list.begin(), block); };
     void RemoveBlock(MachineBlock *block) { this->block_list.erase(std::find(this->block_list.begin(), this->block_list.end(), block)); };
+    void backPatch(std::vector<MachineOperand *>);
+    void addUInst(MachineInstruction *inst) { unsure_insts.push_back(inst); };
     void addSavedRegs(int regno) { saved_regs.insert(regno); };
     std::vector<MachineOperand *> getAllSavedRegs();
     std::vector<MachineOperand *> getSavedRegs();

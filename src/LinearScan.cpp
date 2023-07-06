@@ -450,7 +450,14 @@ void LinearScan::genSpillCode()
 
 bool LinearScan::compareStart(Interval *a, Interval *b)
 {
-    return a->start < b->start;
+    if (a->start < b->start)
+        return true;
+    if (a->start > b->start)
+        return false;
+    else if ((a->end - a->start) > (b->end - b->start))
+        return true;
+    return false;
+    // return a->start < b->start;
 }
 
 bool LinearScan::compareEnd(Interval *a, Interval *b)

@@ -626,7 +626,25 @@ void MachineBlock::insertAfter(MachineInstruction *insertee, MachineInstruction 
     inst_list.insert(it, insertee);
 }
 
-void MachineBlock::backPatch(std::vector<MachineOperand *> saved_regs)
+void MachineBlock::output()
+{
+    fprintf(yyout, ".L%d:\n", this->no);
+    for (auto iter : inst_list)
+    {
+        iter->output();
+        inst_num++;
+        if (inst_num >= 888) // 文字池最多离ldr 4KB
+        {                    // 这里，每隔888条指令，打一个文字池
+            inst_num = 0;
+            int ltorg_num = this->getParent()->getParent()->getLtorgNum();
+            fprintf(yyout, "\tb .LT%d\n", ltorg_num);
+            this->getParent()->getParent()->printLTORG();
+            fprintf(yyout, ".LT%d:\n", ltorg_num);
+        }
+    }
+}
+
+void MachineFunction::backPatch(std::vector<MachineOperand *> saved_regs)
 {
     std::vector<MachineOperand *> rregs;
     std::vector<MachineOperand *> fregs;
@@ -645,7 +663,7 @@ void MachineBlock::backPatch(std::vector<MachineOperand *> saved_regs)
             {
                 if (fregs.empty()) // 如果是空的，把这条指令删掉
                 {
-                    eraseInst(inst);
+                    inst->getParent()->eraseInst(inst);
                 }
                 else
                 {
@@ -657,24 +675,6 @@ void MachineBlock::backPatch(std::vector<MachineOperand *> saved_regs)
         }
         else if (inst->isLoad())
             ((LoadMInstruction *)inst)->setOff(saved_regs.size() * 4);
-    }
-}
-
-void MachineBlock::output()
-{
-    fprintf(yyout, ".L%d:\n", this->no);
-    for (auto iter : inst_list)
-    {
-        iter->output();
-        inst_num++;
-        if (inst_num >= 888) // 文字池最多离ldr 4KB
-        {                    // 这里，每隔888条指令，打一个文字池
-            inst_num = 0;
-            int ltorg_num = this->getParent()->getParent()->getLtorgNum();
-            fprintf(yyout, "\tb .LT%d\n", ltorg_num);
-            this->getParent()->getParent()->printLTORG();
-            fprintf(yyout, ".LT%d:\n", ltorg_num);
-        }
     }
 }
 
@@ -764,11 +764,9 @@ void MachineFunction::output()
     // 然后这里就先算数右移三位再算数左移三位，8字节对齐一下，要不会发现浮点数有时候很奇怪
     fprintf(yyout, "\tlsr sp, sp, #3\n");
     fprintf(yyout, "\tlsl sp, sp, #3\n");
+    backPatch(getAllSavedRegs());
     for (auto iter : block_list)
-    {
-        iter->backPatch(getAllSavedRegs());
         iter->output();
-    }
 }
 
 void MachineUnit::PrintGlobalDecl()
@@ -823,7 +821,7 @@ void MachineUnit::PrintGlobalDecl()
                 {
                     //.comm symbol, length:在bss段申请一段命名空间,该段空间的名称叫symbol, 长度为length.
                     // Ld 连接器在连接会为它留出空间.
-                    auto indexs = static_cast<ArrayType*>(static_cast<IdentifierSymbolEntry*>(se)->getType())->getIndexs();
+                    auto indexs = static_cast<ArrayType *>(static_cast<IdentifierSymbolEntry *>(se)->getType())->getIndexs();
                     fprintf(yyout, ".comm %s, %d\n", se->toStr().c_str() + 1, static_cast<int>(se->getType()->getSize() / 8));
                 }
             }

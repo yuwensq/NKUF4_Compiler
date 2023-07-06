@@ -183,6 +183,12 @@ void MachinePeepHole::subPass()
                         }
                     }
                 }
+                else if (((*now_inst)->isMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0]) {
+                    // mov rx, rx
+                    // vmov.f32 sx, sx
+                    blk->getInsts().erase(now_inst);
+                    now_inst--;
+                }
                 else if ((*now_inst)->isVMov32() && (*next_inst)->getUse().size() > 0)
                 {
                     // vmov.f32 s16, s17

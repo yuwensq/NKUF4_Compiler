@@ -20,6 +20,7 @@
 #include "Global2Local.h"
 #include "MachineDeadCodeElim.h"
 #include "FunctionInline.h"
+#include "TailCallAnalyser.h"
 
 using namespace std;
 
@@ -40,7 +41,7 @@ bool dump_asm;
 int main(int argc, char *argv[])
 {
     int opt;
-    while ((opt = getopt(argc, argv, "Siato:")) != -1)
+    while ((opt = getopt(argc, argv, "Siato:O::")) != -1)
     {
         switch (opt)
         {
@@ -58,6 +59,8 @@ int main(int argc, char *argv[])
             break;
         case 'S':
             dump_asm = true;
+            break;
+        case 'O': // 先默认都优化吧
             break;
         default:
             fprintf(stderr, "Usage: %s [-o outfile] infile\n", argv[0]);
@@ -99,6 +102,7 @@ int main(int argc, char *argv[])
     PhiElimination pe(&unit);
     LoopCodeMotion lcm(&unit);
     FunctionInline finline(&unit);
+    TailCallAnalyser tca(&unit);
 
     // g2l.pass();
     m2r.pass(); // Only IR supported
@@ -113,9 +117,10 @@ int main(int argc, char *argv[])
     cse.pass();
     sccp.pass();
     cse.pass();
-    dce.pass();
-    // lcm.pass();
-    // pe.pass();
+    // dce.pass();
+    lcm.pass();
+    pe.pass();
+    // tca.pass();
 
     Log("IR优化成功\n"); /**/
 
@@ -130,6 +135,7 @@ int main(int argc, char *argv[])
     mst.pass();
     mph.pass();
     mcp.pass();
+    mph.pass();
     mdce.pass();
     mst.pass();
     Log("目标代码优化成功\n");
