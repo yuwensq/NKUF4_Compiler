@@ -1053,12 +1053,14 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
     auto floatLastPos = i;
     int param_size_in_stack = 0;
     // 开始从后向前push
+    bool hasPushed = false;
     for (long unsigned int i = operands.size() - 1; i >= 1; i--)
     {
         if (operands[i]->getType()->isFloat() && i < floatLastPos)
             continue;
         if (!operands[i]->getType()->isFloat() && i < intLastPos)
             continue;
+        hasPushed = true;
         auto param = genMachineOperand(operands[i]);
         if (param->isFReg())
         {
@@ -1073,7 +1075,10 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         param_size_in_stack += 4;
     }
     // 生成bl指令，调用函数
-    cur_block->InsertInst(new BranchMInstruction(cur_block, BranchMInstruction::BL, new MachineOperand(func->toStr().c_str())));
+    auto blInst = new BranchMInstruction(cur_block, BranchMInstruction::BL, new MachineOperand(func->toStr().c_str()));
+    // 这里如果用栈传递了参数就先不做尾调用了，还没想清楚
+    blInst->setIsTailCall(!hasPushed && isTailCall);
+    cur_block->InsertInst(blInst);
     // 生成add指令释放栈空间
     if (param_size_in_stack > 0)
     {

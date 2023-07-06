@@ -300,6 +300,11 @@ public:
         dst->setParent(this);
     };
     void output();
+    void setIsTailCall(bool tailCall) { this->isTailCall = tailCall; };
+    bool getTailCall() { return isTailCall; };
+
+private:
+    bool isTailCall = false;
 };
 
 class CmpMInstruction : public MachineInstruction

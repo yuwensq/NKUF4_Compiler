@@ -1,15 +1,98 @@
-int dire(int a) {
-    if (a == 0)
+int func1(int x, int y, int z)
+{
+    if (z == 0)
+    {
+        return x * y;
+    }
+    else
+    {
+        return func1(x, y - z, 0);
+    }
+}
+
+int func2(int x, int y)
+{
+    if (y)
+    {
+        return func2(x % y, 0);
+    }
+    else
+    {
+        return x;
+    }
+}
+
+int func3(int x, int y)
+{
+    if (y == 0)
+    {
+        return x + 1;
+    }
+    else
+    {
+        return func3(x + y, 0);
+    }
+}
+
+int func4(int x, int y, int z)
+{
+    if (x)
+    {
+        return y;
+    }
+    else
+    {
+        return z;
+    }
+}
+
+int func5(int x)
+{
+    return -x;
+}
+
+int func6(int x, int y)
+{
+    if (x && y)
+    {
+        return 1;
+    }
+    else
+    {
         return 0;
-    return dire(a - 1);
+    }
 }
 
-int sum(int x[]) {
-    return dire(x[0]);
+int func7(int x)
+{
+    if (!x)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
-int main() {
-    int a[5] = {};
-    return sum(a);
-
+int main()
+{
+    int i1 = 0, i2 = 0, i3 = 0, i4 = 0;
+    int arr[10] = {};
+    int a = func1(
+        func1(
+            func3(func4(func5(func3(func2(func6(func7(i1), func5(i2)), i3),
+                                    i4)),
+                        arr[0],
+                        func1(func2(func3(func4(func5(arr[1]),
+                                                func6(arr[2], func7(arr[3])),
+                                                func2(arr[4], func7(arr[5]))),
+                                          arr[6]),
+                                    arr[7]),
+                              0, i1)),
+                  0),
+            0, 0),
+        0,
+        0);
+    return a;
 }

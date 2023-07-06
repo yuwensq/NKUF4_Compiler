@@ -21,6 +21,7 @@
 #include "MachineDeadCodeElim.h"
 #include "FunctionInline.h"
 #include "TailCallAnalyser.h"
+#include "MachineTailCallHandler.h"
 
 using namespace std;
 
@@ -120,7 +121,7 @@ int main(int argc, char *argv[])
     // dce.pass();
     lcm.pass();
     pe.pass();
-    // tca.pass();
+    tca.pass();
 
     Log("IR优化成功\n"); /**/
 
@@ -132,12 +133,14 @@ int main(int argc, char *argv[])
     MachineStraight mst(&mUnit);
     MachineCopyProp mcp(&mUnit);
     MachineDeadCodeElim mdce(&mUnit);
+    MachineTailCallHandler mtch(&mUnit);
     mst.pass();
     mph.pass();
     mcp.pass();
     mph.pass();
     mdce.pass();
     mst.pass();
+    mtch.pass(); // 把这个放在最后做，要不大概率会有问题
     Log("目标代码优化成功\n");
 
     LinearScan linearScan(&mUnit);

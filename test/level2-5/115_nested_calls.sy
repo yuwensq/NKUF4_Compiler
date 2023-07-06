@@ -1,66 +1,87 @@
-int func1(int x, int y, int z) {
-  if (z == 0) {
+int func1(int x, int y, int z)
+{
+  if (z == 0)
+  {
     return x * y;
   }
-  else {
+  else
+  {
     return func1(x, y - z, 0);
   }
 }
 
-int func2(int x, int y) {
-  if (y) {
+int func2(int x, int y)
+{
+  if (y)
+  {
     return func2(x % y, 0);
   }
-  else {
+  else
+  {
     return x;
   }
 }
 
-int func3(int x, int y) {
-  if (y == 0) {
+int func3(int x, int y)
+{
+  if (y == 0)
+  {
     return x + 1;
   }
-  else {
+  else
+  {
     return func3(x + y, 0);
   }
 }
 
-int func4(int x, int y, int z) {
-  if (x) {
+int func4(int x, int y, int z)
+{
+  if (x)
+  {
     return y;
   }
-  else {
+  else
+  {
     return z;
   }
 }
 
-int func5(int x) {
+int func5(int x)
+{
   return -x;
 }
 
-int func6(int x, int y) {
-  if (x && y) {
+int func6(int x, int y)
+{
+  if (x && y)
+  {
     return 1;
   }
-  else {
+  else
+  {
     return 0;
   }
 }
 
-int func7(int x) {
-  if (!x) {
+int func7(int x)
+{
+  if (!x)
+  {
     return 1;
   }
-  else {
+  else
+  {
     return 0;
   }
 }
 
-int main() {
+int main()
+{
   int i1 = getint(), i2 = getint(), i3 = getint(), i4 = getint();
   int arr[10];
   int i = 0;
-  while (i < 10) {
+  while (i < 10)
+  {
     arr[i] = getint();
     i = i + 1;
   }

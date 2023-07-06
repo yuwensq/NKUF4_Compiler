@@ -15,6 +15,7 @@ void MachineDeadCodeElim::pass()
     for (int i = 0; i < 16; i++)
         s[i] = new MachineOperand(MachineOperand::REG, i, true);
     auto sp = new MachineOperand(MachineOperand::REG, 13);
+    // willBeUsed[getHash(sp)] = true;
     for (auto mfunc : munit->getFuncs())
     {
         for (auto mb : mfunc->getBlocks())
