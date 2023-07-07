@@ -22,6 +22,7 @@
 #include "FunctionInline.h"
 #include "TailCallAnalyser.h"
 #include "MachineTailCallHandler.h"
+#include "GraphColor.h"
 
 using namespace std;
 
@@ -143,6 +144,8 @@ int main(int argc, char *argv[])
     mtch.pass(); // 把这个放在最后做，要不大概率会有问题
     Log("目标代码优化成功\n");
 
+    GraphColor graphColor(&mUnit);
+    graphColor.allocateRegisters();
     LinearScan linearScan(&mUnit);
     if (dump_asm)
         linearScan.allocateRegisters();

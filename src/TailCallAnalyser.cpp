@@ -2,7 +2,6 @@
 
 bool srcIsLocalArray(Operand *op)
 {
-    bool res = true;
     while (dynamic_cast<GepInstruction *>(op->getDef()) != nullptr)
         op = op->getDef()->getUse()[0];
     if (dynamic_cast<AllocaInstruction *>(op->getDef()) != nullptr)
