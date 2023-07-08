@@ -124,12 +124,12 @@ int main(int argc, char *argv[])
     pe.pass();
     tca.pass();
 
-    Log("IR优化成功\n"); /**/
+    Log("IR优化成功"); /**/
 
     if (dump_ir)
         unit.output();
     unit.genMachineCode(&mUnit);
-    Log("目标代码生成成功\n");
+    Log("目标代码生成成功");
     MachinePeepHole mph(&mUnit, 2);
     MachineStraight mst(&mUnit);
     MachineCopyProp mcp(&mUnit);
@@ -142,14 +142,15 @@ int main(int argc, char *argv[])
     mdce.pass();
     mst.pass();
     mtch.pass(); // 把这个放在最后做，要不大概率会有问题
-    Log("目标代码优化成功\n");
+    Log("目标代码优化成功");
+
 
     GraphColor graphColor(&mUnit);
     graphColor.allocateRegisters();
-    LinearScan linearScan(&mUnit);
-    if (dump_asm)
-        linearScan.allocateRegisters();
-    Log("线性扫描完成\n");
+    // LinearScan linearScan(&mUnit);
+    // if (dump_asm)
+    //     linearScan.allocateRegisters();
+    Log("寄存器分配完成\n");
     if (dump_asm)
         mUnit.output();
     return 0;

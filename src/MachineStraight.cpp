@@ -3,7 +3,7 @@
 #include <sstream>
 #include <string>
 
-#define PRINTLOG
+// #define PRINTLOG
 
 void MachineStraight::getSlimBlock()
 {
@@ -123,7 +123,6 @@ void MachineStraight::mergeJunctions()
         auto junctionBlk = headBlk->getSuccs()[0];
         while (junctions.count(junctionBlk))
         {
-            Log("%d %d", headBlk->getNo(), junctionBlk->getNo());
             color.insert(junctionBlk);
             // 合并两个基本块
             // 先删除最后一个b指令

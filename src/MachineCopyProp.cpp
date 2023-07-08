@@ -4,6 +4,7 @@
 #include <unordered_set>
 #define getHash(x) MachineUnit::getHash(x)
 
+// #define PRINTLOG
 // #define COPYPROPDEBUG
 
 extern FILE *yyout;
@@ -246,9 +247,13 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
 {
     clearData();
     calGenKill(func);
+#ifdef PRINTLOG
     Log("cal genkill over");
+#endif
     calInOut(func);
+#ifdef PRINTLOG
     Log("cal inout over");
+#endif
 #ifdef COPYPROPDEBUG
     fprintf(yyout, "all expr\n");
     for (auto index = 0; index < allCopyStmts.size(); index++)
@@ -295,14 +300,20 @@ bool MachineCopyProp::copyProp(MachineFunction *func)
 
 void MachineCopyProp::pass()
 {
+#ifdef PRINTLOG
     Log("汇编复制传播开始");
+#endif
     addZeroToMov();
     int num = 0;
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
         while (!copyProp(*func))
             ;
+#ifdef PRINTLOG
         Log("pass%dover", ++num);
+#endif
     }
+#ifdef PRINTLOG
     Log("汇编复制传播结束\n");
+#endif
 }

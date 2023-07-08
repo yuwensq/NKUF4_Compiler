@@ -1,15 +1,23 @@
 #include "MachinePeepHole.h"
 #include "debug.h"
 
+// #define PRINTLOG
+
 void MachinePeepHole::pass()
 {
+#ifdef PRINTLOG
     Log("窥孔优化开始");
+#endif
     for (int i = 0; i < pass_times; i++)
     {
         subPass();
+#ifdef PRINTLOG
         Log("窥孔优化pass%d完成", i);
+#endif
     }
+#ifdef PRINTLOG
     Log("窥孔优化完成\n");
+#endif
 }
 
 void MachinePeepHole::subPass()
@@ -183,7 +191,8 @@ void MachinePeepHole::subPass()
                         }
                     }
                 }
-                else if (((*now_inst)->isMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0]) {
+                else if (((*now_inst)->isMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
+                {
                     // mov rx, rx
                     // vmov.f32 sx, sx
                     blk->getInsts().erase(now_inst);
