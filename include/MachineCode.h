@@ -49,6 +49,7 @@ public:
     bool isFReg() { return this->fpu; }
     int getVal() { return this->val; };
     int getReg() { return this->reg_no; };
+    void setRegNo(int regno) { this->reg_no = regno; };
     void setReg(int regno)
     {
         this->type = REG;
@@ -501,7 +502,8 @@ public:
     void insertFront(MachineInstruction *inst) { this->inst_list.insert(inst_list.begin(), inst); };
     void eraseInst(MachineInstruction *inst)
     {
-        this->inst_list.erase(find(inst_list.begin(), inst_list.end(), inst));
+        if (find(inst_list.begin(), inst_list.end(), inst) != inst_list.end())
+            this->inst_list.erase(find(inst_list.begin(), inst_list.end(), inst));
     };
     inline std::set<MachineOperand *> &getLiveIn() { return live_in; };
     inline std::set<MachineOperand *> &getLiveOut() { return live_out; };
@@ -526,6 +528,7 @@ private:
 public:
     void setEntry(MachineBlock *block) { entry = block; };
     MachineBlock *getEntry() { return entry; };
+    SymbolEntry *getSymbolEntry() { return sym_ptr; };
     std::vector<MachineBlock *> &getBlocks() { return block_list; };
     std::vector<MachineBlock *>::iterator begin() { return block_list.begin(); };
     std::vector<MachineBlock *>::iterator end() { return block_list.end(); };

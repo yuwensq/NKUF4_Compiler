@@ -116,6 +116,8 @@ void GraphColor::calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *
                     continue;
                 nodes.emplace_back(def->isFReg(), def);
                 var2Node[def] = nodes.size() - 1;
+                if (spilledRegs.count(def) > 0)
+                    nodes[var2Node[def]].hasSpilled = true;
                 auto copyGen = gen[block];
                 for (auto op : copyGen)
                     if ((*op) == (*def))
@@ -170,9 +172,12 @@ int GraphColor::mergeTwoNodes(int no1, int no2)
 {
     int dst = std::min(no1, no2);
     int src = std::max(no1, no2);
+    bool spilled = (nodes[dst].hasSpilled || nodes[src].hasSpilled);
     assert(nodes[src].fpu == nodes[dst].fpu);
     if (dst == src)
         return dst;
+    nodes[dst].hasSpilled = spilled;
+    nodes[src].hasSpilled = spilled;
     nodes[dst].defs.insert(nodes[src].defs.begin(), nodes[src].defs.end());
     nodes[dst].uses.insert(nodes[src].uses.begin(), nodes[src].uses.end());
     for (auto &def : nodes[dst].defs)
@@ -223,8 +228,11 @@ void GraphColor::genNodes()
             if (inst->getDef().size() > 0)
             {
                 auto def = inst->getDef()[0];
-                op2Def.erase(*def);
-                op2Def[*def].insert(var2Node[def]);
+                if (def->isVReg())
+                {
+                    op2Def.erase(*def);
+                    op2Def[*def].insert(var2Node[def]);
+                }
             }
         }
     }
@@ -233,11 +241,17 @@ void GraphColor::genNodes()
     //     fprintf(yyout, ".L%d\n", block->getNo());
     //     for (auto &inst : block->getInsts())
     //     {
-    //         for (auto &def : inst->getDef()) {
-    //             fprintf(yyout, "%d ", var2Node[def]);
+    //         for (auto &def : inst->getDef())
+    //         {
+    //             if (def->isVReg())
+    //                 //     def->setRegNo(var2Node[def]);
+    //                 fprintf(yyout, "%d ", var2Node[def]);
     //         }
-    //         for (auto &use : inst->getUse()) {
-    //             fprintf(yyout, "%d ", var2Node[use]);
+    //         for (auto &use : inst->getUse())
+    //         {
+    //             if (use->isVReg())
+    //                 // use->setRegNo(var2Node[use]);
+    //                 fprintf(yyout, "%d ", var2Node[use]);
     //         }
     //         inst->output();
     //     }
@@ -255,10 +269,11 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
             {
                 assert(inst->getDef().size() == 1);
                 auto def = inst->getDef()[0];
-                if (!def->isVReg())
-                    continue;
-                gen[block].erase(var2Node[def]);
-                kill[block].insert(var2Node[def]);
+                if (def->isVReg())
+                {
+                    gen[block].erase(var2Node[def]);
+                    kill[block].insert(var2Node[def]);
+                }
             }
             for (auto &use : inst->getUse())
             {
@@ -320,6 +335,21 @@ void GraphColor::genInterfereGraph()
     calLVGenKill(gen, kill);
     calLVInOut(gen, kill, in, out);
     debug2(gen, kill, in, out);
+
+    auto connectEdge = [&](MachineOperand *op, MachineBlock *block)
+    {
+        auto use1 = var2Node[op];
+        graph[use1];
+        for (auto &use2 : out[block])
+        {
+            if (nodes[use1].fpu == nodes[use2].fpu)
+            {
+                graph[use1].insert(use2);
+                graph[use2].insert(use1);
+            }
+        }
+    };
+
     for (auto &block : func->getBlocks())
     {
         for (auto instIt = block->rbegin(); instIt != block->rend(); instIt++)
@@ -329,27 +359,30 @@ void GraphColor::genInterfereGraph()
             {
                 assert(inst->getDef().size() == 1);
                 auto def = inst->getDef()[0];
-                if (!def->isVReg())
-                    continue;
-                out[block].erase(var2Node[def]);
-                graph[var2Node[def]];
+                if (def->isVReg())
+                {
+                    connectEdge(def, block);
+                    out[block].erase(var2Node[def]);
+                    graph[var2Node[def]];
+                }
             }
             for (auto &use : inst->getUse())
             {
                 if (!use->isVReg())
                     continue;
-                auto use1 = var2Node[use];
-                graph[use1];
-                for (auto &use2 : out[block])
-                {
-                    // 类型得一样
-                    if (nodes[use1].fpu == nodes[use2].fpu)
-                    {
-                        graph[use1].insert(use2);
-                        graph[use2].insert(use1);
-                    }
-                }
-                out[block].insert(use1);
+                connectEdge(use, block);
+                // auto use1 = var2Node[use];
+                // graph[use1];
+                // for (auto &use2 : out[block])
+                // {
+                //     // 类型得一样
+                //     if (nodes[use1].fpu == nodes[use2].fpu)
+                //     {
+                //         graph[use1].insert(use2);
+                //         graph[use2].insert(use1);
+                //     }
+                // }
+                out[block].insert(var2Node[use]);
             }
         }
     }
@@ -389,9 +422,9 @@ void GraphColor::genColorSeq()
         {
             int nodeNo = (*it).first;
             int edges = (*it).second.size();
-            Log("%d", nodeNo);
+            // Log("%d", nodeNo);
             int maxColors = nodes[nodeNo].fpu ? sRegNum : rRegNum;
-            if (edges > maxEdges)
+            if (edges > maxEdges && !nodes[nodeNo].hasSpilled)
             {
                 maxEdges = edges;
                 maxEdgesIt = it;
@@ -432,6 +465,7 @@ int GraphColor::findMinValidColor(int nodeNo)
 bool GraphColor::tryColor()
 {
     bool success = true;
+    // Log("%d", colorSeq.size());
     while (!colorSeq.empty())
     {
         int nodeNo = colorSeq.top();
@@ -488,6 +522,51 @@ bool GraphColor::graphColorRegisterAlloc()
     // }
     // coalescing();
     return tryColoring();
+    // return true;
+}
+
+void GraphColor::modifyCode()
+{
+    int i = -1;
+    for (auto &node : nodes)
+    {
+        i++;
+        if (node.color == -1)
+            continue;
+        func->addSavedRegs(node.color);
+        for (auto def : node.defs)
+        {
+            // assert(def->isVReg());
+            def->setReg(node.color);
+        }
+        for (auto use : node.uses)
+        {
+            // assert(use->isVReg());
+            use->setReg(node.color);
+        }
+    }
+}
+
+void GraphColor::allocateRegisters()
+{
+    spilledRegs.clear();
+    int counter = 0;
+    for (auto &f : unit->getFuncs())
+    {
+        func = f;
+        bool success = false;
+        while (!success)
+        {
+            success = graphColorRegisterAlloc();
+            counter++;
+            Log("counter %d", counter);
+            // f->output();
+            if (!success)
+                genSpillCode();
+            else
+                modifyCode();
+        }
+    }
 }
 
 void GraphColor::genSpillCode()
@@ -502,15 +581,18 @@ void GraphColor::genSpillCode()
         // 在use前插入ldr
         for (auto use : node.uses)
         {
+            spilledRegs.insert(use);
             auto cur_bb = use->getParent()->getParent();
             MachineInstruction *cur_inst = nullptr;
+            auto newUse = new MachineOperand(*use);
+            spilledRegs.insert(newUse);
             if (node.fpu)
             {
                 if (node.disp >= -1020)
                 {
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::VLDR,
-                                                    new MachineOperand(*use),
+                                                    newUse,
                                                     new MachineOperand(MachineOperand::REG, 11),
                                                     new MachineOperand(MachineOperand::IMM, node.disp));
                     cur_bb->insertBefore(cur_inst, use->getParent());
@@ -531,7 +613,7 @@ void GraphColor::genSpillCode()
                     cur_bb->insertBefore(cur_inst, use->getParent());
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::VLDR,
-                                                    new MachineOperand(*use),
+                                                    newUse,
                                                     new MachineOperand(*internal_reg));
                     cur_bb->insertBefore(cur_inst, use->getParent());
                 }
@@ -543,7 +625,7 @@ void GraphColor::genSpillCode()
                 {
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::LDR,
-                                                    new MachineOperand(*use),
+                                                    newUse,
                                                     new MachineOperand(MachineOperand::REG, 11),
                                                     new MachineOperand(MachineOperand::IMM, node.disp));
                     cur_bb->insertBefore(cur_inst, use->getParent());
@@ -558,7 +640,7 @@ void GraphColor::genSpillCode()
                     cur_bb->insertBefore(cur_inst, use->getParent());
                     cur_inst = new LoadMInstruction(cur_bb,
                                                     LoadMInstruction::LDR,
-                                                    new MachineOperand(*use),
+                                                    newUse,
                                                     new MachineOperand(MachineOperand::REG, 11),
                                                     new MachineOperand(*internal_reg));
                     cur_bb->insertBefore(cur_inst, use->getParent());
@@ -569,15 +651,18 @@ void GraphColor::genSpillCode()
         // 在def后插入str
         for (auto def : node.defs)
         {
+            spilledRegs.insert(def);
             auto cur_bb = def->getParent()->getParent();
             MachineInstruction *cur_inst = nullptr;
+            auto newDef = new MachineOperand(*def);
+            spilledRegs.insert(newDef);
             if (node.fpu)
             {
                 if (node.disp >= -1020)
                 {
                     cur_inst = new StoreMInstruction(cur_bb,
                                                      StoreMInstruction::VSTR,
-                                                     new MachineOperand(*def),
+                                                     newDef,
                                                      new MachineOperand(MachineOperand::REG, 11),
                                                      new MachineOperand(MachineOperand::IMM, node.disp));
                     cur_bb->insertAfter(cur_inst, def->getParent());
@@ -598,7 +683,7 @@ void GraphColor::genSpillCode()
                     cur_bb->insertAfter(cur_inst1, cur_inst);
                     auto cur_inst2 = new StoreMInstruction(cur_bb,
                                                            StoreMInstruction::VSTR,
-                                                           new MachineOperand(*def),
+                                                           newDef,
                                                            new MachineOperand(*internal_reg));
 
                     cur_bb->insertAfter(cur_inst2, cur_inst1);
@@ -611,7 +696,7 @@ void GraphColor::genSpillCode()
                 {
                     cur_inst = new StoreMInstruction(cur_bb,
                                                      StoreMInstruction::STR,
-                                                     new MachineOperand(*def),
+                                                     newDef,
                                                      new MachineOperand(MachineOperand::REG, 11),
                                                      new MachineOperand(MachineOperand::IMM, node.disp));
                     cur_bb->insertAfter(cur_inst, def->getParent());
@@ -626,54 +711,12 @@ void GraphColor::genSpillCode()
                     cur_bb->insertAfter(cur_inst, def->getParent());
                     auto cur_inst1 = new StoreMInstruction(cur_bb,
                                                            StoreMInstruction::STR,
-                                                           new MachineOperand(*def),
+                                                           newDef,
                                                            new MachineOperand(MachineOperand::REG, 11),
                                                            new MachineOperand(*internal_reg));
                     cur_bb->insertAfter(cur_inst1, cur_inst);
                 }
             }
-        }
-    }
-}
-
-void GraphColor::modifyCode()
-{
-    for (auto &node : nodes)
-    {
-        if (node.color == -1)
-            continue;
-        func->addSavedRegs(node.color);
-        for (auto def : node.defs)
-        {
-            // assert(def->isVReg());
-            def->setReg(node.color);
-        }
-        for (auto use : node.uses)
-        {
-            // assert(use->isVReg());
-            use->setReg(node.color);
-        }
-    }
-}
-
-void GraphColor::allocateRegisters()
-{
-    int counter = 0;
-    for (auto &f : unit->getFuncs())
-    {
-        func = f;
-        bool success = false;
-        if (counter >= 1000)
-            break;
-        while (!success)
-        {
-            success = graphColorRegisterAlloc();
-            counter++;
-            Log("counter %d", counter);
-            if (!success)
-                genSpillCode();
-            else
-                modifyCode();
         }
     }
 }

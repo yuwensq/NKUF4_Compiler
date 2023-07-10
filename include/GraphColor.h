@@ -14,6 +14,7 @@ private:
     {
         int color;
         bool spill;
+        bool hasSpilled; // 判断这个是否是当前轮次被溢出的
         int disp; // displacement in stack
         std::set<MachineOperand *> defs;
         std::set<MachineOperand *> uses;
@@ -22,6 +23,7 @@ private:
         {
             color = -1;
             spill = false;
+            hasSpilled = false;
             fpu = false;
             disp = 0;
             defs.clear();
@@ -29,7 +31,13 @@ private:
         }
         Node(bool freg, MachineOperand *def)
         {
-            Node();
+            color = -1;
+            spill = false;
+            hasSpilled = false;
+            fpu = false;
+            disp = 0;
+            defs.clear();
+            uses.clear();
             fpu = freg;
             defs.insert(def);
         }
@@ -41,6 +49,7 @@ private:
     std::map<MachineOperand *, int> var2Node;     // 将虚拟寄存器映射到节点
     std::vector<int> spillNodes;                  // 加这个变量也是希望能够快一点，不过最后好像差不多
     std::stack<int> colorSeq;
+    std::set<MachineOperand *> spilledRegs; // 如果所有寄存器都溢出一遍还不行，这个程序还有救吗
     int rbase = 4;
     int sbase = 16;
     int rRegNum = 7;

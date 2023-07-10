@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
-    finline.pass();
+    // finline.pass();
     sccp.pass();
     cse.pass();
     sccp.pass();
@@ -143,7 +143,6 @@ int main(int argc, char *argv[])
     mst.pass();
     mtch.pass(); // 把这个放在最后做，要不大概率会有问题
     Log("目标代码优化成功");
-
 
     GraphColor graphColor(&mUnit);
     graphColor.allocateRegisters();

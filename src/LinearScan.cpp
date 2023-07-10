@@ -5,6 +5,7 @@
 #include "AsmBuilder.h"
 #include "MachineCode.h"
 #include "LiveVariableAnalysis.h"
+#include "GraphColor.h"
 
 extern FILE *yyout;
 

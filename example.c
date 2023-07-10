@@ -1,48 +1,237 @@
-int func(int a, int b[][59], int c, int d[], int e, int f, int g[], int h, int i)
+int ints[10000];
+int intt;
+int chas[10000];
+int chat;
+int i = 0, ii = 1;
+int c;
+int get[10000];
+int get2[10000];
+
+
+extern void putint(int);
+extern void putch(int);
+
+int isdigit(int x)
 {
-    int index = 0;
-    while (index < 10) {
-        putint(b[a][index]);
-        index = index + 1;
-    }
+    int res = 0;
+    if (x >= 48 && x <= 57)
+        res = 1;
+    putint(1);
+    putch(32);
+    putint(res);
     putch(10);
+    return res;
+}
 
-    putint(d[c]);
-    putch(10);
-
-    while (i < 10) {
-        g[i] = h * 128875 % 3724;
-        i = i + 1;
-        h = h + 7;
+int power(int b, int a)
+{
+    int result = 1;
+    while (a != 0)
+    {
+        result = result * b;
+        a = a - 1;
     }
+    putint(2);
+    putch(32);
+    putint(result);
+    putch(10);
+    return result;
+}
 
-    return e + f;
+int getstr(int get[])
+{
+    int x = getch();
+    int length = 0;
+    while (x != 13 && x != 10)
+    {
+        get[length] = x;
+        length = length + 1;
+        x = getch();
+    }
+    putint(3);
+    putch(32);
+    putint(length);
+    putch(10);
+    return length;
+}
+
+void intpush(int x)
+{
+    intt = intt + 1;
+    ints[intt] = x;
+}
+void chapush(int x)
+{
+    chat = chat + 1;
+    chas[chat] = x;
+}
+int intpop()
+{
+    intt = intt - 1;
+    int res = ints[intt + 1];
+    putint(4);
+    putch(32);
+    putint(res);
+    putch(10);
+    return res;
+}
+int chapop()
+{
+    chat = chat - 1;
+    int res = chas[chat + 1];
+    putint(5);
+    putch(32);
+    putint(res);
+    putch(10);
+    return res;
+}
+void intadd(int x)
+{
+    ints[intt] = ints[intt] * 10;
+    ints[intt] = ints[intt] + x;
+}
+
+int find()
+{
+    int res = 1;
+    c = chapop();
+    get2[ii] = 32;
+    get2[ii + 1] = c;
+    ii = ii + 2;
+    if (chat == 0)
+        res = 0;
+    putint(6);
+    putch(32);
+    putint(res);
+    putch(10);
+    return res;
 }
 
 int main()
 {
-    int a[61][67] = {};
-    int b[53][59] = {};
-
-    a[17][1] = 6;
-    a[17][3] = 7;
-    a[17][4] = 4;
-    a[17][7] = 9;
-    a[17][11] = 11;
-
-    b[6][1] = 1;
-    b[6][2] = 2;
-    b[6][3] = 3;
-    b[6][9] = 9;
-
-    int ret;
-    ret = func(a[17][1], b, a[17][3], a[17], b[6][3], b[6][0], b[6], b[34][4], b[51][18]) * 3;
-
-    while (ret >= 0) {
-      putint(ret);putch(32);
-        putint(b[6][ret]); putch(10);
-        ret = ret - 1;
+    intt = 0;
+    chat = 0;
+    int lengets = getstr(get);
+    while (i < lengets)
+    {
+        if (isdigit(get[i]) == 1)
+        {
+            get2[ii] = get[i];
+            ii = ii + 1;
+        }
+        else
+        {
+            if (get[i] == 40)
+                chapush(40);
+            if (get[i] == 94)
+                chapush(94);
+            if (get[i] == 41)
+            {
+                c = chapop();
+                while (c != 40)
+                {
+                    get2[ii] = 32;
+                    get2[ii + 1] = c;
+                    ii = ii + 2;
+                    c = chapop();
+                }
+            }
+            if (get[i] == 43)
+            {
+                while (chas[chat] == 43 || chas[chat] == 45 || chas[chat] == 42 || chas[chat] == 47 || chas[chat] == 37 || chas[chat] == 94)
+                {
+                    if (find() == 0)
+                        break;
+                }
+                chapush(43);
+            }
+            if (get[i] == 45)
+            {
+                while (chas[chat] == 43 || chas[chat] == 45 || chas[chat] == 42 || chas[chat] == 47 || chas[chat] == 37 || chas[chat] == 94)
+                {
+                    if (find() == 0)
+                        break;
+                }
+                chapush(45);
+            }
+            if (get[i] == 42)
+            {
+                while (chas[chat] == 42 || chas[chat] == 47 || chas[chat] == 37 || chas[chat] == 94)
+                {
+                    if (find() == 0)
+                        break;
+                }
+                chapush(42);
+            }
+            if (get[i] == 47)
+            {
+                while (chas[chat] == 42 || chas[chat] == 47 || chas[chat] == 37 || chas[chat] == 94)
+                {
+                    if (find() == 0)
+                        break;
+                }
+                chapush(47);
+            }
+            if (get[i] == 37)
+            {
+                while (chas[chat] == 42 || chas[chat] == 47 || chas[chat] == 37 || chas[chat] == 94)
+                {
+                    if (find() == 0)
+                        break;
+                }
+                chapush(37);
+            }
+            get2[ii] = 32;
+            ii = ii + 1;
+        }
+        i = i + 1;
     }
-    putch(10);
+    while (chat > 0)
+    {
+        int c = chapop();
+        get2[ii] = 32;
+        get2[ii + 1] = c;
+        ii = ii + 2;
+    }
+    get2[ii] = 64;
+    i = 1;
+    while (get2[i] != 64)
+    {
+        if (get2[i] == 43 || get2[i] == 45 || get2[i] == 42 || get2[i] == 47 || get2[i] == 37 || get2[i] == 94)
+        {
+            int a = intpop();
+            int b = intpop();
+            int c;
+            if (get2[i] == 43)
+                c = a + b;
+            if (get2[i] == 45)
+                c = b - a;
+            if (get2[i] == 42)
+                c = a * b;
+            if (get2[i] == 47)
+                c = b / a;
+            if (get2[i] == 37)
+                c = b % a;
+            if (get2[i] == 94)
+                c = power(b, a);
+            intpush(c);
+        }
+        else
+        {
+            if (get2[i] != 32)
+            {
+                intpush(get2[i] - 48);
+                ii = 1;
+                while (get2[i + ii] != 32)
+                {
+                    intadd(get2[i + ii] - 48);
+                    ii = ii + 1;
+                }
+                i = i + ii - 1;
+            }
+        }
+        i = i + 1;
+    }
+    putint(ints[1]);
     return 0;
 }
