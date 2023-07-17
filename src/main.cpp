@@ -39,6 +39,7 @@ bool dump_tokens;
 bool dump_ast;
 bool dump_ir;
 bool dump_asm;
+bool optmize = false;
 
 int main(int argc, char *argv[])
 {
@@ -63,6 +64,7 @@ int main(int argc, char *argv[])
             dump_asm = true;
             break;
         case 'O': // 先默认都优化吧
+            optmize = true;
             break;
         default:
             fprintf(stderr, "Usage: %s [-o outfile] infile\n", argv[0]);
@@ -143,12 +145,16 @@ int main(int argc, char *argv[])
     mst.pass();
     mtch.pass(); // 把这个放在最后做，要不大概率会有问题
     Log("目标代码优化成功");
-
+    // if (optmize)
+    // {
     GraphColor graphColor(&mUnit);
     graphColor.allocateRegisters();
-    // LinearScan linearScan(&mUnit);
-    // if (dump_asm)
+    // }
+    // else
+    // {
+    //     LinearScan linearScan(&mUnit);
     //     linearScan.allocateRegisters();
+    // }
     Log("寄存器分配完成\n");
     if (dump_asm)
         mUnit.output();

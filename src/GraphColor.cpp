@@ -112,6 +112,13 @@ void GraphColor::calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *
                 assert(inst->getDef().size() == 1);
                 // 学学新用法
                 auto def = inst->getDef()[0];
+                auto argRegNode = isArgReg(def);
+                // 把已经分配的参数寄存器摘出来
+                if (argRegNode != -1)
+                {
+                    var2Node[def] = argRegNode;
+                    continue;
+                }
                 if (!def->isVReg())
                     continue;
                 nodes.emplace_back(def->isFReg(), def);
@@ -189,6 +196,18 @@ int GraphColor::mergeTwoNodes(int no1, int no2)
 
 void GraphColor::genNodes()
 {
+    // 预留前4+16个参数寄存器
+    for (int i = 0; i < rArgRegNum; i++)
+    {
+        nodes.emplace_back(false, nullptr);
+        nodes[i].color = i;
+    }
+    for (int i = 0; i < sArgRegNum; i++)
+    {
+        nodes.emplace_back(true, nullptr);
+        nodes[i + rArgRegNum].color = i;
+    }
+
     std::map<MachineBlock *, std::set<MachineOperand *>> gen;
     std::map<MachineBlock *, std::set<MachineOperand *>> kill;
     std::map<MachineBlock *, std::set<MachineOperand *>> in;
@@ -207,6 +226,13 @@ void GraphColor::genNodes()
         {
             for (auto &use : inst->getUse())
             {
+                auto argRegNode = isArgReg(use);
+                // 把已经分配的参数寄存器摘出来
+                if (argRegNode != -1)
+                {
+                    var2Node[use] = argRegNode;
+                    continue;
+                }
                 if (!use->isVReg())
                     continue;
                 // 这里如果小于等于零，表示当前use的定值不存在，不太可能
@@ -265,11 +291,22 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
         for (auto instIt = block->rbegin(); instIt != block->rend(); instIt++)
         {
             auto inst = *instIt;
+            if (inst->isCall())
+            {
+                // call指令相当于对所有的r和s参数寄存器都定值了
+                for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+                {
+                    gen[block].erase(i);
+                    kill[block].insert(i);
+                }
+                // call指令会用到参数寄存器
+                auto [rnum, snum] = findFuncUseArgs(inst->getUse()[0]);
+            }
             if (inst->getDef().size() > 0)
             {
                 assert(inst->getDef().size() == 1);
                 auto def = inst->getDef()[0];
-                if (def->isVReg())
+                if (def->isVReg() || isArgReg(def) != -1)
                 {
                     gen[block].erase(var2Node[def]);
                     kill[block].insert(var2Node[def]);
@@ -277,7 +314,7 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
             }
             for (auto &use : inst->getUse())
             {
-                if (!use->isVReg())
+                if (!use->isVReg() && isArgReg(use) == -1)
                     continue;
                 gen[block].insert(var2Node[use]);
             }
@@ -371,17 +408,6 @@ void GraphColor::genInterfereGraph()
                 if (!use->isVReg())
                     continue;
                 connectEdge(use, block);
-                // auto use1 = var2Node[use];
-                // graph[use1];
-                // for (auto &use2 : out[block])
-                // {
-                //     // 类型得一样
-                //     if (nodes[use1].fpu == nodes[use2].fpu)
-                //     {
-                //         graph[use1].insert(use2);
-                //         graph[use2].insert(use1);
-                //     }
-                // }
                 out[block].insert(var2Node[use]);
             }
         }
@@ -527,13 +553,14 @@ bool GraphColor::graphColorRegisterAlloc()
 
 void GraphColor::modifyCode()
 {
-    int i = -1;
-    for (auto &node : nodes)
+    for (int i = rArgRegNum + sArgRegNum; i < nodes.size(); i++)
     {
-        i++;
+        auto &node = nodes[i];
         if (node.color == -1)
             continue;
-        func->addSavedRegs(node.color);
+        // 这里，参数寄存器不需要保存
+        if ((node.fpu && node.color >= sArgRegNum) || (!node.fpu && node.color >= rArgRegNum))
+            func->addSavedRegs(node.color);
         for (auto def : node.defs)
         {
             // assert(def->isVReg());
@@ -719,4 +746,37 @@ void GraphColor::genSpillCode()
             }
         }
     }
+}
+
+int GraphColor::isArgReg(MachineOperand *op)
+{
+    int res = -1;
+    if (op->isReg())
+    {
+        if (!op->isFReg() && op->getReg() < rArgRegNum)
+            res = op->getReg();
+        if (op->isFReg() && op->getReg() < sArgRegNum)
+            res = rArgRegNum + op->getReg();
+    }
+    return res;
+}
+
+std::pair<int, int> GraphColor::findFuncUseArgs(MachineOperand *funcOp)
+{
+    int rnum = 0, snum = 0;
+    auto funcName = funcOp->getLabel();
+    funcName = funcName.substr(0, funcName.size() - 1);
+    auto funcSe = globals->lookup(funcName);
+    auto funcType = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(funcSe)->getType());
+    auto &paramsType = funcType->getParamsType();
+    for (auto &paramType : paramsType)
+    {
+        if (paramType->isFloat())
+            snum++;
+        else
+            rnum++;
+    }
+    rnum = std::min(rnum, rRegNum);
+    snum = std::min(snum, sRegNum);
+    return std::pair<int, int>(rnum, snum);
 }

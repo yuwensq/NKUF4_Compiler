@@ -429,7 +429,7 @@ void CallInstruction::output() const
         }
         fprintf(yyout, "%s %s", operands[i]->getType()->toStr().c_str(), operands[i]->toStr().c_str());
     }
-    fprintf(yyout, ")%d\n", this->isTailCall);
+    fprintf(yyout, ")\n");
 }
 
 RetInstruction::RetInstruction(Operand *src, BasicBlock *insert_bb) : Instruction(RET, insert_bb)

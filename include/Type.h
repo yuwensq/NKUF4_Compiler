@@ -34,8 +34,8 @@ public:
     bool isFloat() const { return kind == FLOAT; };
     int getKind() const { return kind; }
     virtual long long getSize() const { return 0; }
-    virtual bool isConst() const {return false;}
-    virtual bool isStr() const {return false;}
+    virtual bool isConst() const { return false; }
+    virtual bool isStr() const { return false; }
 };
 
 class IntType : public Type
@@ -84,7 +84,7 @@ public:
     {
         this->paramsType = paramsType;
     };
-    std::vector<Type *>& getParamsType() { return paramsType; }
+    std::vector<Type *> &getParamsType() { return paramsType; }
     std::string toStr();
     long long getSize() const { return returnType->getSize(); }
 };
@@ -115,15 +115,16 @@ private:
     static FloatType commonConstFloat;
     static IntType byteInt;
     static PointerType byteIntPtr;
+
 public:
     static Type *intType;
-    static Type* floatType;
+    static Type *floatType;
     static Type *voidType;
-    static Type* boolType;
+    static Type *boolType;
     static Type *constIntType;
-    static Type* constFloatType;
-    static Type* int8Type;
-    static Type* int8PtrType;
+    static Type *constFloatType;
+    static Type *int8Type;
+    static Type *int8PtrType;
 };
 
 class ArrayType : public Type
@@ -151,18 +152,19 @@ public:
     bool isConst() const { return baseType->isConst(); }
 };
 
-class StringType : public Type {
+class StringType : public Type
+{
 private:
     std::string a;
     size_t len;
 
 public:
-    StringType(std::string a) : Type(7), a(a), len(a.length()-1) {}
-    std::string toStr() {return "[" + std::to_string(len) + " x i8]";}
-    bool isConstType() {return true;}
-    size_t getLength() {return len;}
-    std::string get() {return a;}
-    bool isStr() const {return true;}
+    StringType(std::string a) : Type(7), a(a), len(a.length() - 1) {}
+    std::string toStr() { return "[" + std::to_string(len) + " x i8]"; }
+    bool isConstType() { return true; }
+    size_t getLength() { return len; }
+    std::string get() { return a; }
+    bool isStr() const { return true; }
 };
 
 #endif

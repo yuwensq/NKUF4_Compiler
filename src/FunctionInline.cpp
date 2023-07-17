@@ -39,7 +39,7 @@ bool FunctionInline::shouldBeInlined(Function *func)
         if (inst->getParent()->getParent() == func)
             return false;
     // 参数大于10内联
-    if (func->getParams().size() >= 8)
+    if (func->getParams().size() >= 10)
         return true;
     // 指令数太多不内联
     long long inst_num = 0;
@@ -51,7 +51,7 @@ bool FunctionInline::shouldBeInlined(Function *func)
                 continue;
             inst_num++;
         }
-        if (inst_num >= 50)
+        if (inst_num >= 30)
             return false;
     }
     return true;

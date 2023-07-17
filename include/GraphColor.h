@@ -15,7 +15,7 @@ private:
         int color;
         bool spill;
         bool hasSpilled; // 判断这个是否是当前轮次被溢出的
-        int disp; // displacement in stack
+        int disp;        // displacement in stack
         std::set<MachineOperand *> defs;
         std::set<MachineOperand *> uses;
         bool fpu; // 是不是浮点寄存器，可以把浮点数的图和普通寄存器的图分开
@@ -50,19 +50,23 @@ private:
     std::vector<int> spillNodes;                  // 加这个变量也是希望能够快一点，不过最后好像差不多
     std::stack<int> colorSeq;
     std::set<MachineOperand *> spilledRegs; // 如果所有寄存器都溢出一遍还不行，这个程序还有救吗
-    int rbase = 4;
-    int sbase = 16;
-    int rRegNum = 7;
-    int sRegNum = 16;
+    const int rArgRegNum = 4;
+    const int sArgRegNum = 16;
+    const int rbase = 0;
+    const int sbase = 0;
+    const int rRegNum = 11;
+    const int sRegNum = 32;
     void clearData();
     void debug1(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     void debug2(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
     void aggregate(std::set<MachineOperand *> &, std::set<MachineOperand *> &, std::set<MachineOperand *> &);
     void aggregate(std::set<int> &, std::set<int> &, std::set<int> &);
+    int isArgReg(MachineOperand *op);
     void calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     void calDRInOut(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     int mergeTwoNodes(int, int);
     void genNodes();
+    std::pair<int, int> findFuncUseArgs(MachineOperand*);
     void calLVGenKill(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
     void calLVInOut(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
     void genInterfereGraph();
