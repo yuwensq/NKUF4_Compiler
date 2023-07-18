@@ -299,8 +299,13 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
                     gen[block].erase(i);
                     kill[block].insert(i);
                 }
-                // call指令会用到参数寄存器
+                // call指令会用到参数寄存器个数
                 auto [rnum, snum] = findFuncUseArgs(inst->getUse()[0]);
+                for (int i = 0; i < rnum; i++)
+                    gen[block].insert(i);
+                for (int i = 0; i < snum; i++)
+                    gen[block].insert(i + rArgRegNum);
+                continue;
             }
             if (inst->getDef().size() > 0)
             {
@@ -387,16 +392,52 @@ void GraphColor::genInterfereGraph()
         }
     };
 
+    auto connectEdge2 = [&](int nodeNo, MachineBlock *block)
+    {
+        auto use1 = nodeNo;
+        graph[use1];
+        for (auto &use2 : out[block])
+        {
+            if (nodes[use1].fpu == nodes[use2].fpu)
+            {
+                graph[use1].insert(use2);
+                graph[use2].insert(use1);
+            }
+        }
+    };
+
     for (auto &block : func->getBlocks())
     {
         for (auto instIt = block->rbegin(); instIt != block->rend(); instIt++)
         {
             auto inst = *instIt;
+            if (inst->isCall())
+            {
+                // call指令相当于对所有的r和s参数寄存器都定值了
+                for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+                {
+                    connectEdge2(i, block);
+                    out[block].erase(i);
+                }
+                // call指令会用到参数寄存器个数
+                auto [rnum, snum] = findFuncUseArgs(inst->getUse()[0]);
+                for (int i = 0; i < rnum; i++)
+                {
+                    connectEdge2(i, block);
+                    out[block].insert(i);
+                }
+                for (int i = 0; i < snum; i++)
+                {
+                    connectEdge2(i + rArgRegNum, block);
+                    out[block].insert(i + rArgRegNum);
+                }
+                continue;
+            }
             if (inst->getDef().size() > 0)
             {
                 assert(inst->getDef().size() == 1);
                 auto def = inst->getDef()[0];
-                if (def->isVReg())
+                if (def->isVReg() || isArgReg(def) != -1)
                 {
                     connectEdge(def, block);
                     out[block].erase(var2Node[def]);
@@ -405,7 +446,7 @@ void GraphColor::genInterfereGraph()
             }
             for (auto &use : inst->getUse())
             {
-                if (!use->isVReg())
+                if (!use->isVReg() && isArgReg(use) == -1)
                     continue;
                 connectEdge(use, block);
                 out[block].insert(var2Node[use]);
@@ -415,6 +456,9 @@ void GraphColor::genInterfereGraph()
     // 不能有自环
     for (auto &node : graph)
         node.second.erase(node.first);
+    // 把图里面的r和s寄存器删掉
+    for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+        graph.erase(i);
 }
 
 typedef std::pair<int, int> ele;
@@ -435,7 +479,10 @@ void GraphColor::genColorSeq()
     {
         int nodeNo = (*it).first;
         for (auto to : tmpGraph[nodeNo])
-            tmpGraph[to].erase(nodeNo);
+        {
+            if (to >= rArgRegNum + sArgRegNum)
+                tmpGraph[to].erase(nodeNo);
+        }
         return tmpGraph.erase(it);
     };
 
@@ -469,7 +516,7 @@ void GraphColor::genColorSeq()
         colorSeq.push((*maxEdgesIt).first);
         eraseNode(maxEdgesIt);
     }
-
+    // Log("%d %d", colorSeq.size(), graph.size());
     assert(colorSeq.size() == graph.size());
 }
 
@@ -765,8 +812,11 @@ std::pair<int, int> GraphColor::findFuncUseArgs(MachineOperand *funcOp)
 {
     int rnum = 0, snum = 0;
     auto funcName = funcOp->getLabel();
-    funcName = funcName.substr(0, funcName.size() - 1);
+    funcName = funcName.substr(1, funcName.size() - 1);
+    if (funcName == "memset")
+        return std::make_pair(3, 0);
     auto funcSe = globals->lookup(funcName);
+    Assert(funcSe, "为啥找不到这个函数嘞");
     auto funcType = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(funcSe)->getType());
     auto &paramsType = funcType->getParamsType();
     for (auto &paramType : paramsType)
