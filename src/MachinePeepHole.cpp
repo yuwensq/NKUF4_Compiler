@@ -3,14 +3,14 @@
 
 // #define PRINTLOG
 
-void MachinePeepHole::pass()
+void MachinePeepHole::pass(bool afterRegAlloc)
 {
 #ifdef PRINTLOG
     Log("窥孔优化开始");
 #endif
     for (int i = 0; i < pass_times; i++)
     {
-        subPass();
+        subPass(afterRegAlloc);
 #ifdef PRINTLOG
         Log("窥孔优化pass%d完成", i);
 #endif
@@ -20,7 +20,7 @@ void MachinePeepHole::pass()
 #endif
 }
 
-void MachinePeepHole::subPass()
+void MachinePeepHole::subPass(bool afterRegAlloc)
 {
     for (auto func : unit->getFuncs())
     {
@@ -195,6 +195,9 @@ void MachinePeepHole::subPass()
                 {
                     // mov rx, rx
                     // vmov.f32 sx, sx
+                    // 如果在分配寄存器之前把mov r0, r0之类的删除掉，分配寄存器的时候会出错
+                    if (!afterRegAlloc && (*now_inst)->getUse()[0]->isReg())
+                        continue;
                     blk->getInsts().erase(now_inst);
                     now_inst--;
                 }

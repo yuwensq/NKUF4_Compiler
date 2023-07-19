@@ -270,14 +270,16 @@ void GraphColor::genNodes()
     //         for (auto &def : inst->getDef())
     //         {
     //             if (def->isVReg())
-    //                 //     def->setRegNo(var2Node[def]);
+    //                 // def->setRegNo(var2Node[def]);
     //                 fprintf(yyout, "%d ", var2Node[def]);
+    //             // fprintf(yyout, "%d ", nodes[var2Node[def]].hasSpilled);
     //         }
     //         for (auto &use : inst->getUse())
     //         {
     //             if (use->isVReg())
     //                 // use->setRegNo(var2Node[use]);
     //                 fprintf(yyout, "%d ", var2Node[use]);
+    //             // fprintf(yyout, "%d ", nodes[var2Node[use]].hasSpilled);
     //         }
     //         inst->output();
     //     }
@@ -826,7 +828,7 @@ std::pair<int, int> GraphColor::findFuncUseArgs(MachineOperand *funcOp)
         else
             rnum++;
     }
-    rnum = std::min(rnum, rRegNum);
-    snum = std::min(snum, sRegNum);
+    rnum = std::min(rnum, rArgRegNum);
+    snum = std::min(snum, sArgRegNum);
     return std::pair<int, int>(rnum, snum);
 }

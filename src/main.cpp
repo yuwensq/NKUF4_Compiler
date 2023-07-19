@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
-    // finline.pass();
+    finline.pass();
     sccp.pass();
     cse.pass();
     sccp.pass();
@@ -152,10 +152,12 @@ int main(int argc, char *argv[])
     // }
     // else
     // {
-    //     LinearScan linearScan(&mUnit);
-    //     linearScan.allocateRegisters();
+    // LinearScan linearScan(&mUnit);
+    // linearScan.allocateRegisters();
     // }
     Log("寄存器分配完成\n");
+    mph.pass();
+    mst.pass();
     if (dump_asm)
         mUnit.output();
     return 0;

@@ -8,11 +8,11 @@ class MachinePeepHole
 private:
     MachineUnit *unit;
     int pass_times;
-    void subPass();
+    void subPass(bool afterRegAlloc);
 
 public:
     MachinePeepHole(MachineUnit *unit, int pass_times = 0) : unit(unit), pass_times(pass_times) {}
-    void pass();
+    void pass(bool afterRegAlloc = false);
 };
 
 #endif
