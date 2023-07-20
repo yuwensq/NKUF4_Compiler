@@ -84,6 +84,7 @@ public:
     std::vector<Instruction*> getCallPred() {return callPreds; };
     int getCritical();
     BasicBlock* getMarkBranch(BasicBlock* block);
+    Unit* getParent() { return parent; };
 
 public:
     TreeNode *DFSTreeRoot;

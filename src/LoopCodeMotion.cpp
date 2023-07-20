@@ -1,5 +1,6 @@
 #include "LoopCodeMotion.h"
 #include <algorithm>
+#include "PureFunctionAnalyser.h"
 
 //目前只完成代码外提的优化，还可以加强度削弱、循环展开
 void LoopCodeMotion::pass(){
@@ -628,9 +629,23 @@ bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
             return true;
         }
     }
-
     Instruction* temp=ins->getNext();
     BasicBlock* block=ins->getParent();
+    //如果load一个全局的话，这个全局变量之前可能call函数，修改了这个全局变量,这样就不是一个不变指令了
+    //下面的处理是很粗糙的
+    if(loadUse->isGlobal()){
+        Instruction* temp1=block->begin();
+        while(temp1!=ins){
+            if(temp1->isCall()){
+                // Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp1)->getFunc()))->getFunction();
+                // pureFunc = new PureFunctionAnalyser(func->getParent());
+                // bool ispure = pureFunc->isPure(func);
+                return true;
+            }
+            temp1=temp1->getNext();
+        }
+    }
+
     std::vector<Operand*> affectedOperands;
     affectedOperands.push_back(ins->getDef());
     //函数内联后出现了一个问题，有的基本块莫名被断成两半，因此
