@@ -13,3 +13,4 @@ parser.h
 Makefile*
 *.core
 test/*
+example*

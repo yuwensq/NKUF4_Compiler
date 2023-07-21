@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
     // linearScan.allocateRegisters();
     // }
     Log("寄存器分配完成\n");
-    mph.pass();
+    mph.pass(true);
     mst.pass();
     if (dump_asm)
         mUnit.output();

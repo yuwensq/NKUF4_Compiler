@@ -26,7 +26,6 @@ void MachineStraight::getSlimBlock()
 void MachineStraight::removeSlimBlock()
 {
     std::string label;
-    std::stringstream ss;
     MachineBlock *direct_succ;
     MachineBlock *last_succ;
     bool is_direct_succ;
@@ -56,9 +55,7 @@ void MachineStraight::removeSlimBlock()
                 {
                     label = ins->getUse()[0]->getLabel();
                     label = label.substr(2, label.size() - 2);
-                    ss.clear();
-                    ss << label;
-                    ss >> target_no;
+                    target_no = atoi(label.c_str());
                     is_direct_succ = true;
                     // Log("7");
                     while (blk2blk.find(target_no) != blk2blk.end())
