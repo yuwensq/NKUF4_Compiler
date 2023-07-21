@@ -522,7 +522,7 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                                     constant_count++;
                                 }
                                 //对该操作数的定值运算全部被标记为循环不变
-                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions)){
+                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions,true)){
                                     LoopConst[func][Loop].insert(useOp);
                                     constant_count++;
                                 }
@@ -689,7 +689,7 @@ bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
 //但凡在循环中存在一条对该操作数的定值语句，它没有被标记为循环不变语句，就不通过
 //若定值全在外，或有在里面，但都被标记，则true
 //现在全部的依凭就是LoopConstInstructions
-bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions){
+bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions,bool isGepPtr){
     for(auto block:Loop){
         Instruction* i = block->begin();
         Instruction* last = block->end();
@@ -707,6 +707,21 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loo
                     return true;
                 }
             }
+            //考虑数组在循环中，另外被load然后store赋值的情况
+            if(isGepPtr&&i->isGep()){
+                if(i->getUse()[0]->toStr()==op->toStr()){
+                    //下面就只是处理一维的情况
+                    Operand* def=i->getDef();
+                    Instruction* temp=i;
+                    while(temp!=last){
+                        if(temp->isStore()&&temp->getUse()[0]==def){
+                            return false;
+                        }
+                        temp=temp->getNext();
+                    }
+                }
+            }
+
             i = i->getNext();
         }
     }
