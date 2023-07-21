@@ -66,10 +66,11 @@ private:
     void calDRInOut(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     int mergeTwoNodes(int, int);
     void genNodes();
-    std::pair<int, int> findFuncUseArgs(MachineOperand*);
+    std::pair<int, int> findFuncUseArgs(MachineOperand *);
     void calLVGenKill(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
     void calLVInOut(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
     void genInterfereGraph();
+    void coalescing();
     void genColorSeq();
     int findMinValidColor(int);
     bool tryColor();

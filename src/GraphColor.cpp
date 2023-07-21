@@ -458,9 +458,72 @@ void GraphColor::genInterfereGraph()
     // 不能有自环
     for (auto &node : graph)
         node.second.erase(node.first);
+    // 要在这里做聚合操作，因为之后会把r和s删掉
+    coalescing();
     // 把图里面的r和s寄存器删掉
     for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
         graph.erase(i);
+}
+
+void GraphColor::coalescing()
+{
+    for (auto &block : func->getBlocks())
+    {
+        for (auto &inst : block->getInsts())
+        {
+            if (inst->isMov() && inst->getUse()[0]->isVReg() && inst->getDef()[0]->isVReg())
+            {
+                auto k = inst->getDef()[0]->isFReg() ? sRegNum : rRegNum;
+                auto x = var2Node[inst->getDef()[0]];
+                auto y = var2Node[inst->getUse()[0]];
+                if (x == y || graph[x].count(y) > 0) // 如果是一个，跳过就行
+                    continue;
+                bool couldMerge = true;
+                for (auto t : graph[y])
+                {
+                    if (graph[t].size() >= k && graph[x].count(t) <= 0)
+                    {
+                        couldMerge = false;
+                        break;
+                    }
+                }
+                if (couldMerge)
+                {
+                    auto newNode = mergeTwoNodes(x, y);
+                    auto otherNode = (newNode == x) ? y : x;
+                    for (auto t : graph[otherNode])
+                    {
+                        graph[newNode].insert(t);
+                        graph[t].erase(otherNode);
+                        graph[t].insert(newNode);
+                    }
+                    graph.erase(otherNode);
+                }
+            }
+        }
+    }
+    // for (auto &block : func->getBlocks())
+    // {
+    //     fprintf(yyout, ".L%d\n", block->getNo());
+    //     for (auto &inst : block->getInsts())
+    //     {
+    //         for (auto &def : inst->getDef())
+    //         {
+    //             if (def->isVReg())
+    //                 // def->setRegNo(var2Node[def]);
+    //                 fprintf(yyout, "%d ", var2Node[def]);
+    //             // fprintf(yyout, "%d ", nodes[var2Node[def]].hasSpilled);
+    //         }
+    //         for (auto &use : inst->getUse())
+    //         {
+    //             if (use->isVReg())
+    //                 // use->setRegNo(var2Node[use]);
+    //                 fprintf(yyout, "%d ", var2Node[use]);
+    //             // fprintf(yyout, "%d ", nodes[var2Node[use]].hasSpilled);
+    //         }
+    //         inst->output();
+    //     }
+    // }
 }
 
 typedef std::pair<int, int> ele;
@@ -480,7 +543,8 @@ void GraphColor::genColorSeq()
     auto eraseNode = [&](std::map<int, std::unordered_set<int>>::iterator it)
     {
         int nodeNo = (*it).first;
-        for (auto to : tmpGraph[nodeNo])
+        auto tos = tmpGraph[nodeNo];
+        for (auto &to : tos)
         {
             if (to >= rArgRegNum + sArgRegNum)
                 tmpGraph[to].erase(nodeNo);
