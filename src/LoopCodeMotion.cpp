@@ -8,7 +8,7 @@ void LoopCodeMotion::pass(){
     for(auto func=unit->begin();func!=unit->end();func++){
         //计算当前函数每一个基本块的必经节点，存入DomBBSet
         calculateFinalDomBBSet(*func);
-        // printDomBB(*func);
+        //printDomBB(*func);
         
         //计算当前函数的回边集合
         std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges=getBackEdges(*func);
@@ -299,7 +299,8 @@ void LoopCodeMotion::CodePullUp(Function* func,std::vector<std::vector<BasicBloc
         std::vector<Instruction*> LoopConstInstructions=calculateLoopConstant(Loop,func);
         //std::cout<<LoopConstInstructions.size()<<std::endl;
         //printLoopConst(LoopConstInstructions);
-        //for(auto op:LoopConst[func][Loop]) std::cout<<op->toStr()<<std::endl;
+        // for(auto op:LoopConst[func][Loop]) std::cout<<op->toStr()<<" ";
+        // std::cout<<std::endl;
         
         // headBlock为该循环的首节点
         BasicBlock * headBlock=Loop[0];
@@ -501,6 +502,7 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                     }
                     else if(ins->isGep()){
                         std::vector<Operand*> useOperands = ins->getUse();
+                        Operand* gepDef=ins->getDef();
                         int constant_count=0;
                         for(auto useOp:useOperands){
                             Type * operand_type=useOp->getEntry()->getType();
@@ -522,7 +524,7 @@ std::vector<Instruction*> LoopCodeMotion::calculateLoopConstant(std::vector<Basi
                                     constant_count++;
                                 }
                                 //对该操作数的定值运算全部被标记为循环不变
-                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions,true)){
+                                else if(OperandIsLoopConst(useOp,Loop,LoopConstInstructions,true,gepDef)){
                                     LoopConst[func][Loop].insert(useOp);
                                     constant_count++;
                                 }
@@ -689,7 +691,7 @@ bool LoopCodeMotion::isLoadInfluential(Instruction* ins)
 //但凡在循环中存在一条对该操作数的定值语句，它没有被标记为循环不变语句，就不通过
 //若定值全在外，或有在里面，但都被标记，则true
 //现在全部的依凭就是LoopConstInstructions
-bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions,bool isGepPtr){
+bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loop,std::vector<Instruction*> LoopConstInstructions,bool isGepPtr,Operand * gepDef){
     for(auto block:Loop){
         Instruction* i = block->begin();
         Instruction* last = block->end();
@@ -709,7 +711,7 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand * op,std::vector<BasicBlock*>Loo
             }
             //考虑数组在循环中，另外被load然后store赋值的情况
             if(isGepPtr&&i->isGep()){
-                if(i->getUse()[0]->toStr()==op->toStr()){
+                if(i->getDef()->toStr()!=gepDef->toStr()&&i->getUse()[0]->toStr()==op->toStr()){
                     //下面就只是处理一维的情况
                     Operand* def=i->getDef();
                     Instruction* temp=i;
