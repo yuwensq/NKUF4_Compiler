@@ -808,19 +808,19 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
             cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
             src2 = new MachineOperand(*internal_reg);
         }
-        else if ((opcode == MUL || opcode == DIV) && (((int)src2->getVal() & ((int)src2->getVal() - 1)) == 0))
-        {
-            int value = src2->getVal();
-            int x = 0;
-            while (value > 1)
-            {
-                value >>= 1;
-                x++;
-            }
-            auto op = (opcode == MUL) ? BinaryMInstruction::LSL : BinaryMInstruction::ASR;
-            cur_block->InsertInst(new BinaryMInstruction(cur_block, op, dst, src1, genMachineImm(x)));
-            return;
-        }
+        // else if ((opcode == MUL || opcode == DIV) && (((int)src2->getVal() & ((int)src2->getVal() - 1)) == 0))
+        // {
+        //     int value = src2->getVal();
+        //     int x = 0;
+        //     while (value > 1)
+        //     {
+        //         value >>= 1;
+        //         x++;
+        //     }
+        //     auto op = (opcode == MUL) ? BinaryMInstruction::LSL : BinaryMInstruction::ASR;
+        //     cur_block->InsertInst(new BinaryMInstruction(cur_block, op, dst, src1, genMachineImm(x)));
+        //     return;
+        // }
         else if (opcode == MUL || opcode == DIV || opcode == MOD || !AsmBuilder::isLegalImm(src2->getVal()))
         {
             // int类型，按需放寄存器里
