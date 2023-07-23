@@ -21,6 +21,7 @@ private:
 public:
     MachineStraight(MachineUnit *unit) : unit(unit) {}
     void pass();
+    void pass2();
 };
 
 #endif

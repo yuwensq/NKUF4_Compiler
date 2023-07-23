@@ -152,7 +152,10 @@ public:
         VADD, // 向量加减乘除
         VSUB,
         VMUL,
-        VDIV
+        VDIV,
+        LSL, // 逻辑左移
+        ASR, // 算数右移
+        LSR, // 逻辑右移
     };
     BinaryMInstruction(MachineBlock *p, int op,
                        MachineOperand *dst, MachineOperand *src1, MachineOperand *src2,
@@ -171,7 +174,7 @@ public:
                 {
                     if (i == 0)
                         break;
-                    if (!(op == ADD || op == SUB || op == AND || op == OR))
+                    if (!(op == ADD || op == SUB || op == AND || op == OR || op == LSL || op == LSR || op == ASR))
                         break;
                 }
                 delete use_list[i];

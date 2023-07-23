@@ -784,12 +784,42 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
     }
     if (src2->isImm())
     {
+        // 为零可以特殊处理
+        if (src2->getVal() == 0)
+        {
+            if (opcode == ADD || opcode == SUB)
+            {
+                cur_block->InsertInst(new MovMInstruction(cur_block, floatVersion ? MovMInstruction::VMOV : MovMInstruction::MOV, dst, src1));
+                return;
+            }
+            else if (opcode == MUL)
+            {
+                if (floatVersion)
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::SUB, dst, new MachineOperand(*dst), new MachineOperand(*dst)));
+                else
+                    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, genMachineImm(0)));
+                return;
+            }
+        }
         if (floatVersion) // 如果是浮点数，直接放寄存器里得了
         {
             src2 = new MachineOperand(*immToVReg(src2, cur_block));
             auto internal_reg = genMachineVReg(true);
             cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
             src2 = new MachineOperand(*internal_reg);
+        }
+        else if ((opcode == MUL || opcode == DIV) && (((int)src2->getVal() & ((int)src2->getVal() - 1)) == 0))
+        {
+            int value = src2->getVal();
+            int x = 0;
+            while (value > 1)
+            {
+                value >>= 1;
+                x++;
+            }
+            auto op = (opcode == MUL) ? BinaryMInstruction::LSL : BinaryMInstruction::ASR;
+            cur_block->InsertInst(new BinaryMInstruction(cur_block, op, dst, src1, genMachineImm(x)));
+            return;
         }
         else if (opcode == MUL || opcode == DIV || opcode == MOD || !AsmBuilder::isLegalImm(src2->getVal()))
         {
@@ -1052,7 +1082,18 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
     }
     auto floatLastPos = i;
     int param_size_in_stack = 0;
-    // 开始从后向前push
+    // // 先看看一共需要push多少个
+    // for (long unsigned int i = operands.size() - 1; i >= 1; i--)
+    // {
+    //     if (operands[i]->getType()->isFloat() && i < floatLastPos)
+    //         continue;
+    //     if (!operands[i]->getType()->isFloat() && i < intLastPos)
+    //         continue;
+    //     param_size_in_stack += 4;
+    // }
+    // 不是八字节对齐，额外push一个
+    // bool needReduPush = ((param_size_in_stack % 8) != 0);
+    // param_size_in_stack = needReduPush ? param_size_in_stack + 4 : param_size_in_stack;
     bool hasPushed = false;
     for (long unsigned int i = operands.size() - 1; i >= 1; i--)
     {
@@ -1065,12 +1106,22 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
         if (param->isFReg())
         {
             cur_block->InsertInst(new StackMInstrcuton(cur_block, StackMInstrcuton::VPUSH, {param}));
+            // if (needReduPush)
+            // {
+            //     needReduPush = false;
+            //     cur_block->InsertInst(new StackMInstrcuton(cur_block, StackMInstrcuton::VPUSH, {new MachineOperand(*param)}));
+            // }
         }
         else
         {
             if (param->isImm())
                 param = new MachineOperand(*immToVReg(param, cur_block));
             cur_block->InsertInst(new StackMInstrcuton(cur_block, StackMInstrcuton::PUSH, {param}));
+            // if (needReduPush)
+            // {
+            //     needReduPush = false;
+            //     cur_block->InsertInst(new StackMInstrcuton(cur_block, StackMInstrcuton::PUSH, {new MachineOperand(*param)}));
+            // }
         }
         param_size_in_stack += 4;
     }

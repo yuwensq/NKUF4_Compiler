@@ -23,6 +23,7 @@
 #include "TailCallAnalyser.h"
 #include "MachineTailCallHandler.h"
 #include "GraphColor.h"
+#include "MachineLVN.h"
 
 using namespace std;
 
@@ -121,8 +122,10 @@ int main(int argc, char *argv[])
     cse.pass();
     sccp.pass();
     cse.pass();
-    // dce.pass();
+    dce.pass();
     lcm.pass();
+    cse.pass();
+    sccp.pass();
     pe.pass();
     tca.pass();
 
@@ -130,35 +133,45 @@ int main(int argc, char *argv[])
 
     if (dump_ir)
         unit.output();
-    unit.genMachineCode(&mUnit);
-    Log("目标代码生成成功");
-    MachinePeepHole mph(&mUnit, 2);
-    MachineStraight mst(&mUnit);
-    MachineCopyProp mcp(&mUnit);
-    MachineDeadCodeElim mdce(&mUnit);
-    MachineTailCallHandler mtch(&mUnit);
-    mst.pass();
-    mph.pass();
-    mcp.pass();
-    mph.pass();
-    mdce.pass();
-    mst.pass();
-    mtch.pass(); // 把这个放在最后做，要不大概率会有问题
-    Log("目标代码优化成功");
-    // if (optmize)
-    // {
-    GraphColor graphColor(&mUnit);
-    graphColor.allocateRegisters();
-    // }
-    // else
-    // {
-    // LinearScan linearScan(&mUnit);
-    // linearScan.allocateRegisters();
-    // }
-    Log("寄存器分配完成\n");
-    mph.pass(true);
-    mst.pass();
     if (dump_asm)
+    {
+        unit.genMachineCode(&mUnit);
+        Log("目标代码生成成功");
+        MachinePeepHole mph(&mUnit, 2);
+        MachineStraight mst(&mUnit);
+        MachineCopyProp mcp(&mUnit);
+        MachineDeadCodeElim mdce(&mUnit);
+        MachineLVN mlvn(&mUnit);
+        MachineTailCallHandler mtch(&mUnit);
+        mst.pass();
+        mph.pass();
+        mcp.pass();
+        mlvn.pass();
+        mph.pass();
+        mdce.pass();
+        mph.pass();
+        mlvn.pass();
+        mdce.pass();
+        mst.pass();
+        mtch.pass(); // 把这个放在最后做，要不大概率会有问题
+        Log("目标代码优化成功");
+        // if (optmize)
+        // {
+        GraphColor graphColor(&mUnit);
+        graphColor.allocateRegisters();
+        // }
+        // else
+        // {
+        // LinearScan linearScan(&mUnit);
+        // linearScan.allocateRegisters();
+        // }
+        Log("寄存器分配完成\n");
+        mph.pass(true);
+        mst.pass();
+
+        mst.pass2(); // 这个放在最后做
+
         mUnit.output();
+    }
     return 0;
 }

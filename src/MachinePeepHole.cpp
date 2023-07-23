@@ -191,7 +191,7 @@ void MachinePeepHole::subPass(bool afterRegAlloc)
                         }
                     }
                 }
-                else if (((*now_inst)->isMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
+                else if (((*now_inst)->isMov() || (*now_inst)->isVMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
                 {
                     // mov rx, rx
                     // vmov.f32 sx, sx

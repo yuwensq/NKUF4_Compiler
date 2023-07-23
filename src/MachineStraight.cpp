@@ -164,3 +164,38 @@ void MachineStraight::pass()
     Log("伸直化完成\n");
 #endif
 }
+
+// 这个优化是啥吧，就是比如末尾是一条b指令的基本块，可以把b的目标基本块紧挨着这个基本块
+// 打印出来，然后把b指令删掉
+void MachineStraight::pass2()
+{
+    for (auto func : unit->getFuncs())
+    {
+        std::map<int, MachineBlock *> no2blk;
+        for (auto blk : func->getBlocks())
+            no2blk[blk->getNo()] = blk;
+        std::vector<MachineBlock *> tmp_blks;
+        tmp_blks.assign(func->getBlocks().begin(), func->getBlocks().end());
+        func->getBlocks().clear();
+        for (auto i = 0; i < tmp_blks.size(); i++)
+        {
+            if (no2blk.find(tmp_blks[i]->getNo()) == no2blk.end())
+                continue;
+            func->getBlocks().push_back(tmp_blks[i]);
+            no2blk.erase(tmp_blks[i]->getNo());
+            auto lastInst = tmp_blks[i]->getInsts().back();
+            if (lastInst->isUBranch())
+            {
+                auto label = lastInst->getUse()[0]->getLabel();
+                label = label.substr(2, label.size() - 2);
+                auto succNo = atoi(label.c_str());
+                if (no2blk.find(succNo) != no2blk.end())
+                {
+                    func->getBlocks().push_back(no2blk[succNo]);
+                    no2blk.erase(succNo);
+                    tmp_blks[i]->eraseInst(lastInst);
+                }
+            }
+        }
+    }
+}

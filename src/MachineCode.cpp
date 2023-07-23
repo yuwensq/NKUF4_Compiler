@@ -196,6 +196,15 @@ void BinaryMInstruction::output()
     case BinaryMInstruction::VDIV:
         fprintf(yyout, "\tvdiv.f32 ");
         break;
+    case BinaryMInstruction::LSL:
+        fprintf(yyout, "\tlsl ");
+        break;
+    case BinaryMInstruction::LSR:
+        fprintf(yyout, "\tlsr ");
+        break;
+    case BinaryMInstruction::ASR:
+        fprintf(yyout, "\tasr ");
+        break;
     default:
         break;
     }
