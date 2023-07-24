@@ -168,7 +168,6 @@ int main(int argc, char *argv[])
         Log("寄存器分配完成\n");
         mph.pass(true);
         mst.pass();
-
         mst.pass2(); // 这个放在最后做
 
         mUnit.output();

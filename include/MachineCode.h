@@ -29,7 +29,7 @@ private:
     int reg_no;        // register no
     std::string label; // address label
     bool fpu = false;  // 这个变量用来表示是不是浮点寄存器，s那一系列
-                       // 如果位true，则用s
+                       // 如果为true，则用s
 public:
     enum
     {
@@ -38,6 +38,7 @@ public:
         REG,
         LABEL
     };
+    MachineOperand(){};
     MachineOperand(int tp, int val, bool fpu = false);
     MachineOperand(std::string label);
     bool operator==(const MachineOperand &) const;
@@ -58,7 +59,8 @@ public:
     std::string getLabel() { return this->label; };
     void setParent(MachineInstruction *p) { this->parent = p; };
     MachineInstruction *getParent() { return this->parent; };
-    void PrintReg();
+    std::string PrintReg();
+    std::string toStr();
     void output();
 };
 
@@ -131,6 +133,7 @@ public:
     bool isUncondBranch() { return type == BRANCH && (op == 2 || (op == 0 && cond == MachineInstruction::NONE)); };
     bool isUBranch() { return type == BRANCH && op == 0 && cond == MachineInstruction::NONE; }
     bool isBranch() { return type == BRANCH && op == 0; };
+    bool isMovClass() { return type == MOV; };
     bool isMov() { return type == MOV && op == 0; };
     bool isVMov() { return type == MOV && op == 2; };
     bool isVMov32() { return type == MOV && op == 3; };
@@ -186,6 +189,7 @@ public:
         return false;
     }
     void output();
+    std::string opStr();
 };
 
 class LoadMInstruction : public MachineInstruction

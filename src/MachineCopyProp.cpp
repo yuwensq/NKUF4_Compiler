@@ -304,7 +304,9 @@ void MachineCopyProp::pass()
     Log("汇编复制传播开始");
 #endif
     addZeroToMov();
+#ifdef PRINTLOG
     int num = 0;
+#endif
     for (auto func = munit->begin(); func != munit->end(); func++)
     {
         while (!copyProp(*func))

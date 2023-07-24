@@ -4,6 +4,7 @@
 #include "AsmBuilder.h"
 #include "Type.h"
 #include <iostream>
+#include <sstream>
 extern FILE *yyout;
 
 MachineOperand::MachineOperand(int tp, int val, bool fpu)
@@ -50,69 +51,86 @@ bool MachineOperand::operator<(const MachineOperand &a) const
     return this->reg_no == a.reg_no;
 }
 
-void MachineOperand::PrintReg()
+std::string MachineOperand::PrintReg()
 {
+    std::stringstream ss;
+    ss.clear();
+    std::string res;
     if (fpu)
-    { // 浮点寄存器用s
-        fprintf(yyout, "s%d", reg_no);
-        return;
+    {
+        // 浮点寄存器用s
+        ss << "s" << reg_no;
+        ss >> res;
+        return res;
     }
     switch (reg_no)
     {
     case 11:
-        fprintf(yyout, "fp");
+        res = "fp";
         break;
     case 13:
-        fprintf(yyout, "sp");
+        res = "sp";
         break;
     case 14:
-        fprintf(yyout, "lr");
+        res = "lr";
         break;
     case 15:
-        fprintf(yyout, "pc");
+        res = "pc";
         break;
     default:
-        fprintf(yyout, "r%d", reg_no);
+        ss << "r" << reg_no;
+        ss >> res;
         break;
     }
+    return res;
 }
 
-void MachineOperand::output()
+std::string MachineOperand::toStr()
 {
-    /* HINT：print operand
-     * Example:
-     * immediate num 1 -> print #1;
-     * register 1 -> print r1;
-     * lable addr_a -> print addr_a; */
+    std::stringstream ss;
+    ss.clear();
+    std::string res;
     switch (this->type)
     {
     case IMM:
-        fprintf(yyout, "#%d", this->val);
+        ss << "#" << this->val;
+        ss >> res;
         break;
     case VREG:
     {
         if (fpu) // 这里如果是浮点虚拟，打印f，好调试
-            fprintf(yyout, "f%d", this->reg_no);
+            ss << "f";
         else
-            fprintf(yyout, "v%d", this->reg_no);
+            ss << "v";
+        ss << this->reg_no;
+        ss >> res;
     }
     break;
     case REG:
-        PrintReg();
+        res = PrintReg();
         break;
     case LABEL:
         if (this->label.substr(0, 2) == ".L") // 标签
-            fprintf(yyout, "%s", this->label.c_str());
+            res = this->label;
         else if (this->label.substr(0, 1) == "@") // 函数
-            fprintf(yyout, "%s", this->label.c_str() + 1);
+            res = this->label.substr(1, this->label.size() - 1);
         else // 变量
-            fprintf(yyout, "addr_%s_%d", this->label.c_str(), this->getParent()->getParent()->getParent()->getParent()->getLtorgNum());
+        {
+            ss << this->getParent()->getParent()->getParent()->getParent()->getLtorgNum();
+            ss >> res;
+            res = "addr_" + this->label + "_" + res;
+        }
         break;
     default:
-        // fprintf(yyout, "%d\n", this->type);
         assert(0);
         break;
     }
+    return res;
+}
+
+void MachineOperand::output()
+{
+    fprintf(yyout, "%s", this->toStr().c_str());
 }
 
 void MachineInstruction::PrintCond()
@@ -215,6 +233,43 @@ void BinaryMInstruction::output()
     fprintf(yyout, ", ");
     this->use_list[1]->output();
     fprintf(yyout, "\n");
+}
+
+std::string BinaryMInstruction::opStr()
+{
+    switch (this->op)
+    {
+    case BinaryMInstruction::ADD:
+        return "add";
+    case BinaryMInstruction::SUB:
+        return "sub";
+    case BinaryMInstruction::MUL:
+        return "mul";
+    case BinaryMInstruction::DIV:
+        return "sdiv";
+    case BinaryMInstruction::AND:
+        return "and";
+    case BinaryMInstruction::OR:
+        return "orr";
+    case BinaryMInstruction::VADD:
+        return "vadd";
+    case BinaryMInstruction::VSUB:
+        return "vsub";
+    case BinaryMInstruction::VMUL:
+        return "vmul";
+    case BinaryMInstruction::VDIV:
+        return "vdiv";
+    case BinaryMInstruction::LSL:
+        return "lsl";
+    case BinaryMInstruction::LSR:
+        return "lsr";
+        break;
+    case BinaryMInstruction::ASR:
+        return "asr";
+    default:
+        break;
+    }
+    assert(0);
 }
 
 LoadMInstruction::LoadMInstruction(MachineBlock *p, int op,

@@ -808,7 +808,7 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
             cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
             src2 = new MachineOperand(*internal_reg);
         }
-        // else if ((opcode == MUL || opcode == DIV) && (((int)src2->getVal() & ((int)src2->getVal() - 1)) == 0))
+        // else if ((opcode == MUL) && (((int)src2->getVal() & ((int)src2->getVal() - 1)) == 0))
         // {
         //     int value = src2->getVal();
         //     int x = 0;
@@ -1040,7 +1040,6 @@ void CallInstruction::genMachineCode(AsmBuilder *builder)
             cur_block, BranchMInstruction::BL, new MachineOperand("@memset")));
         return;
     }
-
     // 先把不是浮点数的放到r0-r3里
     size_t i;
     int sum = 0;
