@@ -1,109 +1,77 @@
-/*
- * Max flow EK with DFS.
- */
-const int INF = 0x70000000;
+int k;
 
-int size[10];
-int to[10][10];
-int cap[10][10];
-int rev[10][10];
-int used[10];
-
-void my_memset(int arr[], int val, int n)
+float params_fa40(float x0[], float x1[], float x2[], float x3[], float x4[],
+                  float x5[], float x6[], float x7[], float x8[], float x9[],
+                  float x10[], float x11[], float x12[], float x13[],
+                  float x14[], float x15[], float x16[], float x17[],
+                  float x18[], float x19[], float x20[], float x21[],
+                  float x22[], float x23[], float x24[], float x25[],
+                  float x26[], float x27[], float x28[], float x29[],
+                  float x30[], float x31[], float x32[], float x33[],
+                  float x34[], float x35[], float x36[], float x37[],
+                  float x38[], float x39[])
 {
-    int i = 0;
-    while (i < n) {
-        arr[i] = val;
-        i = i + 1;
-    }
-}
-
-void add_node(int u, int v, int c)
-{
-    to[u][size[u]] = v;
-    cap[u][size[u]] = c;
-    rev[u][size[u]] = size[v];
-
-    to[v][size[v]] = u;
-    cap[v][size[v]] = 0;
-    rev[v][size[v]] = size[u];
-
-    size[u] = size[u] + 1;
-    size[v] = size[v] + 1;
-}
-
-int dfs(int s, int t, int f)
-{
-    if (s == t) {
-        putint(1);
-        putch(32);
-        putint(f);
-        putch(10);
-        return f;
-    }
-    used[s] = 1;
-
-    int i = 0;
-    while (i < size[s]) {
-        if (used[to[s][i]]) { i = i + 1; continue; }
-        if (cap[s][i] <= 0) { i = i + 1; continue; }
-
-        int min_f;
-        if (f < cap[s][i])
-            min_f = f;
-        else
-            min_f = cap[s][i];
-        int d = dfs(to[s][i], t, min_f);
-
-        if (d > 0) {
-            cap[s][i] = cap[s][i] - d;
-            cap[to[s][i]][rev[s][i]] = cap[to[s][i]][rev[s][i]] + d;
-        putint(2);
-        putch(32);
-        putint(d);
-        putch(10);
-            return d;
-        }
-        i = i + 1;
-    }
-        // putint(3);
-        // putch(32);
-        // putint(0);
-        // putch(10);
-    return 0;
-}
-
-int max_flow(int s, int t)
-{
-    int flow = 0;
-
-    while (1) {
-        my_memset(used, 0, 10);
-
-        int f = dfs(s, t, INF);
-        if (f == 0)
-            return flow;
-        flow = flow + f;
-    }
+  float arr[10] = {
+      x0[k] + x1[k] + x2[k] + x3[k], x4[k] + x5[k] + x6[k] + x7[k],
+      x8[k] + x9[k] + x10[k] + x11[k], x12[k] + x13[k] + x14[k] + x15[k],
+      x16[k] + x17[k] + x18[k] + x19[k], x20[k] + x21[k] + x22[k] + x23[k],
+      x24[k] + x25[k] + x26[k] + x27[k], x28[k] + x29[k] + x30[k] + x31[k],
+      x32[k] + x33[k] + x34[k] + x35[k], x36[k] + x37[k] + x38[k] + x39[k]};
+//   putfloat(x39[k]);
+  if (x39[k] != 0 != 0 != .0 != 0.)
+  {
+    putfarray(10, arr);
+    return arr[k];
+  }
+  else
+  {
+    return params_fa40(x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13,
+                       x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24,
+                       x25, x26, x27, x28, x29, x30, x31, x32, x33, x34, x35,
+                       x36, x37, x38, x39, arr);
+  }
 }
 
 int main()
 {
-    int V, E;
-    V = getint();
-    E = getint();
-    my_memset(size, 0, 10);
+  float arr[40][3];
+  int arr2[24][3], i;
 
-    while (E > 0) {
-        int u, v;
-        u = getint();
-        v = getint();
-        int c = getint();
-        add_node(u, v, c);
-        E = E - 1;
-    }
+  k = getint();
+  i = 0;
+  while (i < 40)
+  {
+    getfarray(arr[i]);
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 24)
+  {
+    getarray(arr2[i]);
+    i = i + 1;
+  }
 
-    putint(max_flow(1, V));
-    putch(10);
-    return 0;
+  i = 0;
+  while (i < 40) {
+    putfarray(3, arr[i]);
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 24) {
+    putarray(3, arr2[i]);
+    i = i + 1;
+  }
+
+  putint(20);
+  putch(10);
+  float ret2 = params_fa40(
+      arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7], arr[8],
+      arr[9], arr[10], arr[11], arr[12], arr[13], arr[14], arr[15], arr[16],
+      arr[17], arr[18], arr[19], arr[20], arr[21], arr[22], arr[23], arr[24],
+      arr[25], arr[26], arr[27], arr[28], arr[29], arr[30], arr[31], arr[32],
+      arr[33], arr[34], arr[35], arr[36], arr[37], arr[38], arr[39]);
+
+  putint(30);
+  putch(10);
+  return 0;
 }

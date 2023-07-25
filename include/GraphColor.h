@@ -56,6 +56,7 @@ private:
     const int sbase = 0;
     const int rRegNum = 11;
     const int sRegNum = 32;
+    bool isCall(MachineInstruction*);
     void clearData();
     void debug1(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     void debug2(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);

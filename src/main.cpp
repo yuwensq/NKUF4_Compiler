@@ -147,6 +147,7 @@ int main(int argc, char *argv[])
         mph.pass();
         mcp.pass();
         mlvn.pass();
+        mcp.pass();
         mph.pass();
         mdce.pass();
         mph.pass();

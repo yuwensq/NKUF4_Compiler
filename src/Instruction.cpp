@@ -963,7 +963,7 @@ SKIP:
     }
     auto dst = genMachineOperand(operands[0]);
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, genMachineImm(1), cmpOpCode));
-    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, new MachineOperand(*dst), genMachineImm(0), minusOpCode));
+    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, genMachineImm(0), minusOpCode));
     builder->setCmpOpcode(cmpOpCode);
 }
 

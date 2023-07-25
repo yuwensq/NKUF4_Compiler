@@ -6,14 +6,18 @@ void MachineTailCallHandler::pass()
     {
         for (auto mb : (*func)->getBlocks())
         {
-            for (auto minst = mb->rbegin(); minst != mb->rend(); minst++) {
+            for (auto minst = mb->rbegin(); minst != mb->rend(); minst++)
+            {
                 auto inst = *minst;
                 // 发现尾调用
-                if (inst->isCall() && static_cast<BranchMInstruction*>(inst)->getTailCall()) {
+                if (inst->isCall() && static_cast<BranchMInstruction *>(inst)->getTailCall())
+                {
                     assert((*mb->rbegin())->isRet()); // 最后一条应该是bx
                     auto target = inst->getUse()[0];
                     mb->eraseInst(inst);
-                    mb->getInsts()[mb->getInsts().size() - 1] = new BranchMInstruction(mb, BranchMInstruction::B, target);
+                    auto bInst = new BranchMInstruction(mb, BranchMInstruction::B, target);
+                    bInst->setIsTailCall(true);
+                    mb->getInsts()[mb->getInsts().size() - 1] = bInst;
                     break;
                 }
             }

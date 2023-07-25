@@ -119,7 +119,7 @@ void GraphColor::calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *
                     var2Node[def] = argRegNode;
                     continue;
                 }
-                if (!def->isVReg())
+                if (!def->isVReg() || var2Node.find(def) != var2Node.end())
                     continue;
                 nodes.emplace_back(def->isFReg(), def);
                 var2Node[def] = nodes.size() - 1;
@@ -293,7 +293,7 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
         for (auto instIt = block->rbegin(); instIt != block->rend(); instIt++)
         {
             auto inst = *instIt;
-            if (inst->isCall())
+            if (isCall(inst))
             {
                 // call指令相当于对所有的r和s参数寄存器都定值了
                 for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
@@ -413,7 +413,7 @@ void GraphColor::genInterfereGraph()
         for (auto instIt = block->rbegin(); instIt != block->rend(); instIt++)
         {
             auto inst = *instIt;
-            if (inst->isCall())
+            if (isCall(inst))
             {
                 // call指令相当于对所有的r和s参数寄存器都定值了
                 for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
@@ -895,4 +895,12 @@ std::pair<int, int> GraphColor::findFuncUseArgs(MachineOperand *funcOp)
     rnum = std::min(rnum, rArgRegNum);
     snum = std::min(snum, sArgRegNum);
     return std::pair<int, int>(rnum, snum);
+}
+
+bool GraphColor::isCall(MachineInstruction *inst)
+{
+    // 如果是bl指令或者尾调用的b指令，返回true
+    if (inst->isCall() || (dynamic_cast<BranchMInstruction *>(inst) != nullptr && static_cast<BranchMInstruction *>(inst)->getTailCall()))
+        return true;
+    return false;
 }

@@ -1,7 +1,7 @@
 #include "MachinePeepHole.h"
 #include "debug.h"
 
-// #define PRINTLOG
+#define PRINTLOG
 
 void MachinePeepHole::pass(bool afterRegAlloc)
 {
@@ -56,6 +56,16 @@ void MachinePeepHole::subPass(bool afterRegAlloc)
                         now_inst = blk->getInsts().erase(now_inst);
                         now_inst--;
                     }
+                }
+                else if (((*now_inst)->isMov() || (*now_inst)->isVMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
+                {
+                    // mov rx, rx
+                    // vmov.f32 sx, sx
+                    // 如果在分配寄存器之前把mov r0, r0之类的删除掉，分配寄存器的时候会出错
+                    if (!afterRegAlloc && (*now_inst)->getUse()[0]->isReg())
+                        continue;
+                    blk->getInsts().erase(now_inst);
+                    now_inst--;
                 }
                 else if ((*next_inst)->isMov() && !(*now_inst)->isCondMov() && (*now_inst)->getDef().size() > 0 && *(*now_inst)->getDef()[0] == *(*next_inst)->getUse()[0])
                 {
@@ -191,16 +201,7 @@ void MachinePeepHole::subPass(bool afterRegAlloc)
                         }
                     }
                 }
-                else if (((*now_inst)->isMov() || (*now_inst)->isVMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
-                {
-                    // mov rx, rx
-                    // vmov.f32 sx, sx
-                    // 如果在分配寄存器之前把mov r0, r0之类的删除掉，分配寄存器的时候会出错
-                    if (!afterRegAlloc && (*now_inst)->getUse()[0]->isReg())
-                        continue;
-                    blk->getInsts().erase(now_inst);
-                    now_inst--;
-                }
+
                 else if ((*now_inst)->isVMov32() && (*next_inst)->getUse().size() > 0)
                 {
                     // vmov.f32 s16, s17
