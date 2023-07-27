@@ -99,6 +99,7 @@ void DeadCodeElimination::mark(Function* func)
         markStore(func);
         Log("markStore:end\n");
     }
+    //for(auto t:gepOp) std::cout<<t->toStr()<<std::endl;
 } 
 
 void DeadCodeElimination::markBasic(Function* func) 
@@ -176,7 +177,12 @@ void DeadCodeElimination::addCriticalOp(Instruction* ins){
             }else{
                 //前继def是gep指令
                 auto arrUse=def->getUse()[0];
-                gepOp.insert(arrUse);            
+                gepOp.insert(arrUse);  
+                //如果arrUse的定义语句仍然是gep，那也要把那个加入进来
+                Instruction* def2=arrUse->getDef();
+                if(def2&&def2->isGep()){
+                    gepOp.insert(def2->getUse()[0]);
+                }          
             }
         }        
     }
@@ -263,8 +269,14 @@ void DeadCodeElimination::markStore(Function* func){
                     }
                     else if(!gepOp.empty()){
                         auto use=def->getUse()[0];
+                        Operand* use1=nullptr; //父节点
+                        Instruction* def2=use->getDef();
+                        if(def2&&def2->isGep()){
+                            use1=def2->getUse()[0];
+                        }
+
                         for(auto ArrUse:gepOp){
-                            if(use->toStr()==ArrUse->toStr()){
+                            if(use->toStr()==ArrUse->toStr()||(use1&&use1->toStr()==ArrUse->toStr())){
                                 ins->setMark();
                                 ins->getParent()->setMark();
                                 worklist.push_back(ins);
