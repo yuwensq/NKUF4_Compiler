@@ -198,4 +198,20 @@ void MachineStraight::pass2()
             }
         }
     }
+    for (auto func : unit->getFuncs())
+    {
+        for (int i = 0; i < func->getBlocks().size() - 1; i++)
+        {
+            auto blk = func->getBlocks()[i];
+            auto lastInst = blk->getInsts().back();
+            if (lastInst->isUBranch())
+            {
+                auto label = lastInst->getUse()[0]->getLabel();
+                label = label.substr(2, label.size() - 2);
+                auto succNo = atoi(label.c_str());
+                if (succNo == func->getBlocks()[i + 1]->getNo())
+                    blk->eraseInst(lastInst);
+            }
+        }
+    }
 }

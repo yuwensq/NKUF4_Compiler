@@ -10,19 +10,19 @@ void SimplifyCFG::pass()
     for (auto it = unit->begin(); it != unit->end(); it++)
     {
         bool everChanged = removeUnreachableBlocks(*it);
-    //     everChanged |= mergeEmptyReturnBlocks(*it);
-    //     everChanged |= iterativelySimplifyCFG(*it);
+        //     everChanged |= mergeEmptyReturnBlocks(*it);
+        //     everChanged |= iterativelySimplifyCFG(*it);
 
-    //     if (!everChanged)
-    //         continue;
+        //     if (!everChanged)
+        //         continue;
 
-    //     if (!removeUnreachableBlocks(*it))
-    //         continue;
-    //     do
-    //     {
-    //         everChanged = iterativelySimplifyCFG(*it);
-    //         everChanged |= removeUnreachableBlocks(*it);
-    //     } while (everChanged);
+        //     if (!removeUnreachableBlocks(*it))
+        //         continue;
+        //     do
+        //     {
+        //         everChanged = iterativelySimplifyCFG(*it);
+        //         everChanged |= removeUnreachableBlocks(*it);
+        //     } while (everChanged);
     }
 }
 

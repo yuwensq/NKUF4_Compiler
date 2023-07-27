@@ -52,7 +52,7 @@ bool FunctionInline::shouldBeInlined(Function *func)
                 continue;
             inst_num++;
         }
-        if (inst_num >= 30)
+        if (inst_num >= 50)
             return false;
     }
     return true;
