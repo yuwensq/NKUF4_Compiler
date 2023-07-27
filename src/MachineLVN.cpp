@@ -124,7 +124,7 @@ void MachineLVN::replaceWithMov(std::vector<MachineInstruction *>::iterator inst
     auto inst = *instIt;
     auto block = inst->getParent();
     // 这里只把binary或者ldr替换为mov指令
-    if (inst->isCondMov())
+    if (inst->isMovClass())
         return;
     auto hashKey = toStr(inst);
     if (hashTable.find(hashKey) == hashTable.end())

@@ -39,6 +39,7 @@ bool FunctionInline::shouldBeInlined(Function *func)
         if (inst->getParent()->getParent() == func)
             return false;
     // 参数大于10内联
+    return true;
     if (func->getParams().size() >= 10)
         return true;
     // 指令数太多不内联
