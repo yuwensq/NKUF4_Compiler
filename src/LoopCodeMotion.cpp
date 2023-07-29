@@ -1,6 +1,6 @@
 #include "LoopCodeMotion.h"
 #include <algorithm>
-#include "PureFunctionAnalyser.h"
+#include "LoopUnroll.h"
 
 //目前只完成代码外提的优化，还可以加强度削弱、循环展开
 void LoopCodeMotion::pass(){
@@ -25,6 +25,37 @@ void LoopCodeMotion::pass(){
         //代码外提
         CodePullUp(*func,LoopList,BackEdges);
         dealwithNoPreBB(*func);
+    }
+}
+
+//循环展开优化，放这边是因为需要DomSet和LoopList的信息
+void LoopCodeMotion::pass1(){
+    //遍历每一个函数做操作
+    for(auto func=unit->begin();func!=unit->end();func++){
+        //计算当前函数每一个基本块的必经节点，存入DomBBSet
+        calculateFinalDomBBSet(*func);
+        //printDomBB(*func);
+        
+        //计算当前函数的回边集合
+        std::vector<std::pair<BasicBlock*,BasicBlock*>> BackEdges=getBackEdges(*func);
+        //printBackEdges(BackEdges);
+
+        //获取回边组，要求每个组中的回边的到达节点是同一个
+        std::vector<std::vector<std::pair<BasicBlock*,BasicBlock*>>> edgeGroups=mergeEdge(BackEdges);
+        //printEdgeGroups(edgeGroups);
+
+        //查找当前函数的循环体的集合
+        std::vector<std::vector<BasicBlock*> > LoopList=calculateLoopList(*func,edgeGroups);
+        //printLoop(LoopList);
+
+        //代码外提
+        CodePullUp(*func,LoopList,BackEdges);
+        dealwithNoPreBB(*func);
+
+        //循环展开
+        LoopUnroll Ln(unit,DomBBSet);
+        Ln.calculateCandidateLoop(LoopList); //计算候选的，待处理的循环集合
+        Ln.Unroll();
     }
 }
 

@@ -15,16 +15,16 @@ void DeadCodeElimination::pass()
         adjustBlock(*func);
         while (again) {
             //1:初始化
-            Log("死代码删除:initalize\n");
+            //Log("死代码删除:initalize\n");
             initalize(*func);
             //2:标记
-            Log("死代码删除:mark\n");
+            //Log("死代码删除:mark\n");
             mark(*func);
             //3:移除
-            Log("死代码删除:remove\n");
+            //Log("死代码删除:remove\n");
             again = remove(*func);
             //4:删除没有前驱的块
-            Log("死代码删除:adjustBlock\n");
+            //Log("死代码删除:adjustBlock\n");
             adjustBlock(*func);
         }       
     }

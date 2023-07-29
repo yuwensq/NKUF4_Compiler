@@ -45,6 +45,7 @@ public:
     void printLoopConst(std::vector<Instruction*> LoopConstInstructions);
 
     void pass();
+    void pass1();
 };
 
 #endif
