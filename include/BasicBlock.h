@@ -36,6 +36,8 @@ public:
     void addPred(BasicBlock *);
     void removePred(BasicBlock *);
     int getNo() { return no; };
+    std::vector<BasicBlock *> getPred() { return pred; };
+    std::vector<BasicBlock *> getSucc() { return succ; };
     Function *getParent() { return parent; };
     Instruction *begin() { return head->getNext(); };
     Instruction *end() { return head; };

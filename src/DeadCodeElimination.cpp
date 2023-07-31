@@ -7,7 +7,7 @@ void DeadCodeElimination::pass()
 {
     static int round = 0;
     round++;
-    Log("死代码删除开始，round%d\n", round);
+    //Log("死代码删除开始，round%d\n", round);
     for(auto func=unit->begin();func!=unit->end();func++)
     {
         bool again=true;
@@ -28,7 +28,7 @@ void DeadCodeElimination::pass()
             adjustBlock(*func);
         }       
     }
-    Log("死代码删除结束，round%d\n", round);
+    //Log("死代码删除结束，round%d\n", round);
 }
 
 //删除没有前驱的块
@@ -86,18 +86,18 @@ void DeadCodeElimination::mark(Function* func)
     func->computeRDF();
     
     while(true){
-        Log("markBasic:begin\n");
+        //Log("markBasic:begin\n");
         markBasic(func);
-        Log("markBasic:end\n");
+        //Log("markBasic:end\n");
         int temp=gepOp.size()+gloOp.size()+allocOp.size();
         if(temp>opNum){
             opNum=temp;
         }else{
             break;
         }
-        Log("markStore:begin\n");
+        //Log("markStore:begin\n");
         markStore(func);
-        Log("markStore:end\n");
+        //Log("markStore:end\n");
     }
     //for(auto t:gepOp) std::cout<<t->toStr()<<std::endl;
 } 
