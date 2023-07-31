@@ -31,15 +31,15 @@ private:
     // void ComputeDomFrontier(Function *);
     // void InsertPhi(Function *);
     // void Rename(Function *);
-    std::vector<AllocaInstruction*> allocaIns;
-    std::map<Operand*, std::stack<Operand*>> stacks;
-    std::vector<BinaryInstruction*> addZeroIns;
-    void insertPhiInstruction(Function* function);
-    void rename(BasicBlock* block);
-    void rename(Function* function);
-    Operand* newName(Operand* old);
-    void cleanAddZeroIns(Function* function);
-    void checkCondBranch(Function* function);
+    std::vector<AllocaInstruction *> allocaIns;
+    std::map<Operand *, std::stack<Operand *>> stacks;
+    std::vector<BinaryInstruction *> addZeroIns;
+    void insertPhiInstruction(Function *function);
+    void rename(BasicBlock *block);
+    void rename(Function *function);
+    Operand *newName(Operand *old);
+    void cleanAddZeroIns(Function *function);
+    void checkCondBranch(Function *function);
 
 public:
     Mem2Reg(Unit *unit) : unit(unit) {}

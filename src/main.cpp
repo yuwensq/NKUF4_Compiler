@@ -24,6 +24,7 @@
 #include "MachineTailCallHandler.h"
 #include "GraphColor.h"
 #include "MachineLVN.h"
+#include "IRPeepHole.h"
 
 using namespace std;
 
@@ -108,10 +109,12 @@ int main(int argc, char *argv[])
     LoopCodeMotion lcm(&unit);
     FunctionInline finline(&unit);
     TailCallAnalyser tca(&unit);
+    IRPeepHole iph(&unit);
 
     // g2l.pass();
     m2r.pass(); // Only IR supported
     spcfg.pass();
+    iph.pass();
     sccp.pass();
     cse.pass();
     sccp.pass();

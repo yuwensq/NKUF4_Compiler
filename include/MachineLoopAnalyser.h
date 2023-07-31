@@ -15,6 +15,7 @@ private:
     void computeDoms(MachineFunction *);
     void lookForBackEdge(MachineFunction *);
     void computeLoops(MachineFunction *);
+    void computeDepth(MachineFunction *);
     void intersection(std::set<MachineBlock *> &, std::set<MachineBlock *> &, std::set<MachineBlock *> &);
 
 public:

@@ -1,5 +1,6 @@
 #ifndef __GRAPH_COLOR_H_
 #define __GRAPH_COLOR_H_
+#include "MachineLoopAnalyser.h"
 #include "MachineCode.h"
 #include <set>
 #include <map>
@@ -14,8 +15,9 @@ private:
     {
         int color;
         bool spill;
-        bool hasSpilled; // 判断这个是否是当前轮次被溢出的
-        int disp;        // displacement in stack
+        bool hasSpilled;               // 判断这个是否是当前轮次被溢出的
+        int disp;                      // displacement in stack
+        int loopWeight;                // 优化溢出判断
         std::set<MachineOperand *> defs;
         std::set<MachineOperand *> uses;
         bool fpu; // 是不是浮点寄存器，可以把浮点数的图和普通寄存器的图分开
@@ -26,6 +28,7 @@ private:
             hasSpilled = false;
             fpu = false;
             disp = 0;
+            loopWeight = 0;
             defs.clear();
             uses.clear();
         }
@@ -36,6 +39,7 @@ private:
             hasSpilled = false;
             fpu = false;
             disp = 0;
+            loopWeight = 0;
             defs.clear();
             uses.clear();
             fpu = freg;
@@ -44,6 +48,7 @@ private:
     };
     MachineUnit *unit;
     MachineFunction *func;
+    MachineLoopAnalyser *mlpa;
     std::vector<Node> nodes;                      // 存总的节点集合
     std::map<int, std::unordered_set<int>> graph; // 存图
     std::map<MachineOperand *, int> var2Node;     // 将虚拟寄存器映射到节点
@@ -56,7 +61,7 @@ private:
     const int sbase = 0;
     const int rRegNum = 11;
     const int sRegNum = 32;
-    bool isCall(MachineInstruction*);
+    bool isCall(MachineInstruction *);
     void clearData();
     void debug1(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
     void debug2(std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &, std::map<MachineBlock *, std::set<int>> &);
@@ -81,7 +86,14 @@ private:
     void modifyCode();
 
 public:
-    GraphColor(MachineUnit *munit) : unit(munit){};
+    GraphColor(MachineUnit *munit) : unit(munit)
+    {
+        mlpa = new MachineLoopAnalyser(munit);
+    };
+    ~GraphColor()
+    {
+        delete mlpa;
+    }
     void allocateRegisters();
 };
 

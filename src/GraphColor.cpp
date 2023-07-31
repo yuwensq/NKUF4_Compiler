@@ -5,6 +5,7 @@ extern FILE *yyout;
 
 // #define DEBUGGC1
 // #define DEBUGGC2
+#define LOOPFIRST
 
 void GraphColor::clearData()
 {
@@ -122,6 +123,7 @@ void GraphColor::calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *
                 if (!def->isVReg() || var2Node.find(def) != var2Node.end())
                     continue;
                 nodes.emplace_back(def->isFReg(), def);
+                nodes.back().loopWeight = mlpa->getDepth(block);
                 var2Node[def] = nodes.size() - 1;
                 if (spilledRegs.count(def) > 0)
                     nodes[var2Node[def]].hasSpilled = true;
@@ -187,6 +189,7 @@ int GraphColor::mergeTwoNodes(int no1, int no2)
     nodes[src].hasSpilled = spilled;
     nodes[dst].defs.insert(nodes[src].defs.begin(), nodes[src].defs.end());
     nodes[dst].uses.insert(nodes[src].uses.begin(), nodes[src].uses.end());
+    nodes[dst].loopWeight = std::max(nodes[dst].loopWeight, nodes[src].loopWeight);
     for (auto &def : nodes[dst].defs)
         var2Node[def] = dst;
     for (auto &use : nodes[dst].uses)
@@ -249,6 +252,7 @@ void GraphColor::genNodes()
                 op2Def[*use].clear();
                 op2Def[*use].insert(no1);
                 nodes[no1].uses.insert(use);
+                nodes[no1].loopWeight = std::max(mlpa->getDepth(block), nodes[no1].loopWeight);
                 var2Node[use] = no1;
             }
             if (inst->getDef().size() > 0)
@@ -556,18 +560,50 @@ void GraphColor::genColorSeq()
     {
         bool blocked = true; // 表示是否还可能有节点可以染色
         auto maxEdgesIt = tmpGraph.begin();
+        int minLoopWeight = 0x3f3f3f3f;
         int maxEdges = 0;
         for (auto it = tmpGraph.begin(); it != tmpGraph.end();)
         {
             int nodeNo = (*it).first;
             int edges = (*it).second.size();
+            int loopWeight = nodes[nodeNo].loopWeight;
             // Log("%d", nodeNo);
             int maxColors = nodes[nodeNo].fpu ? sRegNum : rRegNum;
-            if (edges > maxEdges && !nodes[nodeNo].hasSpilled)
+            if (!nodes[nodeNo].hasSpilled)
             {
-                maxEdges = edges;
-                maxEdgesIt = it;
+#ifdef LOOPFIRST
+                if (loopWeight < minLoopWeight)
+                {
+                    maxEdges = edges;
+                    maxEdgesIt = it;
+                    minLoopWeight = loopWeight;
+                }
+                else if (loopWeight == minLoopWeight && edges > maxEdges)
+                {
+                    maxEdges = edges;
+                    maxEdgesIt = it;
+                    minLoopWeight = loopWeight;
+                }
+#else
+                if (edges > maxEdges)
+                {
+                    maxEdges = edges;
+                    maxEdgesIt = it;
+                    minLoopWeight = loopWeight;
+                }
+                else if (edges == maxEdges && loopWeight < minLoopWeight)
+                {
+                    maxEdges = edges;
+                    maxEdgesIt = it;
+                    minLoopWeight = loopWeight;
+                }
+#endif
             }
+            // if (edges > maxEdges && !nodes[nodeNo].hasSpilled)
+            // {
+            //     maxEdges = edges;
+            //     maxEdgesIt = it;
+            // }
             if (edges < maxColors)
             {
                 blocked = false;
@@ -693,6 +729,7 @@ void GraphColor::allocateRegisters()
     int counter = 0;
     for (auto &f : unit->getFuncs())
     {
+        mlpa->analyse(f);
         func = f;
         bool success = false;
         while (!success)
