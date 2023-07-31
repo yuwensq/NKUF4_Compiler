@@ -24,14 +24,13 @@ public:
 };
 
 class LoopUnroll{
-    Unit* unit;
     unordered_map<Function*, unordered_map<BasicBlock*,vector<BasicBlock*>>> DomBBSet;
     vector<loop*> candidateLoops;
     // int MAXUNROLLNUM=400;
     // int UNROLLNUM=4;
 
 public:
-    LoopUnroll(Unit* unit,unordered_map<Function*, unordered_map<BasicBlock*,vector<BasicBlock*>>> DomBBSet):unit(unit),DomBBSet(DomBBSet){};
+    LoopUnroll(unordered_map<Function*, unordered_map<BasicBlock*,vector<BasicBlock*>>> DomBBSet):DomBBSet(DomBBSet){};
     void calculateCandidateLoop(vector<vector<BasicBlock*>> LoopList);
     bool isSubset(vector<BasicBlock*> son, vector<BasicBlock*> farther);
 

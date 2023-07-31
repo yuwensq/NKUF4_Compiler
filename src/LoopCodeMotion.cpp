@@ -53,9 +53,9 @@ void LoopCodeMotion::pass1(){
         dealwithNoPreBB(*func);
 
         //循环展开
-        LoopUnroll Ln(unit,DomBBSet);
+        LoopUnroll Ln(DomBBSet);
         Ln.calculateCandidateLoop(LoopList); //计算候选的，待处理的循环集合
-        Ln.Unroll();
+        //Ln.Unroll();
     }
 }
 
