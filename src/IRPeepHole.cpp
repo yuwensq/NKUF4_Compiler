@@ -1,4 +1,5 @@
 #include "IRPeepHole.h"
+#include "Type.h"
 #include "debug.h"
 
 void IRPeepHole::subPass(Function *func)
@@ -21,7 +22,7 @@ void IRPeepHole::subPass(Function *func)
         auto value1 = static_cast<ConstantSymbolEntry *>(inst->getUse()[1]->getEntry())->getValue();
         auto value2 = static_cast<ConstantSymbolEntry *>(nextInst->getUse()[1]->getEntry())->getValue();
         bool floatV = static_cast<ConstantSymbolEntry *>(nextInst->getUse()[1]->getEntry())->getType()->isFloat();
-        static_cast<ConstantSymbolEntry *>(nextInst->getUse()[1]->getEntry())->setValue(floatV ? (float)value1 + (float)value2 : value1 + value2);
+        nextInst->replaceUse(nextInst->getUse()[1], new Operand(new ConstantSymbolEntry(floatV ? TypeSystem::floatType : TypeSystem::intType, floatV ? (float)value1 + (float)value2 : value1 + value2)));
         auto bb = inst->getParent();
         bb->remove(inst);
         return nextInst->getPrev();
