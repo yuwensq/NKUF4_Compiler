@@ -64,7 +64,7 @@ static Lattice intersect(Lattice op1, Lattice op2)
         if (op1.state == CON && op2.state == CON)
         {
             // 一个phi指令的操作数应该类型一样吧
-            Assert(op1.constVal->getType() == op2.constVal->getType(), "求交的常量格类型不同");
+            Assert(op1.constVal->getType()->isInt() == op2.constVal->getType()->isInt(), "求交的常量格类型不同");
             if (op1.constVal->getValue() != op2.constVal->getValue())
             {
                 res.state = BOT;
@@ -92,7 +92,7 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
     res.state = TOP;
     if (op1.state == op2.state && op1.state == CON)
     {
-        Assert(op1.constVal->getType() == op2.constVal->getType(), "指令的两个操作数类型不同");
+        Assert(op1.constVal->getType()->isInt() == op2.constVal->getType()->isInt(), "指令的两个操作数类型不同");
         res.state = CON;
         bool isFloat = op1.constVal->getType()->isFloat();
         double v1 = op1.constVal->getValue();

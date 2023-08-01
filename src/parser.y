@@ -1,5 +1,6 @@
 %code top{
     #include "parser.h"
+    #include "debug.h"
     #include <iostream>
     #include <assert.h>
     #include <stack>
