@@ -883,16 +883,26 @@ void CmpInstruction::genMachineCode(AsmBuilder *builder)
     // 简简单单生成一条cmp指令就行
     // 加了浮点数，这里也要改
     auto cur_block = builder->getBlock();
+    bool reverse = false;
     auto src1 = genMachineOperand(operands[1]);
     auto src2 = genMachineOperand(operands[2]);
     if (src1->isImm())
     {
-        src1 = new MachineOperand(*immToVReg(src1, cur_block));
-        if (floatVersion)
+        // 如果src1是立即数，src2不是，把他俩交换一下，然后判断码取反
+        if (!floatVersion && AsmBuilder::isLegalImm(src1->getVal()) && !src2->isImm())
         {
-            auto internal_reg = genMachineVReg(true);
-            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src1));
-            src1 = new MachineOperand(*internal_reg);
+            std::swap(src1, src2);
+            reverse = true;
+        }
+        else
+        {
+            src1 = new MachineOperand(*immToVReg(src1, cur_block));
+            if (floatVersion)
+            {
+                auto internal_reg = genMachineVReg(true);
+                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src1));
+                src1 = new MachineOperand(*internal_reg);
+            }
         }
     }
     if (src2->isImm())
@@ -936,26 +946,26 @@ SKIP:
     break;
     case L:
     {
-        cmpOpCode = CmpMInstruction::LT;
-        minusOpCode = CmpMInstruction::GE;
+        cmpOpCode = reverse ? CmpMInstruction::GT : CmpMInstruction::LT;
+        minusOpCode = reverse ? CmpMInstruction::LE : CmpMInstruction::GE;
     }
     break;
     case LE:
     {
-        cmpOpCode = CmpMInstruction::LE;
-        minusOpCode = CmpMInstruction::GT;
+        cmpOpCode = reverse ? CmpMInstruction::GE : CmpMInstruction::LE;
+        minusOpCode = reverse ? CmpMInstruction::LT : CmpMInstruction::GT;
     }
     break;
     case G:
     {
-        cmpOpCode = CmpMInstruction::GT;
-        minusOpCode = CmpMInstruction::LE;
+        cmpOpCode = reverse ? CmpMInstruction::LT : CmpMInstruction::GT;
+        minusOpCode = reverse ? CmpMInstruction::GE : CmpMInstruction::LE;
     }
     break;
     case GE:
     {
-        cmpOpCode = CmpMInstruction::GE;
-        minusOpCode = CmpMInstruction::LT;
+        cmpOpCode = reverse ? CmpMInstruction::LE : CmpMInstruction::GE;
+        minusOpCode = reverse ? CmpMInstruction::GT : CmpMInstruction::LT;
     }
     break;
     default:
