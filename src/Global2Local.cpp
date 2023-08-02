@@ -106,7 +106,16 @@ void Global2Local::pass(Function *func)
     {
         // cout<<func->getSymPtr()->toStr()<<" : "<<g->toStr()<<endl;
         // 如果是常量变量或常数组的话，不处理，也就是全局声明 const a=2；不处理它（交给后面优化）
-        if (((IdentifierSymbolEntry *)g)->getConstant())
+        bool hasStore = false;
+        for (auto in : globals[g][func])
+        {
+            if (in->isStore())
+            {
+                hasStore = true;
+                break;
+            }
+        }
+        if (((IdentifierSymbolEntry *)g)->getConstant() || !hasStore)
         {
             continue;
         }

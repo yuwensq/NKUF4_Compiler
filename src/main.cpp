@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     TailCallAnalyser tca(&unit);
     IRPeepHole iph(&unit);
 
-    // g2l.pass();
+    g2l.pass();
     m2r.pass(); // Only IR supported
     spcfg.pass();
     iph.pass();
