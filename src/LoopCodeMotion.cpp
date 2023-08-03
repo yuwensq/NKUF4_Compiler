@@ -48,14 +48,14 @@ void LoopCodeMotion::pass1(){
         std::vector<std::vector<BasicBlock*> > LoopList=calculateLoopList(*func,edgeGroups);
         //printLoop(LoopList);
 
-        //代码外提
-        CodePullUp(*func,LoopList,BackEdges);
-        dealwithNoPreBB(*func);
+        //代码外提,但是一旦外提，dom和loop的信息就可能变化
+        // CodePullUp(*func,LoopList,BackEdges);
+        // dealwithNoPreBB(*func);
 
         //循环展开
         LoopUnroll Ln(DomBBSet);
         Ln.calculateCandidateLoop(LoopList); //计算候选的，待处理的循环集合
-        //Ln.Unroll();
+        Ln.Unroll();
     }
 }
 
