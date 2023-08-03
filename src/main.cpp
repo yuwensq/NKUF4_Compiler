@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
     finline.pass();
     sccp.pass();
     cse.pass();
+    iph.pass();
     sccp.pass();
     cse.pass();
     dce.pass();

@@ -515,6 +515,11 @@ void BinaryExpr::genCode()
     {
         genDupOperand();
         now_dst = dupDst;
+        if (op == AND || op == OR)
+        {
+            expr1->clearLists();
+            expr2->clearLists();
+        }
     }
     if (op == AND)
     {

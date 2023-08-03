@@ -76,15 +76,15 @@ public:
     reverse_iterator rend() { return block_list.rend(); };
     SymbolEntry *getSymPtr() { return sym_ptr; };
     void addParam(Operand *param) { params.push_back(param); }
-    std::vector<Operand*> &getParams() { return params; }
+    std::vector<Operand *> &getParams() { return params; }
     void genMachineCode(AsmBuilder *);
     int getParamNumber(Operand *param);
-    void addCallPred(Instruction* in);
-    void removeCallPred(Instruction* in);
-    std::vector<Instruction*> getCallPred() {return callPreds; };
+    void addCallPred(Instruction *in);
+    void removeCallPred(Instruction *in);
+    std::vector<Instruction *> &getCallPred() { return callPreds; };
     int getCritical();
-    BasicBlock* getMarkBranch(BasicBlock* block);
-    Unit* getParent() { return parent; };
+    BasicBlock *getMarkBranch(BasicBlock *block);
+    Unit *getParent() { return parent; };
 
 public:
     TreeNode *DFSTreeRoot;
@@ -111,10 +111,10 @@ public:
     void computeDomFrontier();
     TreeNode *getDomNode(BasicBlock *b) { return preOrder2dom[b->order]; }
     void computeRDF();
-    void computeRDFSTree(BasicBlock* exit);
-    void computeRSdom(BasicBlock* exit);
-    void computeRIdom(BasicBlock* exit);
-    void reverseSearch(TreeNode* node, bool* visited);
+    void computeRDFSTree(BasicBlock *exit);
+    void computeRSdom(BasicBlock *exit);
+    void computeRIdom(BasicBlock *exit);
+    void reverseSearch(TreeNode *node, bool *visited);
 
     void de_phi();
 };

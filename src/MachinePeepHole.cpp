@@ -1,7 +1,7 @@
 #include "MachinePeepHole.h"
 #include "debug.h"
 
-#define PRINTLOG
+// #define PRINTLOG
 
 void MachinePeepHole::pass(bool afterRegAlloc)
 {

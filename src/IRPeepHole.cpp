@@ -27,12 +27,64 @@ void IRPeepHole::subPass(Function *func)
         bb->remove(inst);
         return nextInst->getPrev();
     };
+    auto case2 = [&](Instruction *inst)
+    {
+        bool cond1 = inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD;
+        if (!cond1)
+            return 0;
+        auto bb = inst->getParent();
+        int addNum = 1;
+        for (auto ins = inst->getNext(); ins != bb->end(); ins = ins->getNext())
+        {
+            auto prevIns = ins->getPrev();
+            if (!(ins->isBinary() && ins->getOpCode() == BinaryInstruction::ADD))
+                break;
+            if (prevIns->getDef() == ins->getUse()[0] && prevIns->getUse()[1] == ins->getUse()[1] && prevIns->getDef()->usersNum() == 1)
+                addNum++;
+            else
+                break;
+        }
+        return addNum;
+    };
+    auto solveCase2 = [&](Instruction *inst)
+    {
+        auto bb = inst->getParent();
+        int addNum = 1;
+        auto ins = inst->getNext();
+        auto src1 = inst->getUse()[0];
+        auto src2 = inst->getUse()[1];
+        src1->removeUse(inst);
+        for (ins; ins != bb->end(); ins = ins->getNext())
+        {
+            auto prevIns = ins->getPrev();
+            if (!(ins->isBinary() && ins->getOpCode() == BinaryInstruction::ADD))
+                break;
+            if (prevIns->getDef() == ins->getUse()[0] && prevIns->getUse()[1] == ins->getUse()[1] && prevIns->getDef()->usersNum() == 1)
+            {
+                src2->removeUse(prevIns);
+                bb->remove(prevIns);
+                addNum++;
+            }
+            else
+                break;
+        }
+        assert(addNum >= 5);
+        ins = ins->getPrev();
+        ins->replaceUse(ins->getUse()[0], src1);
+        auto newOp = new Operand(new TemporarySymbolEntry(ins->getDef()->getType(), SymbolTable::getLabel()));
+        auto newMul = new BinaryInstruction(BinaryInstruction::MUL, newOp, src2, new Operand(new ConstantSymbolEntry(TypeSystem::intType, addNum)));
+        bb->insertBefore(newMul, ins);
+        ins->replaceUse(ins->getUse()[1], newOp);
+        return ins;
+    };
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
         for (auto inst = (*bb)->begin(); inst != (*bb)->end(); inst = inst->getNext())
         {
             if (case1(inst))
                 inst = solveCase1(inst);
+            if (case2(inst) >= 5)
+                inst = solveCase2(inst);
         }
     }
 }

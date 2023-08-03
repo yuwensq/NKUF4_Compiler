@@ -23,7 +23,7 @@ public:
     ~BasicBlock();
     void insertFront(Instruction *, bool);
     void insertBack(Instruction *);
-    void insertBefore(Instruction *, Instruction *);
+    void insertBefore(Instruction *dst, Instruction *src);
     void insertAfter(Instruction* dst, Instruction* src);
     void remove(Instruction *);
     bool empty() const { return head->getNext() == head; }

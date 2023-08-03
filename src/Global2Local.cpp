@@ -1,7 +1,10 @@
 #include "Global2Local.h"
 #include "PureFunctionAnalyser.h"
+#include "debug.h"
 #include <numeric>
 using namespace std;
+
+extern FILE *yyout;
 
 void Global2Local::pass()
 {
@@ -43,14 +46,17 @@ void Global2Local::recordGlobals()
     vector<vector<int>> matrix(idx, vector<int>(idx));
     // 遍历每一个函数，我们这边getPreds获取这个函数的前继，也就是调用了当前函数的那些call语句
     // 组织形式为map<Function*, std::vector<Instruction*>>，因此fist为“调用了当前函数的那些函数”
-    for (auto it : func2idx)
-        for (auto it1 : it.first->getCallPred())
+    for (auto &[func, id] : func2idx)
+    {
+        for (auto inst : func->getCallPred())
         {
-            Function *funcPred = it1->getParent()->getParent();
+            assert(inst != nullptr);
+            Function *funcPred = inst->getParent()->getParent();
             // 比如编号为3的函数里面有一个call调用了编号为1的函数，那么matrix[3][1]+=1
             // 注意可能有多次对相同函数的调用，每次要+1，而非只有1
-            matrix[func2idx[funcPred]][it.second] += 1;
+            matrix[func2idx[funcPred]][id] += 1;
         }
+    }
     // outDeg记录每一个函数均调用了多少个其他的函数
     vector<int> outDeg(idx, 0);
     for (int i = 0; i < idx; i++)
