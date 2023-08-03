@@ -35,6 +35,11 @@ public:
             return ((IdentifierSymbolEntry*)se)->isGlobal();
         return false;
     }
+    bool isParam() const {
+        if (se->isVariable())
+            return ((IdentifierSymbolEntry*)se)->isParam();
+        return false;
+    }
 };
 
 #endif
