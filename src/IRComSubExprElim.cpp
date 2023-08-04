@@ -486,7 +486,8 @@ void IRComSubExprElim::calInAndOut(Function *func)
         std::set<int> in[2];
         if (bb->getNumOfPred() > 0)
             in[0] = outBB[*bb->pred_begin()];
-        auto it = bb->pred_begin() + 1;
+        auto it = bb->pred_begin();
+        it++;
         auto overPos = bb->pred_end();
         int turn = 1;
         for (; it != overPos; it++)
@@ -530,7 +531,7 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
             }
             // 如果一个基本块有多个前驱，就算他In里面有许多表达式，我们也不要了，因为要生成phi指令
             // 这里，只在只有一个前驱基本块的情况下继承
-            if ((*bb)->pred_end() - (*bb)->pred_begin() == 1)
+            if ((*bb)->getNumOfPred() == 1)
             {
                 auto preBB = *(*bb)->pred_begin();
                 for (auto &inExpr : outBBOp[preBB])
@@ -560,7 +561,7 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
 #endif
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
-        bool onlyOnePred = ((*bb)->pred_end() - (*bb)->pred_begin() == 1);
+        bool onlyOnePred = ((*bb)->getNumOfPred() == 1);
         // 多个前驱的话还要加phi指令，不要了
         if (!onlyOnePred)
             continue;

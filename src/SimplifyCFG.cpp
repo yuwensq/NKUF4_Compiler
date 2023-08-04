@@ -10,19 +10,19 @@ void SimplifyCFG::pass()
     for (auto it = unit->begin(); it != unit->end(); it++)
     {
         bool everChanged = removeUnreachableBlocks(*it);
-        //     everChanged |= mergeEmptyReturnBlocks(*it);
-        //     everChanged |= iterativelySimplifyCFG(*it);
+        // everChanged |= mergeEmptyReturnBlocks(*it);
+        // everChanged |= iterativelySimplifyCFG(*it);
 
-        //     if (!everChanged)
-        //         continue;
+        if (!everChanged)
+            continue;
 
-        //     if (!removeUnreachableBlocks(*it))
-        //         continue;
-        //     do
-        //     {
-        //         everChanged = iterativelySimplifyCFG(*it);
-        //         everChanged |= removeUnreachableBlocks(*it);
-        //     } while (everChanged);
+        if (!removeUnreachableBlocks(*it))
+            continue;
+        do
+        {
+            // everChanged = iterativelySimplifyCFG(*it);
+            everChanged = removeUnreachableBlocks(*it);
+        } while (everChanged);
     }
 }
 
@@ -31,6 +31,7 @@ void SimplifyCFG::pass()
 /// otherwise.
 bool SimplifyCFG::removeUnreachableBlocks(Function *F)
 {
+    bool change = false;
     std::set<BasicBlock *> Reachable;
     std::queue<BasicBlock *> q;
     Reachable.insert(F->getEntry());
@@ -67,12 +68,34 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
             }
             F->remove(bb);
             freeList.insert(bb);
+            change = true;
         }
         // 消除仅包含无条件分支的基本块。
         else if (bb != F->getEntry() && bb->begin()->getNext() == bb->end() && bb->begin()->isUncond())
         {
             assert(bb->getNumOfSucc() == 1);
             auto &succ = succs[0];
+
+            // 这里要打个补丁，如果当前块的后继块的开头的phi指令同时出现了当前块和当前块的前驱块
+            // 就不能把当前块删掉
+            for (auto phi = succ->begin(); phi != succ->end(); phi = phi->getNext())
+            {
+                if (!phi->isPhi())
+                    break;
+                auto phinode = dynamic_cast<PhiInstruction *>(phi);
+                auto &srcs = phinode->getSrcs();
+                if (srcs.find(bb) != srcs.end())
+                {
+                    for (auto pred : preds)
+                    {
+                        if (srcs.find(pred) != srcs.end())
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+
             succ->removePred(bb);
             for (auto pred : preds)
             {
@@ -129,9 +152,10 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 F->setEntry(succ);
             F->remove(bb);
             freeList.insert(bb);
+            change = true;
         }
-        // 如果仅有一个前驱且该前驱仅有一个后继，将基本块与前驱合并
-        else if (bb->getNumOfPred() == 1 && (*(bb->pred_begin()))->getNumOfSucc() == 1 && bb != F->getEntry())
+        // 如果仅有一个前驱且该前驱仅有一个后继，将基本块与前驱合并 | 补充：后继开头不能有phi，有phi不好处理
+        else if (bb->getNumOfPred() == 1 && (*(bb->pred_begin()))->getNumOfSucc() == 1 && bb != F->getEntry() && !bb->begin()->isPhi())
         {
             auto pred = *(bb->pred_begin());
             pred->removeSucc(bb);
@@ -177,6 +201,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
             }
             F->remove(bb);
             freeList.insert(bb);
+            change = true;
         }
         q.pop();
         for (auto &succ : succs)
@@ -202,7 +227,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 succ->removePred(bb);
             freeList.insert(bb);
         }
-    return true;
+    return change;
 }
 
 /// If we have more than one empty (other than phi node) return blocks,

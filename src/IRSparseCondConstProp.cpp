@@ -532,8 +532,8 @@ static void reomveDeadBlock(Function *func)
             continue;
         }
         // 看看这个块的前驱后继有没有能删除的，删除前驱后继关系
-        std::vector<BasicBlock *> preds(bb->pred_begin(), bb->pred_end());
-        std::vector<BasicBlock *> succs(bb->succ_begin(), bb->succ_end());
+        std::set<BasicBlock *> preds(bb->pred_begin(), bb->pred_end());
+        std::set<BasicBlock *> succs(bb->succ_begin(), bb->succ_end());
         for (auto pred : preds)
         {
             if (color.find(pred) == color.end())
@@ -551,6 +551,7 @@ static void reomveDeadBlock(Function *func)
             }
         }
         // 更新phi指令
+        std::set<BasicBlock *> newPreds(bb->pred_begin(), bb->pred_end());
         auto inst = bb->begin();
         while (inst != bb->end())
         {
@@ -561,7 +562,7 @@ static void reomveDeadBlock(Function *func)
             auto &pairs = static_cast<PhiInstruction *>(inst)->getSrcs();
             for (auto pa : pairs)
             {
-                if (color.find(pa.first) == color.end())
+                if (color.find(pa.first) == color.end() || newPreds.find(pa.first) == newPreds.end())
                     phiRemoveList.push_back(pa.first);
             }
             for (auto phiRB : phiRemoveList)

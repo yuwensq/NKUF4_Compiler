@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
+    spcfg.pass();
     finline.pass();
     sccp.pass();
     cse.pass();
@@ -127,6 +128,7 @@ int main(int argc, char *argv[])
     sccp.pass();
     cse.pass();
     dce.pass();
+    spcfg.pass();
     lcm.pass();
     cse.pass();
     sccp.pass();

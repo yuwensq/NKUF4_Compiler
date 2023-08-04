@@ -97,7 +97,7 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
                 }
             }
             // 这里不要cond mov吧，cond mov应该影响不大
-            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
+            if ((minst->isMov() || minst->isVMov32() || (minst->isVMov() && ((*minst->getUse()[0]).isFReg() == (*minst->getDef()[0]).isFReg()))) && !minst->isCondMov())
             {
                 CopyStmt cs(minst);
                 auto it = find(allCopyStmts.begin(), allCopyStmts.end(), cs);
@@ -122,10 +122,11 @@ void MachineCopyProp::calGenKill(MachineFunction *func)
                         Kill[mb].insert(i);
                 }
             }
-            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
-            {
-                Kill[mb].erase(inst2CopyStmt[minst]);
-            }
+            // kill多一点也没事
+            // if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
+            // {
+            //     Kill[mb].erase(inst2CopyStmt[minst]);
+            // }
         }
     }
 }
@@ -219,7 +220,7 @@ bool MachineCopyProp::replaceOp(MachineFunction *func)
                 }
             }
 
-            if ((minst->isMov() || minst->isVMov32()) && !minst->isCondMov())
+            if ((minst->isMov() || minst->isVMov32() || (minst->isVMov() && (*minst->getDef()[0]).isFReg() == (*minst->getUse()[0]).isFReg())) && !minst->isCondMov())
             {
                 if (change)
                 {

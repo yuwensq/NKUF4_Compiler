@@ -9,10 +9,11 @@ class Function;
 
 class BasicBlock
 {
-    typedef std::vector<BasicBlock *>::iterator bb_iterator;
+    typedef std::set<BasicBlock *>::iterator bb_iterator;
 
 private:
-    std::vector<BasicBlock *> pred, succ;
+    // 这里设置为set可以去重
+    std::set<BasicBlock *> pred, succ;
     Instruction *head;
     Function *parent;
     int no;
@@ -24,7 +25,7 @@ public:
     void insertFront(Instruction *, bool);
     void insertBack(Instruction *);
     void insertBefore(Instruction *dst, Instruction *src);
-    void insertAfter(Instruction* dst, Instruction* src);
+    void insertAfter(Instruction *dst, Instruction *src);
     void remove(Instruction *);
     bool empty() const { return head->getNext() == head; }
     void output() const;
@@ -36,8 +37,8 @@ public:
     void addPred(BasicBlock *);
     void removePred(BasicBlock *);
     int getNo() { return no; };
-    std::vector<BasicBlock *> getPred() { return pred; };
-    std::vector<BasicBlock *> getSucc() { return succ; };
+    std::vector<BasicBlock *> getPred() { return std::vector(pred.begin(), pred.end()); };
+    std::vector<BasicBlock *> getSucc() { return std::vector(succ.begin(), succ.end()); };
     Function *getParent() { return parent; };
     Instruction *begin() { return head->getNext(); };
     Instruction *end() { return head; };
@@ -51,14 +52,13 @@ public:
     int getNumOfSucc() const { return succ.size(); };
     void genMachineCode(AsmBuilder *);
     void unsetMark() { mark = false; };
-    void setMark() { mark = true; };    
+    void setMark() { mark = true; };
     bool getMark() { return mark; };
     void cleanAllMark();
 
 public:
     int order;
-    std::set<BasicBlock*> domFrontier;
-
+    std::set<BasicBlock *> domFrontier;
 };
 
 #endif

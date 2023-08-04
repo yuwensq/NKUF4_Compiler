@@ -7,7 +7,7 @@ extern FILE *yyout;
 
 void BasicBlock::cleanAllMark()
 {
-    for (auto it = begin(); it != end(); it = it->getNext()) 
+    for (auto it = begin(); it != end(); it = it->getNext())
     {
         it->unsetMark();
     }
@@ -17,9 +17,11 @@ void BasicBlock::cleanAllMark()
 void BasicBlock::insertFront(Instruction *inst, bool isArray = false)
 {
     Instruction *pin = head->getNext();
-    if (isArray) {
-        while (pin && pin->isAlloc()) {
-            pin = pin->getNext(); 
+    if (isArray)
+    {
+        while (pin && pin->isAlloc())
+        {
+            pin = pin->getNext();
         }
         pin = pin ? pin : head;
     }
@@ -44,7 +46,8 @@ void BasicBlock::insertBefore(Instruction *dst, Instruction *src)
 }
 
 // insert the instruction dst after src.
-void BasicBlock::insertAfter(Instruction* dst, Instruction* src) {
+void BasicBlock::insertAfter(Instruction *dst, Instruction *src)
+{
     dst->setNext(src->getNext());
     src->getNext()->setPrev(dst);
 
@@ -67,48 +70,55 @@ void BasicBlock::output() const
 
     if (!pred.empty())
     {
-        fprintf(yyout, "%*c; preds = %%B%d", 32, '\t', pred[0]->getNo());
-        for (auto i = pred.begin() + 1; i != pred.end(); i++)
+        fprintf(yyout, "%*c; preds = %%B%d", 32, '\t', (*pred.begin())->getNo());
+        auto i = pred.begin();
+        i++;
+        for (i; i != pred.end(); i++)
             fprintf(yyout, ", %%B%d", (*i)->getNo());
     }
     fprintf(yyout, "\n");
-    for (auto i = head->getNext(); i != head; i = i->getNext()){
-        i->output();        
+    for (auto i = head->getNext(); i != head; i = i->getNext())
+    {
+        i->output();
     }
 }
 
 void BasicBlock::addSucc(BasicBlock *bb)
 {
-    succ.push_back(bb);
+    succ.insert(bb);
 }
 
 // remove the successor basicclock bb.
 void BasicBlock::removeSucc(BasicBlock *bb)
 {
     auto it = std::find(succ.begin(), succ.end(), bb);
-    if (it == succ.end()) {
+    if (it == succ.end())
+    {
         Log("succ %d %d", this->no, bb->no);
         return;
     }
     succ.erase(it);
 }
 
-void BasicBlock::cleanAllSucc() {
+void BasicBlock::cleanAllSucc()
+{
     for (auto i : succ)
         i->removePred(this);
-    std::vector<BasicBlock*>().swap(succ);
+    succ.clear();
+    // std::vector<BasicBlock*>().swap(succ);
 }
 
 void BasicBlock::addPred(BasicBlock *bb)
 {
-    pred.push_back(bb);
+    pred.insert(bb);
 }
 
 // remove the predecessor basicblock bb.
 void BasicBlock::removePred(BasicBlock *bb)
 {
     auto it = std::find(pred.begin(), pred.end(), bb);
-    if (it == pred.end()) {
+    if (it == pred.end())
+    {
         Log("pred %d %d", this->no, bb->no);
         return;
     }
@@ -153,4 +163,3 @@ BasicBlock::~BasicBlock()
         bb->removePred(this);
     parent->remove(this);
 }
-

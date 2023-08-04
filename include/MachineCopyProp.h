@@ -9,7 +9,7 @@ struct CopyStmt
     MachineOperand *dst, *src;
     CopyStmt(MachineInstruction *inst)
     {
-        Assert(inst->isMov() || inst->isVMov32(), "这里应该传入一个mov指令");
+        Assert(inst->isMov() || inst->isVMov32() || inst->isVMov(), "这里应该传入一个mov指令");
         dst = new MachineOperand(*inst->getDef()[0]);
         src = new MachineOperand(*inst->getUse()[0]);
     }
