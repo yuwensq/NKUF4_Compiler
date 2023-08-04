@@ -207,7 +207,140 @@ void LoopUnroll::Unroll(){
 
         //我们这边只考虑说步长step为常量的，比较好判断
         if(isStepCons){
-            
+            //能够清晰的计算出先前总共要进行的循环轮数
+            if(isBeginCons&&isEndCons){
+                //先讨论说，变量strideOp的值随循环是不断增大的,begin<end
+                int count=0;
+                if(isIncrease){
+                    if(ivOpcode==BinaryInstruction::ADD){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i<=end;i=i+step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i<end;i=i+step){
+                                count++;
+                            }
+                        }
+                    }
+                    else if(ivOpcode==BinaryInstruction::SUB){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i<=end;i=i-step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i<end;i=i-step){
+                                count++;
+                            }
+                        }                
+                    }
+                    else if(ivOpcode==BinaryInstruction::MUL){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i<=end;i=i*step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i<end;i=i*step){
+                                count++;
+                            }
+                        }
+                    }
+                    else if(ivOpcode==BinaryInstruction::DIV){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i<=end;i=i/step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i<end;i=i/step){
+                                count++;
+                            }
+                        }
+                    }
+                    else {
+                        //cout<<"stride calculate not add sub mul div"<<endl;
+                        continue;
+                    }
+                }
+                else{
+                    //讨论变量strideOp的值随循环是不断变小的,end<begin
+                    //取模运算，应该是变小的，没有模一个负数的说法
+                    if(ivOpcode==BinaryInstruction::ADD){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i>=end;i=i+step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i>end;i=i+step){
+                                count++;
+                            }
+                        }
+                    }
+                    else if(ivOpcode==BinaryInstruction::SUB){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i>=end;i=i-step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i>end;i=i-step){
+                                count++;
+                            }
+                        }                
+                    }
+                    else if(ivOpcode==BinaryInstruction::MUL){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i>=end;i=i*step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i>end;i=i*step){
+                                count++;
+                            }
+                        }
+                    }
+                    else if(ivOpcode==BinaryInstruction::DIV){
+                        //有等号没等号，count是有差别的
+                        if(bodyCmp->getOpCode()==CmpInstruction::GE||bodyCmp->getOpCode()==CmpInstruction::LE){
+                            for(int i=begin;i>=end;i=i/step){
+                                count++;
+                            }
+                        }
+                        else if(bodyCmp->getOpCode()==CmpInstruction::G||bodyCmp->getOpCode()==CmpInstruction::L){
+                            for(int i=begin;i>end;i=i/step){
+                                count++;
+                            }
+                        }
+                    }
+                    else {
+                        //cout<<"stride calculate not add sub mul div"<<endl;
+                        continue;
+                    }
+                }
+                //指令copy count 份
+                //body中的跳转指令不copy
+                //循环内部是小于count 所以count初始值直接设置为0即可
+                if(count>0&&count<=MAXUNROLLNUM){
+                    cout<<"specialUnroll: count = "<<count<<endl;
+                    specialUnroll(body,count,endOp,strideOp,true);
+                }
+                //如果count超过了max，就特殊展开，这边先不做
+            }
+            else{
+
+            }
         }
     }
 }
@@ -274,4 +407,176 @@ bool LoopUnroll::isRegionConst(Operand* i, Operand* c){
         }
     }
     return false;
+}
+
+void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* strideOp,bool ifall){
+    vector<Instruction*> preInsList;
+    vector<Instruction*> nextInsList;
+    vector<Instruction*> phis;
+    vector<Instruction*> copyPhis;
+    CmpInstruction* cmp;
+    vector<Operand*> finalOperands;
+    map<Operand*,Operand*> begin_final_Map;
+
+    //拷贝phi，存储cmp前面的指令到preInsList
+    for(auto bodyinstr = bb->begin(); bodyinstr != bb->end(); bodyinstr = bodyinstr->getNext()){
+        if(bodyinstr->isPhi()){
+            phis.push_back(bodyinstr);
+        }
+        else if(bodyinstr->isCmp()){
+            cmp=(CmpInstruction*) bodyinstr;
+            break;
+        }
+        preInsList.push_back(bodyinstr);
+    }
+    copyPhis.assign(phis.begin(),phis.end());
+
+    //拷贝pre指令放到下一轮，生成并更换原先pre指令中的Def和相关Use，预先存储展开前的那些def
+    for(auto preIns:preInsList){
+        Instruction* ins=preIns->copy();
+        //store没有def
+        if(!preIns->isStore()){
+            Operand* newDef = new Operand(new TemporarySymbolEntry(preIns->getDef()->getType(),SymbolTable::getLabel()));
+            begin_final_Map[preIns->getDef()]=newDef;
+            finalOperands.push_back(preIns->getDef());
+            ins->setDef(newDef);
+            preIns->replaceDef(newDef);
+        }
+        nextInsList.push_back(ins);
+    }
+    for(auto preIns:preInsList){
+        for(auto useOp:preIns->getUse()){
+            if(begin_final_Map.find(useOp)!=begin_final_Map.end()){
+                preIns->replaceUse(useOp,begin_final_Map[useOp]);
+            }
+        }
+    }
+    for(auto nextIns:nextInsList){
+        for(auto useOp:nextIns->getUse()){
+            if(begin_final_Map.find(useOp)!=begin_final_Map.end()){
+                nextIns->replaceUse(useOp,begin_final_Map[useOp]);
+            }
+        }
+    }
+
+    //进行循环展开
+    std::map<Operand*, Operand*> replaceMap;
+    for(int k = 0 ;k < num-1; k++){
+        std::vector<Operand*> notReplaceOp;
+        int calculatePhi = 0;
+        for(int i=0;i<nextInsList.size();i++){
+            Instruction* preIns=preInsList[i];
+            Instruction* nextIns=nextInsList[i];
+            
+            if(!preIns->isStore()){
+                Operand* newDef = new Operand(new TemporarySymbolEntry(preIns->getDef()->getType(),SymbolTable::getLabel()));
+                replaceMap[preIns->getDef()]=newDef;
+                if(count(copyPhis.begin(),copyPhis.end(),preIns)){
+                    PhiInstruction* phi = (PhiInstruction*)phis[calculatePhi];
+                    nextInsList[i] =(Instruction*)(new BinaryInstruction(BinaryInstruction::ADD,newDef,phi->getBlockSrc(bb),new Operand(new ConstantSymbolEntry(preIns->getDef()->getType(),0)),nullptr));
+                    notReplaceOp.push_back(newDef);
+                    calculatePhi++;
+                    copyPhis.push_back(nextInsList[i]);
+                }
+                else{
+                    nextIns->setDef(newDef);
+                }
+            }
+        }
+
+        for(auto nextIns:nextInsList){
+            if(count(notReplaceOp.begin(),notReplaceOp.end(),nextIns->getDef())){
+                continue;
+            }
+            for(auto useOp:nextIns->getUse()){
+                if(replaceMap.find(useOp)!=replaceMap.end()){
+                    nextIns->replaceUse(useOp,replaceMap[useOp]);
+                }
+                else{
+                    useOp->addUse(nextIns);
+                }
+            }
+        }
+
+        for(auto ins:phis){
+            PhiInstruction* phi=(PhiInstruction*) ins;
+            Operand* old=phi->getBlockSrc(bb);
+            Operand* _new=replaceMap[old];
+            phi->replaceUse(old,_new);
+        }
+
+        //最后一次才会换 否则不换
+        if(k==num-2){
+            // 构建新的map然后再次替换
+            std::map<Operand*,Operand*> newMap;
+            int i=0;
+            for(auto nextIns:nextInsList){
+                if(!nextIns->isStore()){
+                    newMap[nextIns->getDef()]=finalOperands[i];
+                    nextIns->replaceDef(finalOperands[i]);
+                    i++;
+                }
+            }
+            for(auto nextIns:nextInsList){
+                for(auto useOp:nextIns->getUse()){
+                    if(newMap.find(useOp)!=newMap.end()){
+                        nextIns->replaceUse(useOp,newMap[useOp]);
+                    }
+                }
+                bb->insertBefore(nextIns,cmp);
+            }
+            for(auto ins:phis){
+                PhiInstruction* phi=(PhiInstruction*) ins;
+                Operand* old=phi->getBlockSrc(bb);
+                Operand* _new=newMap[old];
+                phi->replaceUse(old,_new);
+            }
+        }
+        else{
+            for(auto nextIns:nextInsList){
+                bb->insertBefore(nextIns,cmp);
+            }
+        }
+
+        //清空原来的
+        preInsList.clear();
+        //复制新的到pre
+        preInsList.assign(nextInsList.begin(),nextInsList.end());
+        //清空next
+        nextInsList.clear();
+        for(auto preIns:preInsList){
+            nextInsList.push_back(preIns->copy());
+        }
+    }
+
+    //如果是完全张开的话
+    if(ifall){
+        //去掉phi指令，new一条二元的add 0指令存储循环变元i在循环外的初始值
+        for(auto phi:phis){
+            PhiInstruction* p = (PhiInstruction*) phi;
+            Operand* phiOp;
+            for(auto item:p->getSrcs()){
+                if(item.first!=bb){
+                    phiOp = item.second;
+                }
+            }
+            BinaryInstruction * newDefBin = new BinaryInstruction(BinaryInstruction::ADD,phi->getDef(),phiOp,new Operand(new ConstantSymbolEntry(phiOp->getEntry()->getType(),0)),nullptr);
+            Instruction* phiNext = phi->getNext();
+            bb->remove(phi);
+            bb->insertBefore(newDefBin,phiNext);
+        }
+
+        //去除块中的比较跳转指令，完全展开后直接跳转到exit基本块即可
+        CondBrInstruction* cond = (CondBrInstruction*)cmp->getNext();
+        UncondBrInstruction* newUnCond = new UncondBrInstruction(cond->getFalseBranch(),nullptr); 
+        bb->remove(cmp);
+        bb->remove(cond);
+        bb->insertBack(newUnCond);
+        bb->removePred(bb);
+        bb->removeSucc(bb);
+    }    
+}
+
+void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp){
+    return;
 }
