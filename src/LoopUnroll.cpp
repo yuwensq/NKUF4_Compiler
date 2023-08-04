@@ -57,7 +57,7 @@ bool LoopUnroll::isSubset(vector<BasicBlock*> son, vector<BasicBlock*> farther){
 
 void LoopUnroll::Unroll(){
     for(auto loop:candidateLoops){
-        //包含call指令的不展开
+        //包含call指令的不展开(call系统函数的或许可以展开？)
         bool hasCall = false;
         BasicBlock* cond = loop->getcond(), *body = loop->getbody();
         for(auto bodyinstr = body->begin(); bodyinstr != body->end(); bodyinstr = bodyinstr->getNext()){
@@ -69,7 +69,7 @@ void LoopUnroll::Unroll(){
         if(hasCall){
             continue;
         }
-
+        
         /*
         考虑最简单的循环，只有一个归纳变量i，在循环之外会有一个初始值begin，循环中会不断增加/减少值
         设这个变化的值为步长step，我们也只考虑最简单的，i在循环中只有一条二元指令表示其变化，如i=i+1；
@@ -81,7 +81,7 @@ void LoopUnroll::Unroll(){
         int begin = -1, end = -1, step = -1;
         bool isBeginCons, isEndCons, isStepCons;
         isBeginCons = isEndCons = isStepCons = false;
-        Operand* endOp,*beginOp,*strideOp;
+        Operand* endOp,*beginOp=nullptr,*strideOp;
         bool isIncrease=true; //循环变量strideOp一开始较小，循环中不断变大
 
         stack<Instruction*> InsStack;
@@ -147,9 +147,9 @@ void LoopUnroll::Unroll(){
         }
 
         //打印三个op及变化关系
-        cout<<"beginOp: "<<beginOp->toStr()<<endl;
-        cout<<"strideOp: "<<strideOp->toStr()<<" "<<isIncrease<<endl;
-        cout<<"endOp: "<<endOp->toStr()<<endl;
+        // cout<<"beginOp: "<<beginOp->toStr()<<endl;
+        // cout<<"strideOp: "<<strideOp->toStr()<<" "<<isIncrease<<endl;
+        // cout<<"endOp: "<<endOp->toStr()<<endl;
 
         //我们暂时先只考虑归纳变量仅变化一次的情况，也就是只有形如i=i+1这种
         int ivOpcode=-1;
@@ -189,7 +189,7 @@ void LoopUnroll::Unroll(){
         }
 
         //打印stepOp
-        cout<<"stepOp: "<<stepOp->toStr()<<endl;
+        // cout<<"stepOp: "<<stepOp->toStr()<<endl;
 
         //若是常量，存取其值
         if(beginOp->getEntry()->isConstant()){
@@ -333,7 +333,7 @@ void LoopUnroll::Unroll(){
                 //body中的跳转指令不copy
                 //循环内部是小于count 所以count初始值直接设置为0即可
                 if(count>0&&count<=MAXUNROLLNUM){
-                    cout<<"specialUnroll: count = "<<count<<endl;
+                    // cout<<"specialUnroll: count = "<<count<<endl;
                     specialUnroll(body,count,endOp,strideOp,true);
                 }
                 //如果count超过了max，就特殊展开，这边先不做

@@ -50,7 +50,7 @@ void LoopCodeMotion::pass1()
 
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
-        // printLoop(LoopList);
+        //printLoop(LoopList);
 
         // 代码外提,但是一旦外提，dom和loop的信息就可能变化
         //  CodePullUp(*func,LoopList,BackEdges);
