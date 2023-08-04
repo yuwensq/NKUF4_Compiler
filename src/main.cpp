@@ -130,8 +130,9 @@ int main(int argc, char *argv[])
     dce.pass();
     spcfg.pass();
     lcm.pass();
-    cse.pass();
     sccp.pass();
+    cse.pass();
+    dce.pass();
     pe.pass();
     tca.pass();
 
