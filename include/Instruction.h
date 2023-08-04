@@ -52,6 +52,7 @@ public:
     std::vector<Operand *> replaceAllUsesWith(Operand *); // Mem2Reg
     virtual void replaceUse(Operand *, Operand *) {}
     virtual void replaceDef(Operand *) {}
+    virtual void setDef(Operand *) {}
     int getOpCode() const { return opcode; }
     int getType() const { return instType; }
     void unsetMark() { mark = false; };
@@ -115,6 +116,10 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    void setDef(Operand* rep) {
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
     Instruction *copy() { return new AllocaInstruction(*this); }
 
 private:
@@ -136,6 +141,11 @@ public:
     void replaceDef(Operand *rep)
     {
         operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
@@ -220,6 +230,11 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    void setDef(Operand *rep)
+    {
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
     Instruction *copy() { return new BinaryInstruction(*this); }
 
 private:
@@ -265,6 +280,11 @@ public:
     void replaceDef(Operand *rep)
     {
         operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
@@ -344,6 +364,13 @@ public:
             operands[0]->setDef(this);
         }
     }
+    void setDef(Operand *rep)
+    {
+        if(operands[0]){
+            operands[0] = rep;
+            operands[0]->setDef(this);            
+        }
+    }
     void replaceUse(Operand *old, Operand *rep)
     {
         for (size_t i = 1; i < operands.size(); i++)
@@ -387,6 +414,13 @@ public:
             operands[0]->setDef(this);
         }
     }
+    void setDef(Operand *rep)
+    {
+        if(operands.size()){
+            operands[0] = rep;
+            operands[0]->setDef(this);            
+        }
+    }
     void replaceUse(Operand *old, Operand *rep)
     {
         if (operands.size() && operands[0] == old)
@@ -425,6 +459,11 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    void setDef(Operand *rep)
+    {
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
     Instruction *copy() { return new XorInstruction(*this); }
 };
 
@@ -451,6 +490,11 @@ public:
     void replaceDef(Operand *rep)
     {
         operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
@@ -490,6 +534,12 @@ public:
         operands[0]->setDef(this);
         dst = rep;
     }
+    void setDef(Operand *rep)
+    {
+        operands[0] = rep;
+        operands[0]->setDef(this);
+        dst = rep;
+    }
     Instruction *copy() { return new BitcastInstruction(*this); }
 };
 
@@ -514,6 +564,13 @@ public:
             operands[0]->setDef(nullptr);
             operands[0] = rep;
             operands[0]->setDef(this);
+        }
+    }
+    void setDef(Operand *rep)
+    {
+        if(operands[0]){
+            operands[0] = rep;
+            operands[0]->setDef(this);            
         }
     }
     void replaceUse(Operand *old, Operand *rep)
@@ -560,6 +617,11 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
+    void setDef(Operand *rep)
+    {
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
     Instruction *copy() { return new F2IInstruction(*this); }
 };
 
@@ -586,6 +648,11 @@ public:
     void replaceDef(Operand *rep)
     {
         operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
@@ -642,6 +709,11 @@ public:
     void replaceDef(Operand *rep)
     {
         operands[0]->setDef(nullptr);
+        operands[0] = rep;
+        operands[0]->setDef(this);
+    }
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
