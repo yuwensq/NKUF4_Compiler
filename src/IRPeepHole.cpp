@@ -96,3 +96,15 @@ void IRPeepHole::pass()
         subPass(*func);
     }
 }
+
+void IRPeepHole::subPass2(Function *)
+{
+}
+
+void IRPeepHole::pass2()
+{
+    for (auto func = unit->begin(); func != unit->end(); func++)
+    {
+        subPass2(*func);
+    }
+}

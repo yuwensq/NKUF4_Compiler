@@ -111,30 +111,33 @@ int main(int argc, char *argv[])
     TailCallAnalyser tca(&unit);
     IRPeepHole iph(&unit);
 
+    auto atomicCodeElim = [&]()
+    {
+        spcfg.pass();
+        iph.pass();
+        sccp.pass();
+        cse.pass();
+        dce.pass();
+    };
+
+    auto pairCodeElim = [&]()
+    {
+        atomicCodeElim();
+        atomicCodeElim();
+    };
+
     g2l.pass();
     m2r.pass(); // Only IR supported
-    spcfg.pass();
-    iph.pass();
-    sccp.pass();
-    cse.pass();
-    sccp.pass();
-    cse.pass();
-    dce.pass();
-    spcfg.pass();
+    pairCodeElim();
     finline.pass();
-    sccp.pass();
-    cse.pass();
-    iph.pass();
-    sccp.pass();
-    cse.pass();
-    dce.pass();
+    pairCodeElim();
     spcfg.pass();
     lcm.pass();
+    pairCodeElim();
     lcm.pass1();
-    sccp.pass();
-    cse.pass();
-    dce.pass();
+    pairCodeElim();
     pe.pass();
+    iph.pass2();
     tca.pass();
 
     Log("IR优化成功"); /**/
@@ -145,7 +148,7 @@ int main(int argc, char *argv[])
     {
         unit.genMachineCode(&mUnit);
         Log("目标代码生成成功");
-        MachinePeepHole mph(&mUnit, 2);
+        MachinePeepHole mph(&mUnit);
         MachineStraight mst(&mUnit);
         MachineCopyProp mcp(&mUnit);
         MachineDeadCodeElim mdce(&mUnit);

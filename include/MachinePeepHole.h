@@ -7,11 +7,15 @@ class MachinePeepHole
 {
 private:
     MachineUnit *unit;
-    int pass_times;
-    void subPass(bool afterRegAlloc);
+    std::map<MachineOperand, int> op2DefTimes;
+    std::map<MachineOperand, int> op2UseTimes;
+    void clearData();
+    // 预处理
+    void analyse();
+    bool subPass(bool afterRegAlloc);
 
 public:
-    MachinePeepHole(MachineUnit *unit, int pass_times = 0) : unit(unit), pass_times(pass_times) {}
+    MachinePeepHole(MachineUnit *unit) : unit(unit) {}
     void pass(bool afterRegAlloc = false);
 };
 
