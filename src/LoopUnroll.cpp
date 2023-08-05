@@ -389,12 +389,15 @@ void LoopUnroll::Unroll(){
                 *                     ↓             ↑                             ↓                  ↑   ↓              ↑
                 *                     ---------------                             --------------------   ----------------                
                 */
-                if(ivOpcode==BinaryInstruction::ADD&&step==1){
-                    //cout<<"normalUnroll"<<endl;
-                    normalUnroll(cond,body,beginOp,endOp,strideOp);             
-                }
-                if(ivOpcode==BinaryInstruction::SUB&&step==1){
-
+                if(step==1){
+                    if(ivOpcode==BinaryInstruction::ADD){
+                        //cout<<"normalUnroll +"<<endl;
+                        normalUnroll(cond,body,beginOp,endOp,strideOp);                          
+                    }
+                    else if(ivOpcode==BinaryInstruction::SUB){
+                        //cout<<"normalUnroll -"<<endl;
+                        normalUnroll(cond,body,beginOp,endOp,strideOp,false);                               
+                    }
                 }
             }
         }
@@ -436,13 +439,22 @@ Operand* LoopUnroll::getBeginOp(BasicBlock* bb,Operand* strideOp,stack<Instructi
     //找到位于当前基本块bb中根源的phi指令
     PhiInstruction* phi=(PhiInstruction*)temp->getDef();
     InsStack.push(temp->getDef());
-    Operand* beginOp;
+    //phi的src可能多个，对应beginOp可能多个
+    vector<Operand*> beginOp;
     for(auto item:phi->getSrcs()){
         if(item.first!=bb){
-            beginOp = item.second;
+            beginOp.push_back(item.second);
         }
     }
-    return beginOp;
+    //如果有多个，我们希望他们取值都是一样的
+    if(beginOp.size()>1){
+        for(auto i=1;i<beginOp.size();i++){
+            if(beginOp[i]->toStr()!=beginOp[0]->toStr()){
+                return nullptr;
+            }
+        }
+    }
+    return beginOp[0];
 }
 
 bool LoopUnroll::isRegionConst(Operand* i, Operand* c){
@@ -636,7 +648,7 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
     }    
 }
 
-void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp){
+void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp,bool isIncrease){
     //如果说begin或end不全为const类型的话，就保证了它前面一定有一个cond基本块，含cmp指令, 但可能有外提    
     //先不处理外提
     Instruction* condCmp=nullptr;
@@ -682,8 +694,35 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
         ifPlusOne = true;
     }
     Operand* countDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
-    //使用endOp-beginOp计算循环次数，存入calCount（为中间变量）
-    BinaryInstruction* calCount = new BinaryInstruction(BinaryInstruction::SUB,countDef,endOp,beginOp,nullptr);
+    BinaryInstruction* calCount=nullptr;
+    if(isIncrease){
+        //使用endOp-beginOp计算循环次数，存入calCount（为中间变量）
+        calCount = new BinaryInstruction(BinaryInstruction::SUB,countDef,endOp,beginOp,nullptr);
+    }
+    else{
+        //循环变量是减少的
+        calCount = new BinaryInstruction(BinaryInstruction::SUB,countDef,beginOp,endOp,nullptr);
+    }
+    //如果endOp的定义是cmp的上一条指令，并且从全局变量中load
+    Instruction* endOpDef=endOp->getDef();
+    Operand* maybeLoadOp=nullptr;
+    Instruction* maybeLoadIns=nullptr;
+    bool needNewLoad=false;
+    if(cmp->getPrev()==endOpDef&&endOpDef->isLoad()&&endOpDef->getUse()[0]->isGlobal()){
+        needNewLoad=true;
+        //循环内部不能有store这个全局变量的操作
+        for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
+            if(ins->isStore()&&ins->getUse()[0]==endOpDef->getUse()[0]){
+                needNewLoad=false;
+                break;
+            }
+        }
+    }
+    if(needNewLoad){
+        maybeLoadOp=new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
+        maybeLoadIns=new LoadInstruction(maybeLoadOp,endOpDef->getUse()[0],nullptr);
+        calCount->replaceUse(endOp,maybeLoadOp);
+    }
     //如果循环次数需要加1，就new一条add 1的指令
     if(ifPlusOne){
         binPlusOne = new BinaryInstruction(BinaryInstruction::ADD,new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel())),countDef,new Operand(new ConstantSymbolEntry(TypeSystem::intType,1)),nullptr);
@@ -699,6 +738,9 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     newCondBB->addPred(condbb);
     newCondBB->addSucc(bodybb);
     newCondBB->addSucc(resBodyBB);
+    if(needNewLoad){
+        newCondBB->insertBack(maybeLoadIns);
+    }
     newCondBB->insertBack(calCount);
     //得看是否有equal
     if(ifPlusOne){
@@ -745,8 +787,10 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     Operand* resNumPhiDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
     Operand* binIncDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
     PhiInstruction* resNumPhi = new PhiInstruction(resNumPhiDef,nullptr);
+    resNumPhiDef->setDef(resNumPhi);
     resNumPhi->addSrc(newCondBB,new Operand(new ConstantSymbolEntry(TypeSystem::intType,0)));
     resNumPhi->addSrc(resBodyBB,binIncDef);
+
     BinaryInstruction* binInc = new BinaryInstruction(BinaryInstruction::ADD,binIncDef,resNumPhi->getDef(),new Operand(new ConstantSymbolEntry(TypeSystem::intType,1)),nullptr);
     CmpInstruction* resBodyCmp = new CmpInstruction(CmpInstruction::NE,new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())),binIncDef,binMod->getDef(),nullptr);
     CondBrInstruction* resBodyBr = new CondBrInstruction(resBodyBB,resOutCond,resBodyCmp->getDef(),nullptr);
@@ -779,9 +823,18 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     CmpInstruction* resOutCondCmp =(CmpInstruction*) cmp->copy();
     resOutCondCmp->setDef(new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())));
     resOutCondCmp->replaceUse(strideOp,resBodyReplaceMap[strideOp]);
+    endOp->addUse(resOutCondCmp); //endOp增加使用
+    if(needNewLoad){
+        maybeLoadOp=new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
+        maybeLoadIns=new LoadInstruction(maybeLoadOp,endOpDef->getUse()[0],nullptr);
+        resOutCondCmp->replaceUse(endOp,maybeLoadOp);
+    }
     CondBrInstruction* resOutCondBr = new CondBrInstruction(bodybb,resoutCondSucc,resOutCondCmp->getDef(),nullptr);
     resOutCond->insertBack(resOutCondBr);
     resOutCond->insertBefore(resOutCondCmp,resOutCondBr);
+    if(needNewLoad){
+        resOutCond->insertBefore(maybeLoadIns,resOutCondCmp);
+    }
 
     bodybb->removePred(condbb);
     bodybb->addPred(newCondBB);

@@ -37,7 +37,7 @@ public:
     bool isRegionConst(Operand* i, Operand* c);
     Operand* getBeginOp(BasicBlock* bb,Operand* strideOp,stack<Instruction*>& Insstack);
     void specialUnroll(BasicBlock* bb,int count,Operand* endOp,Operand* strideOp,bool ifall);
-    void normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp);
+    void normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp,bool isIncrease=true);
 
     void Unroll();
 };
