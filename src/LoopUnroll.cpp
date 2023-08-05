@@ -62,8 +62,11 @@ void LoopUnroll::Unroll(){
         BasicBlock* cond = loop->getcond(), *body = loop->getbody();
         for(auto bodyinstr = body->begin(); bodyinstr != body->end(); bodyinstr = bodyinstr->getNext()){
             if(bodyinstr->isCall()){
-                hasCall = true;
-                break;
+                IdentifierSymbolEntry* funcSE = (IdentifierSymbolEntry*)(((CallInstruction*)bodyinstr)->getFunc());
+                if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32") {
+                    hasCall = true;
+                    break;
+                }
             }
         }
         if(hasCall){
@@ -84,8 +87,11 @@ void LoopUnroll::Unroll(){
         Operand* endOp,*beginOp=nullptr,*strideOp;
         bool isIncrease=true; //循环变量strideOp一开始较小，循环中不断变大
 
-        stack<Instruction*> InsStack;
+        stack<Instruction*> InsStack; //存储strideOp的指令def序列
+        stack<Instruction*> InsStack1;//仅用于测验endOp是否随循环变化
+        stack<Instruction*> temp;//仅用于清空
         Instruction* bodyCmp = nullptr;
+        bool endOpChangeWithCycle=true;
         for(auto bodyinstr = body->begin(); bodyinstr != body->end(); bodyinstr=bodyinstr->getNext()){
             if(bodyinstr->isCmp()){
                 bodyCmp = bodyinstr;
@@ -95,7 +101,8 @@ void LoopUnroll::Unroll(){
                 //我们能够保证的是，如果其中一个为常量，那么它一定是endOp
                 //如果两个都不是常量，我们暂定较小的那个为strideOp
                 //如果根据这个op无法找到beginOp->它没有phi的Def，它的def可能追溯到全局or参数，就找另一个
-                //其实也有可能i<j，然后两个op都可以追述到phi指令（一个变大；一个变小）
+                //有可能i<j，然后两个op都可以追述到phi指令（一个变大；一个变小），这种情况我们是无法处理的，要排除
+                //也就是endOp不能随着循环变化而有变化！
                 switch (opcode)
                 {
                     case CmpInstruction::G:
@@ -106,14 +113,26 @@ void LoopUnroll::Unroll(){
                             strideOp=cmpOp1;
                             endOp=cmpOp2;
                             isIncrease=false;
+                            endOpChangeWithCycle=false;
                         }
                         beginOp = getBeginOp(body,strideOp,InsStack);
-                        //较小的那个Op回朔尝试失败
-                        if(beginOp==nullptr&&!(endOp->getEntry()->isConstant())){
-                            endOp=cmpOp2;
-                            strideOp=cmpOp1;
-                            beginOp = getBeginOp(body,strideOp,InsStack);
-                            isIncrease=false;
+                        //较小的那个Op回朔尝试失败，也就是这个op作为endop，不可能随循环变化
+                        if(!(endOp->getEntry()->isConstant())){
+                            if(beginOp==nullptr){ 
+                                InsStack.swap(temp);
+                                endOp=cmpOp2;
+                                strideOp=cmpOp1;
+                                beginOp = getBeginOp(body,strideOp,InsStack);
+                                isIncrease=false;                                          
+                                endOpChangeWithCycle=false;
+                            }
+                            else if(getBeginOp(body,endOp,InsStack1)==nullptr){
+                                //追朔另一个op，看是不是随循环变化,这里不能用InsStack，否则后面判断会出错
+                                endOpChangeWithCycle=false;                         
+                            }                            
+                        }
+                        else{
+                            endOpChangeWithCycle=false;
                         }
                         break;
                     case CmpInstruction::L:
@@ -124,14 +143,26 @@ void LoopUnroll::Unroll(){
                             strideOp=cmpOp2;
                             endOp=cmpOp1;
                             isIncrease=false;
+                            endOpChangeWithCycle=false;
                         }
                         beginOp=getBeginOp(body,strideOp,InsStack);
                         //较小的那个Op回朔尝试失败
-                        if(beginOp==nullptr&&!(endOp->getEntry()->isConstant())){
-                            endOp=cmpOp1;
-                            strideOp=cmpOp2;
-                            beginOp = getBeginOp(body,strideOp,InsStack);
-                            isIncrease=false;
+                        if(!(endOp->getEntry()->isConstant())){
+                            if(beginOp==nullptr){ 
+                                InsStack.swap(temp);
+                                endOp=cmpOp1;
+                                strideOp=cmpOp2;
+                                beginOp = getBeginOp(body,strideOp,InsStack);
+                                isIncrease=false;                                
+                                endOpChangeWithCycle=false;
+                            }
+                            else if(getBeginOp(body,endOp,InsStack1)==nullptr){
+                                //追朔另一个op，看是不是随循环变化,这里不能用InsStack，否则后面判断会出错
+                                endOpChangeWithCycle=false;                         
+                            }                            
+                        }
+                        else{
+                            endOpChangeWithCycle=false;
                         }
                         break;
                     default:
@@ -143,6 +174,10 @@ void LoopUnroll::Unroll(){
         }
         if(beginOp==nullptr){
             //cout<<"begin op is null"<<endl;
+            continue;
+        }
+        if(endOpChangeWithCycle){
+            //cout<<"endOpChangeWithCycle"<<endl;
             continue;
         }
 
@@ -189,7 +224,7 @@ void LoopUnroll::Unroll(){
         }
 
         //打印stepOp
-        // cout<<"stepOp: "<<stepOp->toStr()<<endl;
+        //cout<<"stepOp: "<<stepOp->toStr()<<endl;
 
         //若是常量，存取其值
         if(beginOp->getEntry()->isConstant()){
@@ -332,14 +367,35 @@ void LoopUnroll::Unroll(){
                 //指令copy count 份
                 //body中的跳转指令不copy
                 //循环内部是小于count 所以count初始值直接设置为0即可
+                /*
+                * Special:  pred -> body -> Exitbb      ==>     pred -> newbody -> Exitbb
+                */
                 if(count>0&&count<=MAXUNROLLNUM){
-                    // cout<<"specialUnroll: count = "<<count<<endl;
+                    //cout<<"specialUnroll: count = "<<count<<endl;
                     specialUnroll(body,count,endOp,strideOp,true);
                 }
                 //如果count超过了max，就特殊展开，这边先不做
             }
             else{
+                //begin和end有其中一个不是const类型,就是normal展开
+                //展开四次,copy四次,构建rescond resbody
+                //rescond包含 最后算出来的变量值 然后新建一条cmp指令 最后算出来的变量值与end作比较，重构一个循环即可
+                //看n是否为temp,后续的stride继续补充即可
+                //面向样例编程，只考虑形如i=i+1;i=i-1的展开
+                /*
+                *                     --------                                    ------------        -----------
+                *                     ↓      ↑                                    ↓          ↑        ↓         ↑
+                * Normal:  pred ->  cond -> body  Exitbb      ==>     pred -> rescond -> resbody maincond -> mainbody Exitbb
+                *                     ↓             ↑                             ↓                  ↑   ↓              ↑
+                *                     ---------------                             --------------------   ----------------                
+                */
+                if(ivOpcode==BinaryInstruction::ADD&&step==1){
+                    //cout<<"normalUnroll"<<endl;
+                    normalUnroll(cond,body,beginOp,endOp,strideOp);             
+                }
+                if(ivOpcode==BinaryInstruction::SUB&&step==1){
 
+                }
             }
         }
     }
@@ -348,6 +404,9 @@ void LoopUnroll::Unroll(){
 //找循环中不断变化的变元strideOp的初始值beginOp
 Operand* LoopUnroll::getBeginOp(BasicBlock* bb,Operand* strideOp,stack<Instruction*>& InsStack){
     Operand* temp=strideOp;
+    if(temp->getDef()->getParent()!=bb){
+        return nullptr;
+    }
     while(!temp->getDef()->isPhi()){
         Instruction* tempdefIns=temp->getDef();
         InsStack.push(tempdefIns);
@@ -434,8 +493,8 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
     //拷贝pre指令放到下一轮，生成并更换原先pre指令中的Def和相关Use，预先存储展开前的那些def
     for(auto preIns:preInsList){
         Instruction* ins=preIns->copy();
-        //store没有def
-        if(!preIns->isStore()){
+        //store和一些call没有def
+        if(preIns->getDef()){
             Operand* newDef = new Operand(new TemporarySymbolEntry(preIns->getDef()->getType(),SymbolTable::getLabel()));
             begin_final_Map[preIns->getDef()]=newDef;
             finalOperands.push_back(preIns->getDef());
@@ -468,7 +527,7 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
             Instruction* preIns=preInsList[i];
             Instruction* nextIns=nextInsList[i];
             
-            if(!preIns->isStore()){
+            if(preIns->getDef()){
                 Operand* newDef = new Operand(new TemporarySymbolEntry(preIns->getDef()->getType(),SymbolTable::getLabel()));
                 replaceMap[preIns->getDef()]=newDef;
                 if(count(copyPhis.begin(),copyPhis.end(),preIns)){
@@ -485,7 +544,7 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
         }
 
         for(auto nextIns:nextInsList){
-            if(count(notReplaceOp.begin(),notReplaceOp.end(),nextIns->getDef())){
+            if(nextIns->getDef()&&count(notReplaceOp.begin(),notReplaceOp.end(),nextIns->getDef())){
                 continue;
             }
             for(auto useOp:nextIns->getUse()){
@@ -511,7 +570,7 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
             std::map<Operand*,Operand*> newMap;
             int i=0;
             for(auto nextIns:nextInsList){
-                if(!nextIns->isStore()){
+                if(nextIns->getDef()){
                     newMap[nextIns->getDef()]=finalOperands[i];
                     nextIns->replaceDef(finalOperands[i]);
                     i++;
@@ -578,5 +637,175 @@ void LoopUnroll::specialUnroll(BasicBlock* bb,int num,Operand* endOp,Operand* st
 }
 
 void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beginOp,Operand* endOp,Operand* strideOp){
-    return;
+    //如果说begin或end不全为const类型的话，就保证了它前面一定有一个cond基本块，含cmp指令, 但可能有外提    
+    //先不处理外提
+    Instruction* condCmp=nullptr;
+    for(auto ins=condbb->begin();ins!=condbb->end();ins=ins->getNext()){
+        if(ins->isCmp()){
+            if(!(ins->getOpCode()==CmpInstruction::E||ins->getOpCode()==CmpInstruction::NE)){
+                condCmp=ins;
+                break;
+            }
+        }
+    }
+    if(condCmp==nullptr){
+        return;
+    }
+
+    BasicBlock* newCondBB = new BasicBlock(condbb->getParent());
+    BasicBlock* resBodyBB = new BasicBlock(condbb->getParent());
+    BasicBlock* resOutCond = new BasicBlock(condbb->getParent());
+    BasicBlock* resoutCondSucc=nullptr;
+    for(auto succBB:bodybb->getSucc()){
+        if(succBB!=bodybb)
+            resoutCondSucc=succBB;
+    }
+    if(resoutCondSucc==nullptr){
+        return;
+    }
+
+    std::vector<Instruction*> InstList;
+    CmpInstruction* cmp=nullptr;
+    for(auto bodyinstr = bodybb->begin(); bodyinstr != bodybb->end(); bodyinstr = bodyinstr->getNext()){
+        if(bodyinstr->isCmp()){
+            cmp=(CmpInstruction*) bodyinstr;
+            break;
+        }  
+        InstList.push_back(bodyinstr);
+    }
+    
+    //不像special的情况，我们无法预先计算出循环次数，但可以通过插入指令，在arm代码中动态计算
+    bool ifPlusOne = false;
+    BinaryInstruction* binPlusOne;
+    //变元i每次加1，如果cmp判定条件有等于的话，循环次数要加上一次
+    if(cmp->getOpCode()==CmpInstruction::LE||cmp->getOpCode()==CmpInstruction::GE){
+        ifPlusOne = true;
+    }
+    Operand* countDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
+    //使用endOp-beginOp计算循环次数，存入calCount（为中间变量）
+    BinaryInstruction* calCount = new BinaryInstruction(BinaryInstruction::SUB,countDef,endOp,beginOp,nullptr);
+    //如果循环次数需要加1，就new一条add 1的指令
+    if(ifPlusOne){
+        binPlusOne = new BinaryInstruction(BinaryInstruction::ADD,new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel())),countDef,new Operand(new ConstantSymbolEntry(TypeSystem::intType,1)),nullptr);
+        countDef = binPlusOne->getDef();
+    }
+    //假设要展开4次，计算循环次数countDef%4是否为0
+    //如果为0，我们就可以把bodybb按4次进行展开，跳到bodybb，否则resBodyBB
+    BinaryInstruction* binMod = new BinaryInstruction(BinaryInstruction::MOD,new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel())),countDef,new Operand(new ConstantSymbolEntry(TypeSystem::intType,UNROLLNUM)),nullptr);
+    CmpInstruction* cmpEZero = new CmpInstruction(CmpInstruction::E,new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())),binMod->getDef(),new Operand(new ConstantSymbolEntry(TypeSystem::intType,0)),nullptr);
+    CondBrInstruction* condBr = new CondBrInstruction(bodybb,resBodyBB,cmpEZero->getDef(),nullptr); 
+
+    //newCondBB接在condbb后面，用以计算循环次数并判断是否模4为0
+    newCondBB->addPred(condbb);
+    newCondBB->addSucc(bodybb);
+    newCondBB->addSucc(resBodyBB);
+    newCondBB->insertBack(calCount);
+    //得看是否有equal
+    if(ifPlusOne){
+        newCondBB->insertBack(binPlusOne);
+    }
+    newCondBB->insertBack(binMod);
+    newCondBB->insertBack(cmpEZero);
+    newCondBB->insertBack(condBr);
+    Instruction* condBrIns=condCmp->getNext();
+    ((CondBrInstruction*)condBrIns)->setTrueBranch(newCondBB);
+    condbb->addSucc(newCondBB);
+    condbb->removeSucc(bodybb);
+
+    //resBody接在newCond后面，自成循环；循环出口为resOut
+    resBodyBB->addPred(newCondBB);
+    resBodyBB->addPred(resBodyBB);
+    resBodyBB->addSucc(resBodyBB);
+    resBodyBB->addSucc(resOutCond);
+    //resBody第一条得是phi指令
+    //末尾添加cmp和br指令
+    std::vector<Instruction*> resBodyInstList;
+    for(auto ins:InstList){
+        resBodyInstList.push_back(ins->copy());
+    }
+    std::map<Operand*,Operand*> resBodyReplaceMap;
+    for(auto resIns:resBodyInstList){
+        if(resIns->getDef()){
+            if(resIns->isPhi()){
+                PhiInstruction* phi = (PhiInstruction*) resIns;
+                Operand* condOp = phi->getBlockSrc(condbb);
+                Operand* bodyOp = phi->getBlockSrc(bodybb);
+                phi->removeBlockSrc(condbb);
+                phi->removeBlockSrc(bodybb);
+                phi->addSrc(newCondBB,condOp);
+                phi->addSrc(resBodyBB,bodyOp);
+            }
+            Operand* oldDef = resIns->getDef(); 
+            Operand* newDef = new Operand(new TemporarySymbolEntry(oldDef->getType(),SymbolTable::getLabel()));
+            resBodyReplaceMap[oldDef]=newDef;
+            resIns->setDef(newDef);
+        }
+    }
+
+    Operand* resNumPhiDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
+    Operand* binIncDef = new Operand(new TemporarySymbolEntry(TypeSystem::intType,SymbolTable::getLabel()));
+    PhiInstruction* resNumPhi = new PhiInstruction(resNumPhiDef,nullptr);
+    resNumPhi->addSrc(newCondBB,new Operand(new ConstantSymbolEntry(TypeSystem::intType,0)));
+    resNumPhi->addSrc(resBodyBB,binIncDef);
+    BinaryInstruction* binInc = new BinaryInstruction(BinaryInstruction::ADD,binIncDef,resNumPhi->getDef(),new Operand(new ConstantSymbolEntry(TypeSystem::intType,1)),nullptr);
+    CmpInstruction* resBodyCmp = new CmpInstruction(CmpInstruction::NE,new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())),binIncDef,binMod->getDef(),nullptr);
+    CondBrInstruction* resBodyBr = new CondBrInstruction(resBodyBB,resOutCond,resBodyCmp->getDef(),nullptr);
+
+    for(auto resIns:resBodyInstList){
+        for(auto useOp:resIns->getUse()){
+            if(resBodyReplaceMap.find(useOp)!=resBodyReplaceMap.end()){
+                resIns->replaceUse(useOp,resBodyReplaceMap[useOp]);
+            }
+            else{
+                useOp->addUse(resIns);
+            }
+        }
+    }
+    
+    resBodyBB->insertBack(resBodyBr);
+    resBodyBB->insertBefore(resBodyCmp,resBodyBr);
+    resBodyBB->insertBefore(binInc,resBodyCmp);
+    resBodyBB->insertFront(resNumPhi,false);
+    for(auto resIns:resBodyInstList){
+        resBodyBB->insertBefore(resIns,binInc);
+    }
+
+    //resoutcond
+    resOutCond->addPred(resBodyBB);
+    resOutCond->addSucc(resoutCondSucc);
+    resOutCond->addSucc(bodybb);
+    resoutCondSucc->addPred(resOutCond);
+
+    CmpInstruction* resOutCondCmp =(CmpInstruction*) cmp->copy();
+    resOutCondCmp->setDef(new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())));
+    resOutCondCmp->replaceUse(strideOp,resBodyReplaceMap[strideOp]);
+    CondBrInstruction* resOutCondBr = new CondBrInstruction(bodybb,resoutCondSucc,resOutCondCmp->getDef(),nullptr);
+    resOutCond->insertBack(resOutCondBr);
+    resOutCond->insertBefore(resOutCondCmp,resOutCondBr);
+
+    bodybb->removePred(condbb);
+    bodybb->addPred(newCondBB);
+    bodybb->addPred(resOutCond);
+
+    for(int i=0;i<InstList.size();i++){
+        if(InstList[i]->isPhi()){
+            PhiInstruction* phi = (PhiInstruction*) InstList[i];
+            Operand* condOp =  phi->getBlockSrc(condbb);
+            Operand* bodyOp =  phi->getBlockSrc(bodybb); 
+            phi->removeBlockSrc(condbb);
+            phi->addSrc(newCondBB,condOp);
+            phi->addSrc(resOutCond,resBodyReplaceMap[bodyOp]);
+        }
+    }
+
+    specialUnroll(bodybb,UNROLLNUM,endOp,strideOp,false);
+
+    //更改resoutSucc,加一个来自rescout的源
+    for(auto bodyinstr = resoutCondSucc->begin(); bodyinstr != resoutCondSucc->end(); bodyinstr = bodyinstr->getNext()){
+        if(bodyinstr->isPhi()){
+            PhiInstruction* phi = (PhiInstruction*) bodyinstr;
+            Operand* originalOperand = phi->getBlockSrc(bodybb);
+            phi->addSrc(resOutCond,resBodyReplaceMap[originalOperand]);
+        }
+    }
 }
