@@ -616,6 +616,23 @@ MachineOperand *Instruction::immToVReg(MachineOperand *imm, MachineBlock *cur_bl
     return internal_reg;
 }
 
+MachineOperand *Instruction::fimmToVReg(MachineOperand *imm, MachineBlock *cur_block, AsmBuilder *builder)
+{
+    assert(imm->isImm());
+    auto internal_reg = genMachineVReg(true);
+    // 可以用vmov32，就用vmov32
+    if (builder->couldUseVMOV(imm->getVal()))
+    {
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV32, internal_reg, imm));
+    }
+    else
+    {
+        imm = new MachineOperand(*immToVReg(imm, cur_block));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, imm));
+    }
+    return internal_reg;
+}
+
 void AllocaInstruction::genMachineCode(AsmBuilder *builder)
 {
     /* HINT:
@@ -720,24 +737,9 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
     if (src1->isImm())
     {
         if (floatVersion)
-        {
-            auto internal_reg = genMachineVReg(true);
-            // 可以用vmov32，就用vmov32
-            if (builder->couldUseVMOV(src1->getVal()))
-            {
-                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV32, internal_reg, src1));
-            }
-            else
-            {
-                src1 = new MachineOperand(*immToVReg(src1, cur_block));
-                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src1));
-            }
-            src1 = new MachineOperand(*internal_reg);
-        }
+            src1 = new MachineOperand(*fimmToVReg(src1, cur_block, builder));
         else
-        {
             src1 = new MachineOperand(*immToVReg(src1, cur_block));
-        }
     }
     if (src2->isImm())
     {
@@ -760,18 +762,7 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
         }
         if (floatVersion) // 如果是浮点数，直接放寄存器里得了
         {
-            auto internal_reg = genMachineVReg(true);
-            // 可以用vmov32，就用vmov32
-            if (builder->couldUseVMOV(src2->getVal()))
-            {
-                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV32, internal_reg, src2));
-            }
-            else
-            {
-                src2 = new MachineOperand(*immToVReg(src2, cur_block));
-                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
-            }
-            src2 = new MachineOperand(*internal_reg);
+            src2 = new MachineOperand(*fimmToVReg(src2, cur_block, builder));
             // src2 = new MachineOperand(*immToVReg(src2, cur_block));
             // auto internal_reg = genMachineVReg(true);
             // cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
@@ -865,13 +856,10 @@ void CmpInstruction::genMachineCode(AsmBuilder *builder)
         }
         else
         {
-            src1 = new MachineOperand(*immToVReg(src1, cur_block));
             if (floatVersion)
-            {
-                auto internal_reg = genMachineVReg(true);
-                cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src1));
-                src1 = new MachineOperand(*internal_reg);
-            }
+                src1 = new MachineOperand(*fimmToVReg(src1, cur_block, builder));
+            else
+                src1 = new MachineOperand(*immToVReg(src1, cur_block));
         }
     }
     if (src2->isImm())
@@ -879,13 +867,10 @@ void CmpInstruction::genMachineCode(AsmBuilder *builder)
         /*我是抗拒用goto的*/
         if (!floatVersion && AsmBuilder::isLegalImm(src2->getVal()))
             goto SKIP;
-        src2 = new MachineOperand(*immToVReg(src2, cur_block));
         if (floatVersion)
-        {
-            auto internal_reg = genMachineVReg(true);
-            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
-            src2 = new MachineOperand(*internal_reg);
-        }
+            src2 = new MachineOperand(*fimmToVReg(src2, cur_block, builder));
+        else
+            src2 = new MachineOperand(*immToVReg(src2, cur_block));
     }
 SKIP:
     if (floatVersion)

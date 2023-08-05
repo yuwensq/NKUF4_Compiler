@@ -43,6 +43,7 @@ public:
     MachineOperand *genMachineImm(int val);
     MachineOperand *genMachineLabel(int block_no);
     MachineOperand *immToVReg(MachineOperand *, MachineBlock *);
+    MachineOperand *fimmToVReg(MachineOperand *, MachineBlock *, AsmBuilder *);
     virtual void genMachineCode(AsmBuilder *) = 0;
     std::vector<Operand *> &getOperands() { return operands; }
 
@@ -116,7 +117,8 @@ public:
         operands[0] = rep;
         operands[0]->setDef(this);
     }
-    void setDef(Operand* rep) {
+    void setDef(Operand *rep)
+    {
         operands[0] = rep;
         operands[0]->setDef(this);
     }
@@ -366,9 +368,10 @@ public:
     }
     void setDef(Operand *rep)
     {
-        if(operands[0]){
+        if (operands[0])
+        {
             operands[0] = rep;
-            operands[0]->setDef(this);            
+            operands[0]->setDef(this);
         }
     }
     void replaceUse(Operand *old, Operand *rep)
@@ -416,9 +419,10 @@ public:
     }
     void setDef(Operand *rep)
     {
-        if(operands.size()){
+        if (operands.size())
+        {
             operands[0] = rep;
-            operands[0]->setDef(this);            
+            operands[0]->setDef(this);
         }
     }
     void replaceUse(Operand *old, Operand *rep)
@@ -568,9 +572,10 @@ public:
     }
     void setDef(Operand *rep)
     {
-        if(operands[0]){
+        if (operands[0])
+        {
             operands[0] = rep;
-            operands[0]->setDef(this);            
+            operands[0]->setDef(this);
         }
     }
     void replaceUse(Operand *old, Operand *rep)

@@ -2,6 +2,7 @@
 #include <queue>
 
 // #define IRCSEDEBUG
+// #define PRINTLOG
 
 extern FILE *yyout;
 
@@ -56,6 +57,7 @@ void IRComSubExprElim::removeLoadAfterStore()
         {
             inst->replaceUse(loadInst->getDef(), loadSrc);
         }
+        pa.first->getUse()[0]->removeUse(loadInst);
         loadInst->getParent()->remove(loadInst);
     }
 }
@@ -295,7 +297,9 @@ bool IRComSubExprElim::localCSE(Function *func)
     // return true;
     static int round = 0;
     round++;
+#ifdef PRINTLOG
     Log("局部子表达式删除开始，round%d", round);
+#endif
     bool result = true;
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
@@ -320,7 +324,9 @@ bool IRComSubExprElim::localCSE(Function *func)
             }
         }
     }
+#ifdef PRINTLOG
     Log("局部子表达式删除结束，round%d", round);
+#endif
     return result;
 }
 
@@ -341,9 +347,11 @@ bool IRComSubExprElim::isKilled(Instruction *inst)
 
 void IRComSubExprElim::calGenAndKill(Function *func)
 {
-    // 参考链接https://eternalsakura13.com/2018/08/08/optimize/
-    // 先算gen和找到所有的expr
+// 参考链接https://eternalsakura13.com/2018/08/08/optimize/
+// 先算gen和找到所有的expr
+#ifdef PRINTLOG
     Log("start genkill");
+#endif
     std::vector<int> removeExpr;
     // int sum = 0;
     for (auto bb = func->begin(); bb != func->end(); bb++)
@@ -422,11 +430,7 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                     if (!exprVec[i].inst->isLoad())
                         continue;
                     if (invalidate(inst, exprVec[i].inst))
-                    {
                         killBB[*bb].insert(i);
-                        if ((*bb)->getNo() == 275)
-                            Log("dawang %d", i);
-                    }
                 }
             }
             if (inst->getDef() != nullptr)
@@ -452,7 +456,9 @@ void IRComSubExprElim::calGenAndKill(Function *func)
             }
         }
     }
+#ifdef PRINTLOG
     Log("fin genkill");
+#endif
 }
 
 void IRComSubExprElim::intersection(std::set<int> &a, std::set<int> &b, std::set<int> &out)
@@ -463,8 +469,10 @@ void IRComSubExprElim::intersection(std::set<int> &a, std::set<int> &b, std::set
 
 void IRComSubExprElim::calInAndOut(Function *func)
 {
-    // 准备个U
+// 准备个U
+#ifdef PRINTLOG
     Log("start inout");
+#endif
     std::set<int> U;
     for (int i = 0; i < exprVec.size(); i++)
         U.insert(i);
@@ -508,7 +516,9 @@ void IRComSubExprElim::calInAndOut(Function *func)
                 workList.insert(*succ);
         }
     }
+#ifdef PRINTLOG
     Log("fin inout");
+#endif
 }
 
 bool IRComSubExprElim::removeGlobalCSE(Function *func)
@@ -627,7 +637,9 @@ bool IRComSubExprElim::globalCSE(Function *func)
 {
     static int round = 0;
     round++;
+#ifdef PRINTLOG
     Log("全局子表达式删除开始，round%d", round);
+#endif
     exprVec.clear();
     ins2Expr.clear();
     expr2Op.clear();
@@ -678,7 +690,9 @@ bool IRComSubExprElim::globalCSE(Function *func)
     }
     fprintf(yyout, "\n");
 #endif
+#ifdef PRINTLOG
     Log("全局子表达式删除结束，round%d", round);
+#endif
     return result;
 }
 
@@ -699,11 +713,15 @@ void IRComSubExprElim::clearData()
 
 void IRComSubExprElim::pass()
 {
+#ifdef PRINTLOG
     Log("公共子表达式删除开始");
+#endif
     clearData();
     // 这个加load可能会导致变慢
     insertLoadAfterStore();
     doCSE();
     removeLoadAfterStore();
+#ifdef PRINTLOG
     Log("公共子表达式删除结束\n");
+#endif
 }
