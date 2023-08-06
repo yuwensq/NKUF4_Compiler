@@ -102,7 +102,8 @@ void IRPeepHole::subPass(Function *func)
     {
         bool cond1 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[1]->getEntry()->isConstant() && static_cast<ConstantSymbolEntry *>(inst->getUse()[1]->getEntry())->getValue() == 0);
         bool cond2 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[0]->getEntry()->isConstant() && static_cast<ConstantSymbolEntry *>(inst->getUse()[0]->getEntry())->getValue() == 0);
-        return cond1 || cond2;
+        bool cond3 = (inst->getParent() != inst->getParent()->getParent()->getEntry());
+        return (cond1 || cond2) && cond3;
     };
     auto solveCase4 = [&](Instruction *inst)
     {

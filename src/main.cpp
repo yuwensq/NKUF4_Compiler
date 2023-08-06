@@ -134,8 +134,8 @@ int main(int argc, char *argv[])
     spcfg.pass();
     lcm.pass();
     pairCodeElim();
-    // lcm.pass1();
-    // pairCodeElim();
+    lcm.pass1();
+    pairCodeElim();
     // lcm.pass1();
     // pairCodeElim();
     pe.pass();
