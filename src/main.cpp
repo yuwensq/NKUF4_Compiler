@@ -136,9 +136,12 @@ int main(int argc, char *argv[])
     pairCodeElim();
     lcm.pass1();
     pairCodeElim();
-    pe.pass();
-    iph.pass2();
-    tca.pass();
+    lcm.pass1();
+    pairCodeElim();
+    unit.output();
+    // pe.pass();
+    // iph.pass2();
+    // tca.pass();
 
     Log("IR优化成功"); /**/
 
