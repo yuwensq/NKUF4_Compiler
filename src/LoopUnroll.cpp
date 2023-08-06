@@ -224,7 +224,7 @@ void LoopUnroll::Unroll(){
         }
 
         //打印stepOp
-        //cout<<"stepOp: "<<stepOp->toStr()<<endl;
+        // cout<<"stepOp: "<<stepOp->toStr()<<endl;
 
         //若是常量，存取其值
         if(beginOp->getEntry()->isConstant()){
@@ -371,7 +371,7 @@ void LoopUnroll::Unroll(){
                 * Special:  pred -> body -> Exitbb      ==>     pred -> newbody -> Exitbb
                 */
                 if(count>0&&count<=MAXUNROLLNUM){
-                    //cout<<"specialUnroll: count = "<<count<<endl;
+                    // cout<<"specialUnroll: count = "<<count<<endl;
                     specialUnroll(body,count,endOp,strideOp,true);
                 }
                 //如果count超过了max，就特殊展开，这边先不做
@@ -391,11 +391,11 @@ void LoopUnroll::Unroll(){
                 */
                 if(step==1){
                     if(ivOpcode==BinaryInstruction::ADD){
-                        //cout<<"normalUnroll +"<<endl;
+                        // cout<<"normalUnroll +"<<endl;
                         normalUnroll(cond,body,beginOp,endOp,strideOp);                          
                     }
                     else if(ivOpcode==BinaryInstruction::SUB){
-                        //cout<<"normalUnroll -"<<endl;
+                        // cout<<"normalUnroll -"<<endl;
                         normalUnroll(cond,body,beginOp,endOp,strideOp,false);                               
                     }
                 }
@@ -837,7 +837,7 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     resOutCond->addSucc(resoutCondSucc);
     resOutCond->addSucc(bodybb);
     resoutCondSucc->addPred(resOutCond);
-
+    
     CmpInstruction* resOutCondCmp =(CmpInstruction*) cmp->copy();
     resOutCondCmp->setDef(new Operand(new TemporarySymbolEntry(TypeSystem::boolType,SymbolTable::getLabel())));
     resOutCondCmp->replaceUse(strideOp,resBodyReplaceMap[strideOp]);
@@ -853,7 +853,7 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     if(needNewLoad){
         resOutCond->insertBefore(maybeLoadIns,resOutCondCmp);
     }
-
+    
     bodybb->removePred(condbb);
     bodybb->addPred(newCondBB);
     bodybb->addPred(resOutCond);
@@ -868,15 +868,24 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
             phi->addSrc(resOutCond,resBodyReplaceMap[bodyOp]);
         }
     }
-
+    
     specialUnroll(bodybb,UNROLLNUM,endOp,strideOp,false);
-
+    
     //更改resoutSucc,加一个来自rescout的源
     for(auto bodyinstr = resoutCondSucc->begin(); bodyinstr != resoutCondSucc->end(); bodyinstr = bodyinstr->getNext()){
         if(bodyinstr->isPhi()){
             PhiInstruction* phi = (PhiInstruction*) bodyinstr;
             Operand* originalOperand = phi->getBlockSrc(bodybb);
-            phi->addSrc(resOutCond,resBodyReplaceMap[originalOperand]);
+            // cout<<bodyinstr->getDef()->toStr()<<endl;
+            // cout<<originalOperand->toStr()<<endl;
+            // cout<<resOutCond->getNo()<<endl;
+            // cout<<resBodyReplaceMap[originalOperand]->toStr()<<endl;
+            if(resBodyReplaceMap[originalOperand]!=nullptr){
+                phi->addSrc(resOutCond,resBodyReplaceMap[originalOperand]);
+            }
+            else{
+                phi->addSrc(resOutCond,originalOperand);
+            }
         }
     }
 }
