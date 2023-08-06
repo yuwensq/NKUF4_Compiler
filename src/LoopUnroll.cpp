@@ -796,6 +796,7 @@ void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand 
         bb->removePred(bb);
         bb->removeSucc(bb);
     }
+    successUnroll=true;    
 }
 
 void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *beginOp, Operand *endOp, Operand *strideOp, bool isIncrease)
@@ -1114,4 +1115,5 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
             }
         }
     }
+    successUnroll=true;    
 }

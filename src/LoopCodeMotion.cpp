@@ -31,8 +31,9 @@ void LoopCodeMotion::pass()
 }
 
 // 循环展开优化，放这边是因为需要DomSet和LoopList的信息
-void LoopCodeMotion::pass1()
+bool LoopCodeMotion::pass1()
 {
+    bool flag=false;
     // 遍历每一个函数做操作
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -51,7 +52,7 @@ void LoopCodeMotion::pass1()
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
         // printLoop(LoopList);
-
+        
         // 代码外提,但是一旦外提，dom和loop的信息就可能变化
         //  CodePullUp(*func,LoopList,BackEdges);
         //  dealwithNoPreBB(*func);
@@ -60,7 +61,12 @@ void LoopCodeMotion::pass1()
         LoopUnroll Ln(DomBBSet);
         Ln.calculateCandidateLoop(LoopList); // 计算候选的，待处理的循环集合
         Ln.Unroll();
+        if(Ln.successUnroll){
+            flag=true;
+        }
     }
+    // cout<<flag<<endl;
+    return flag;
 }
 
 // 计算当前函数每一个基本块的必经节点，存入DomBBSet

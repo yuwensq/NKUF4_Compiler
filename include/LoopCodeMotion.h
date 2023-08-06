@@ -45,7 +45,7 @@ public:
     void printLoopConst(std::vector<Instruction*> LoopConstInstructions);
 
     void pass();
-    void pass1();
+    bool pass1(); //成功展开返回true
 };
 
 #endif

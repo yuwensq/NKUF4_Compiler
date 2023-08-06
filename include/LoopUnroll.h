@@ -43,6 +43,7 @@ public:
     void normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *beginOp, Operand *endOp, Operand *strideOp, bool isIncrease = true);
 
     void Unroll();
+    bool successUnroll=false;
 };
 
 #endif
