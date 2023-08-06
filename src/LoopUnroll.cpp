@@ -110,8 +110,10 @@ void LoopUnroll::Unroll()
         stack<Instruction *> temp;      // 仅用于清空
         Instruction *bodyCmp = nullptr;
         bool endOpChangeWithCycle = true;
+        int unrollNum=0;
         for (auto bodyinstr = body->begin(); bodyinstr != body->end(); bodyinstr = bodyinstr->getNext())
         {
+            unrollNum++;
             if (bodyinstr->isCmp())
             {
                 bodyCmp = bodyinstr;
@@ -462,8 +464,11 @@ void LoopUnroll::Unroll()
                  */
                 if (count > 0 && count <= MAXUNROLLNUM)
                 {
-                    // cout<<"specialUnroll: count = "<<count<<endl;
-                    specialUnroll(body, count, endOp, strideOp, true);
+                    //计算展开后的最大指令数，超过了10000就不再展开了
+                    if((unrollNum-2)*count<MAXUNROLLINSNUM){
+                        // cout<<"specialUnroll: count = "<<count<<endl;
+                        specialUnroll(body, count, endOp, strideOp, true);
+                    }
                 }
                 // 如果count超过了max，就特殊展开，这边先不做
             }

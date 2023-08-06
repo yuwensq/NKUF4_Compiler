@@ -31,6 +31,7 @@ class LoopUnroll
     vector<loop *> candidateLoops;
     int MAXUNROLLNUM = 400;
     int UNROLLNUM = 4;
+    int MAXUNROLLINSNUM = 10000;
 
 public:
     LoopUnroll(unordered_map<Function *, unordered_map<BasicBlock *, vector<BasicBlock *>>> DomBBSet) : DomBBSet(DomBBSet){};

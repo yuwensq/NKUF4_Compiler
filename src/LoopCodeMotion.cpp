@@ -41,6 +41,7 @@ void LoopCodeMotion::pass()
 bool LoopCodeMotion::pass1()
 {
     bool flag = false;
+    clearData();
     // 遍历每一个函数做操作
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -73,7 +74,7 @@ bool LoopCodeMotion::pass1()
             flag = true;
         }
     }
-    // cout<<flag<<endl;
+    //cout<<flag<<endl;
     return flag;
 }
 

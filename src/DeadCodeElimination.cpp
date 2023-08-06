@@ -7,6 +7,9 @@ void DeadCodeElimination::pass()
 {
     static int round = 0;
     round++;
+    gepOp.clear();
+    gloOp.clear();
+    allocOp.clear();
     //Log("死代码删除开始，round%d\n", round);
     for(auto func=unit->begin();func!=unit->end();func++)
     {
@@ -55,9 +58,6 @@ void DeadCodeElimination::adjustBlock(Function* func)
 void DeadCodeElimination::initalize(Function* func) 
 {
     worklist.clear();
-    gepOp.clear();
-    gloOp.clear();
-    allocOp.clear();
     //遍历函数的每一个基本块，完成初始化标记操作
     for (auto it = func->begin(); it != func->end(); it++) 
     {
