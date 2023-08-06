@@ -726,13 +726,31 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     Operand* maybeLoadOp=nullptr;
     Instruction* maybeLoadIns=nullptr;
     bool needNewLoad=false;
-    if(cmp->getPrev()==endOpDef&&endOpDef->isLoad()&&endOpDef->getUse()[0]->isGlobal()){
+    if(cmp->getPrev()==endOpDef&&endOpDef->isLoad()){
         needNewLoad=true;
-        //循环内部不能有store这个全局变量的操作
-        for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
-            if(ins->isStore()&&ins->getUse()[0]==endOpDef->getUse()[0]){
-                needNewLoad=false;
-                break;
+        if(endOpDef->getUse()[0]->isGlobal()){
+            //循环内部不能有store这个全局变量的操作，否则不能展开
+            for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
+                if(ins->isStore()&&ins->getUse()[0]==endOpDef->getUse()[0]){
+                    // cout<<"循环内部有store这个endOp相关全局变量的操作"<<endl;
+                    return;
+                }
+            }            
+        }
+        else{
+            //循环内部不能有store这个数组的操作
+            Instruction* gepDef=(endOpDef->getUse()[0])->getDef();
+            if(gepDef->isGep()){
+                for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
+                    if(ins->isStore()&&ins->getUse()[0]==gepDef->getUse()[0]){
+                        // cout<<"循环内部有store这个endOp相关全局变量的操作"<<endl;
+                        return;
+                    }
+                } 
+            }
+            else{
+                // cout<<"循环内部有store这个endOp相关数组的操作 2"<<endl;
+                return;                
             }
         }
     }
