@@ -669,15 +669,17 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
             for(auto ins=trueCondbb->begin();ins!=trueCondbb->end();ins=ins->getNext()){
                 if(ins->isCmp()){
                     if(!(ins->getOpCode()==CmpInstruction::E||ins->getOpCode()==CmpInstruction::NE)){
+                        condCmp=ins;
                         isCodePull=true;
+                        // cout<<"isCodePull"<<endl;
                         break;
                     }                    
                 }
             }
         }
     }
-    if(condCmp==nullptr){
-    //if(condCmp==nullptr&&!isCodePull){
+    // if(condCmp==nullptr){
+    if(condCmp==nullptr&&!isCodePull){
         //cout<<"condbb have not cmp"<<endl;
         return;
     }
@@ -785,8 +787,15 @@ void LoopUnroll::normalUnroll(BasicBlock* condbb,BasicBlock* bodybb,Operand* beg
     newCondBB->insertBack(binMod);
     newCondBB->insertBack(cmpEZero);
     newCondBB->insertBack(condBr);
-    Instruction* condBrIns=condCmp->getNext();
-    ((CondBrInstruction*)condBrIns)->setTrueBranch(newCondBB);
+    if(isCodePull){
+        Instruction* BrIns=condbb->rbegin();
+        ((UncondBrInstruction*)BrIns)->setBranch(newCondBB);
+    }
+    else{
+        Instruction* condBrIns=condCmp->getNext();
+        ((CondBrInstruction*)condBrIns)->setTrueBranch(newCondBB);        
+    }
+
     condbb->addSucc(newCondBB);
     condbb->removeSucc(bodybb);
 
