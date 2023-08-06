@@ -12,6 +12,7 @@ void LoopCodeMotion::clearData()
 // 目前只完成代码外提的优化，还可以加强度削弱、循环展开
 void LoopCodeMotion::pass()
 {
+    clearData();
     // 遍历每一个函数做操作
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -40,6 +41,7 @@ void LoopCodeMotion::pass()
 // 循环展开优化，放这边是因为需要DomSet和LoopList的信息
 bool LoopCodeMotion::pass1()
 {
+    clearData();
     bool flag = false;
     // 遍历每一个函数做操作
     for (auto func = unit->begin(); func != unit->end(); func++)

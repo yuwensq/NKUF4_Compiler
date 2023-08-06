@@ -137,8 +137,6 @@ int main(int argc, char *argv[])
     int times = 0;
     do
     {
-        // fprintf(yyout, "%d times\n", ++times);
-        // unit.output();
         pairCodeElim();
     } while (lcm.pass1());
     pairCodeElim();
