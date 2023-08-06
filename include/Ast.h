@@ -106,7 +106,6 @@ class UnaryExpr : public ExprNode
 private:
     int op;
     ExprNode *expr;
-    ExprNode *fold(UnaryExpr *, int *);
 
 public:
     enum
