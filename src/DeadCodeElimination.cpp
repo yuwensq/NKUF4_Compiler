@@ -396,8 +396,8 @@ void DeadCodeElimination::pass()
     gepOp.clear();
     gloOp.clear();
     allocOp.clear();
-    // Log("死代码删除开始，round%d\n", round);
-    for (auto func = unit->begin(); func != unit->end(); func++)
+    //Log("死代码删除开始，round%d\n", round);
+    for(auto func=unit->begin();func!=unit->end();func++)
     {
         bool again = true;
         // 删除没有前驱的块
@@ -445,8 +445,8 @@ void DeadCodeElimination::adjustBlock(Function *func)
 void DeadCodeElimination::initalize(Function *func)
 {
     worklist.clear();
-    // 遍历函数的每一个基本块，完成初始化标记操作
-    for (auto it = func->begin(); it != func->end(); it++)
+    //遍历函数的每一个基本块，完成初始化标记操作
+    for (auto it = func->begin(); it != func->end(); it++) 
     {
         // 将基本块的mark标记置为false
         (*it)->unsetMark();
