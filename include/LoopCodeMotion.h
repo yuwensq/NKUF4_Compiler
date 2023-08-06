@@ -44,6 +44,7 @@ public:
     void printLoop(std::vector<std::vector<BasicBlock*>>& LoopList);
     void printLoopConst(std::vector<Instruction*> LoopConstInstructions);
 
+    void clearData();
     void pass();
     bool pass1(); //成功展开返回true
 };

@@ -2,6 +2,13 @@
 #include <algorithm>
 #include "LoopUnroll.h"
 
+void LoopCodeMotion::clearData()
+{
+    DomBBSet.clear();
+    LoopConst.clear();
+    loopStoreOperands.clear();
+}
+
 // 目前只完成代码外提的优化，还可以加强度削弱、循环展开
 void LoopCodeMotion::pass()
 {
@@ -33,7 +40,7 @@ void LoopCodeMotion::pass()
 // 循环展开优化，放这边是因为需要DomSet和LoopList的信息
 bool LoopCodeMotion::pass1()
 {
-    bool flag=false;
+    bool flag = false;
     // 遍历每一个函数做操作
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -52,7 +59,7 @@ bool LoopCodeMotion::pass1()
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
         // printLoop(LoopList);
-        
+
         // 代码外提,但是一旦外提，dom和loop的信息就可能变化
         //  CodePullUp(*func,LoopList,BackEdges);
         //  dealwithNoPreBB(*func);
@@ -61,8 +68,9 @@ bool LoopCodeMotion::pass1()
         LoopUnroll Ln(DomBBSet);
         Ln.calculateCandidateLoop(LoopList); // 计算候选的，待处理的循环集合
         Ln.Unroll();
-        if(Ln.successUnroll){
-            flag=true;
+        if (Ln.successUnroll)
+        {
+            flag = true;
         }
     }
     // cout<<flag<<endl;
