@@ -110,21 +110,20 @@ void Global2Local::pass(Function *func)
     // step1：遍历globals中每一个符号表项，在enrty插入alloc-load-store，替换原函数中load和store的操作数
     for (auto g : funcGlobals)
     {
-        // cout<<func->getSymPtr()->toStr()<<" : "<<g->toStr()<<endl;
+        // cout << func->getSymPtr()->toStr() << " : " << g->toStr() << endl;
         // 如果是常量变量或常数组的话，不处理，也就是全局声明 const a=2；不处理它（交给后面优化）
         bool hasStore = false;
-        for (auto in : globals[g][func])
+        for (auto &[func, ins] : globals[g])
         {
-            if (in->isStore())
-            {
-                hasStore = true;
-                break;
-            }
+            for (auto in : ins)
+                if (in->isStore())
+                {
+                    hasStore = true;
+                    break;
+                }
         }
         if (((IdentifierSymbolEntry *)g)->getConstant() || !hasStore)
-        {
             continue;
-        }
         // 我们load或store全局的时候，是用指针去取值的
         auto type = ((PointerType *)(g->getType()))->getType();
         // 先不处理全局数组，也就是现在我们就关注全局的变量（int&float)

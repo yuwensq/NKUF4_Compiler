@@ -131,16 +131,15 @@ int main(int argc, char *argv[])
     pairCodeElim();
     finline.pass();
     pairCodeElim();
-    spcfg.pass();
-    lcm.pass();
-    pairCodeElim();
-    int times = 0;
-    do
-    {
-        pairCodeElim();
-    } while (lcm.pass1());
-    pairCodeElim();
-    pe.pass();
+    // spcfg.pass();
+    // lcm.pass();
+    // pairCodeElim();
+    // do
+    // {
+    //     pairCodeElim();
+    // } while (lcm.pass1());
+    // pairCodeElim();
+    // pe.pass();
     iph.pass2();
     tca.pass();
 

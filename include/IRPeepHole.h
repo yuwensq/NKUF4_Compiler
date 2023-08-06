@@ -8,6 +8,7 @@ class IRPeepHole
 private:
     Unit *unit;
     void subPass(Function *);
+    void subPassForBlk(Function *);
     void subPass2(Function *);
 
 public:

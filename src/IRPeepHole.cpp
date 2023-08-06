@@ -6,6 +6,24 @@ extern FILE *yyout;
 
 void IRPeepHole::subPass(Function *func)
 {
+    auto isAddConst = [&](Instruction *inst)
+    {
+        bool cond1 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[1]->getEntry()->isConstant());
+        bool cond2 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[0]->getEntry()->isConstant());
+        Operand *useOp = nullptr;
+        Operand *constOp = nullptr;
+        if (cond1 && !cond2)
+        {
+            useOp = inst->getUse()[0];
+            constOp = inst->getUse()[1];
+        }
+        else if (cond2 && !cond1)
+        {
+            useOp = inst->getUse()[1];
+            constOp = inst->getUse()[0];
+        }
+        return std::make_pair(useOp, constOp);
+    };
     auto case1 = [&](Instruction *inst)
     {
         auto nextInst = inst->getNext();
@@ -117,6 +135,35 @@ void IRPeepHole::subPass(Function *func)
         inst->getParent()->remove(inst);
         return prev;
     };
+    auto case5 = [&](Instruction *inst)
+    {
+        auto [useOp, constOp] = isAddConst(inst);
+        if (useOp == nullptr || useOp->getDef() == nullptr)
+            return false;
+        if (useOp->getDef()->getUse().size() != 1)
+            return false;
+        auto [useOp2, constOp2] = isAddConst(useOp->getDef());
+        if (useOp2 == nullptr)
+            return false;
+        if (useOp2->getDef()->getParent() == func->getEntry())
+            return false;
+        return true;
+    };
+    auto solveCase5 = [&](Instruction *inst)
+    {
+        auto [useOp, constOp] = isAddConst(inst);
+        auto [useOp2, constOp2] = isAddConst(useOp->getDef());
+        useOp->removeUse(inst);
+        inst->replaceUse(useOp, useOp2);
+        // 这里直接相加
+        auto value1 = static_cast<ConstantSymbolEntry *>(constOp->getEntry())->getValue();
+        auto value2 = static_cast<ConstantSymbolEntry *>(constOp2->getEntry())->getValue();
+        bool floatV = static_cast<ConstantSymbolEntry *>(useOp2->getEntry())->getType()->isFloat();
+        inst->replaceUse(constOp, new Operand(new ConstantSymbolEntry(floatV ? TypeSystem::floatType : TypeSystem::intType, floatV ? (float)value1 + (float)value2 : value1 + value2)));
+        auto bb = useOp->getDef()->getParent();
+        bb->remove(useOp->getDef());
+        return inst->getPrev();
+    };
     bool change = false;
     do
     {
@@ -145,9 +192,18 @@ void IRPeepHole::subPass(Function *func)
                     inst = solveCase4(inst);
                     change = true;
                 }
+                if (case5(inst))
+                {
+                    inst = solveCase5(inst);
+                    change = true;
+                }
             }
         }
     } while (change);
+}
+
+void IRPeepHole::subPassForBlk(Function *)
+{
 }
 
 void IRPeepHole::pass()
@@ -155,11 +211,28 @@ void IRPeepHole::pass()
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         subPass(*func);
+        subPassForBlk(*func);
     }
 }
 
-void IRPeepHole::subPass2(Function *)
+void IRPeepHole::subPass2(Function *func)
 {
+    auto case1 = [&](BasicBlock *bb)
+    {
+        return false;
+    };
+    bool change = false;
+    do
+    {
+        change = false;
+        for (auto bb = func->begin(); bb != func->end(); bb++)
+        {
+            if (case1(*bb))
+            {
+                change = true;
+            }
+        }
+    } while (change);
 }
 
 void IRPeepHole::pass2()
