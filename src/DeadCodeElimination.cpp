@@ -55,6 +55,9 @@ void DeadCodeElimination::adjustBlock(Function* func)
 void DeadCodeElimination::initalize(Function* func) 
 {
     worklist.clear();
+    gepOp.clear();
+    gloOp.clear();
+    allocOp.clear();
     //遍历函数的每一个基本块，完成初始化标记操作
     for (auto it = func->begin(); it != func->end(); it++) 
     {
