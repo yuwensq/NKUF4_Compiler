@@ -94,27 +94,27 @@ void LoopCodeMotion::calculateFinalDomBBSet(Function *func)
         // 遍历当前函数每一个基本块，获取他们的必经节点
         for (auto block : func->getBlockList())
         {
-            std::vector<BasicBlock *> finalDomList;
-            bool ifFirst = true;
+            std::vector<BasicBlock *> finalDomSet;
+            bool firstFlag = true;
             // 遍历当前基本块的每一个前继
             // 如果只有一个前继基本块，那么前继基本块的必经节点一定是当前基本块的必经节点
             // 如果有多个前继基本块，那么那些前继基本块共有的必经节点一定是当前基本块的必经节点
             for (auto fartherBlock = block->pred_begin(); fartherBlock != block->pred_end(); fartherBlock++)
             {
-                if (ifFirst)
+                if (firstFlag)
                 {
-                    finalDomList = DomSet[*fartherBlock];
-                    ifFirst = false;
+                    finalDomSet = DomSet[*fartherBlock];
+                    firstFlag = false;
                     continue;
                 }
-                finalDomList = getIntersectBBList(DomSet[*fartherBlock], finalDomList);
+                finalDomSet = getIntersectBBList(DomSet[*fartherBlock], finalDomSet);
             }
             // 当前节点的支配节点集合必定包括它自身
-            if (!count(finalDomList.begin(), finalDomList.end(), block))
+            if (!count(finalDomSet.begin(), finalDomSet.end(), block))
             {
-                finalDomList.push_back(block);
+                finalDomSet.push_back(block);
             }
-            DomSet[block] = finalDomList;
+            DomSet[block] = finalDomSet;
         }
 
         // 与迭代前的那一版DomBBSet做比较，如果相同，就代表迭代完成，否则继续迭代
