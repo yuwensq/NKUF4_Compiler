@@ -94,10 +94,13 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 Operand *retValue = nullptr;
                 if (inst->getUse().size())
                 {
+                    int paramNo = -1;
                     auto use = inst->getUse()[0];
                     auto se = use->getEntry();
                     if (se->isConstant())
                         retValue = new Operand(se);
+                    else if ((paramNo = calleeFunc->getParamNumber(use)) != -1)
+                        retValue = params[paramNo];
                     else if (op2op.find(use) == op2op.end())
                     {
                         retValue = copyOp(use);

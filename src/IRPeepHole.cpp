@@ -2,6 +2,8 @@
 #include "Type.h"
 #include "debug.h"
 
+extern FILE *yyout;
+
 void IRPeepHole::subPass(Function *func)
 {
     auto case1 = [&](Instruction *inst)
@@ -96,6 +98,24 @@ void IRPeepHole::subPass(Function *func)
         bb->remove(inst);
         return nextInst->getPrev();
     };
+    auto case4 = [&](Instruction *inst)
+    {
+        bool cond1 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[1]->getEntry()->isConstant() && static_cast<ConstantSymbolEntry *>(inst->getUse()[1]->getEntry())->getValue() == 0);
+        bool cond2 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[0]->getEntry()->isConstant() && static_cast<ConstantSymbolEntry *>(inst->getUse()[0]->getEntry())->getValue() == 0);
+        return cond1 || cond2;
+    };
+    auto solveCase4 = [&](Instruction *inst)
+    {
+        auto prev = inst->getPrev();
+        bool cond1 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[1]->getEntry()->isConstant() && static_cast<ConstantSymbolEntry *>(inst->getUse()[1]->getEntry())->getValue() == 0);
+        std::vector<Instruction *> uses(inst->getDef()->getUse());
+        auto replaceUse = cond1 ? inst->getUse()[0] : inst->getUse()[1];
+        replaceUse->removeUse(inst);
+        for (auto use : uses)
+            use->replaceUse(inst->getDef(), replaceUse);
+        inst->getParent()->remove(inst);
+        return prev;
+    };
     bool change = false;
     do
     {
@@ -117,6 +137,11 @@ void IRPeepHole::subPass(Function *func)
                 if (case3(inst))
                 {
                     inst = solveCase3(inst);
+                    change = true;
+                }
+                if (case4(inst))
+                {
+                    inst = solveCase4(inst);
                     change = true;
                 }
             }
