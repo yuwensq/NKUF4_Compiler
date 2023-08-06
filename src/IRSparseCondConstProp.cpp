@@ -423,6 +423,8 @@ static void replaceWithConst(Function *func)
         for (auto rInst : removeList)
         {
             bb->remove(rInst);
+            for (auto use : rInst->getUse())
+                use->removeUse(rInst);
         }
     }
 }

@@ -391,7 +391,7 @@ void LoopUnroll::Unroll(){
                 */
                 if(ivOpcode==BinaryInstruction::ADD&&step==1){
                     //cout<<"normalUnroll"<<endl;
-                    normalUnroll(cond,body,beginOp,endOp,strideOp);             
+                    // normalUnroll(cond,body,beginOp,endOp,strideOp);             
                 }
                 if(ivOpcode==BinaryInstruction::SUB&&step==1){
 

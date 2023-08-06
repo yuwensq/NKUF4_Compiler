@@ -734,6 +734,9 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
     auto src1 = genMachineOperand(operands[1]);
     auto src2 = genMachineOperand(operands[2]);
     MachineInstruction *cur_inst = nullptr;
+    // 加法，这里交换一下
+    if (opcode == BinaryInstruction::ADD && src1->isImm() && !src2->isImm())
+        std::swap(src1, src2);
     if (src1->isImm())
     {
         if (floatVersion)

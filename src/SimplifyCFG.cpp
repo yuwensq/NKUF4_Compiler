@@ -154,9 +154,27 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
             freeList.insert(bb);
             change = true;
         }
-        // 如果仅有一个前驱且该前驱仅有一个后继，将基本块与前驱合并 | 补充：后继开头不能有phi，有phi不好处理
-        else if (bb->getNumOfPred() == 1 && (*(bb->pred_begin()))->getNumOfSucc() == 1 && bb != F->getEntry() && !bb->begin()->isPhi())
+        // 如果仅有一个前驱且该前驱仅有一个后继，将基本块与前驱合并
+        else if (bb->getNumOfPred() == 1 && (*(bb->pred_begin()))->getNumOfSucc() == 1 && bb != F->getEntry())
         {
+            // 先处理phi指令，因为只有一个前驱，所以phi指令也一定只有一项
+            for (auto phi = bb->begin(); phi != bb->end(); phi = phi->getNext())
+            {
+                if (phi->isPhi())
+                {
+                    assert(static_cast<PhiInstruction *>(phi)->getSrcs().size() == 1);
+                    auto prevIns = phi->getPrev();
+                    auto src = (*(static_cast<PhiInstruction *>(phi)->getSrcs().begin())).second;
+                    src->removeUse(phi);
+                    auto def = phi->getDef();
+                    auto add = new BinaryInstruction(BinaryInstruction::ADD, def, src, new Operand(new ConstantSymbolEntry(def->getType(), 0)));
+                    bb->remove(phi);
+                    bb->insertAfter(add, prevIns);
+                    phi = add;
+                }
+                else
+                    break;
+            }
             auto pred = *(bb->pred_begin());
             pred->removeSucc(bb);
             auto lastInst = pred->rbegin();

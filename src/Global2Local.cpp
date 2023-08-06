@@ -149,7 +149,16 @@ void Global2Local::pass(Function *func)
         addr_se->setType(new PointerType(type));
         auto addr = new Operand(addr_se);
         auto dst = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-        auto load = new LoadInstruction(dst, addr);
+        // main函数里是不是可以生成add指令
+        Instruction *load = nullptr;
+        if (static_cast<IdentifierSymbolEntry *>(func->getSymPtr())->getName() == "main")
+        {
+            auto src1 = new Operand(new ConstantSymbolEntry(type, static_cast<IdentifierSymbolEntry *>(g)->getValue()));
+            auto zero = new Operand(new ConstantSymbolEntry(type, 0));
+            load = new BinaryInstruction(BinaryInstruction::ADD, dst, src1, zero);
+        }
+        else
+            load = new LoadInstruction(dst, addr);
         load->setParent(entry);
         for (auto in = entry->begin(); in != entry->end(); in = in->getNext())
             if (!in->isAlloc())

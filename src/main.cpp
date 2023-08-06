@@ -133,13 +133,12 @@ int main(int argc, char *argv[])
     pairCodeElim();
     spcfg.pass();
     lcm.pass();
+    pairCodeElim();
     lcm.pass1();
-    // sccp.pass();
-    cse.pass();
-    // dce.pass();
-    // pe.pass();
-    // iph.pass2();
-    // tca.pass();
+    pairCodeElim();
+    pe.pass();
+    iph.pass2();
+    tca.pass();
 
     Log("IR优化成功"); /**/
 
