@@ -110,7 +110,7 @@ void LoopUnroll::Unroll()
         stack<Instruction *> temp;      // 仅用于清空
         Instruction *bodyCmp = nullptr;
         bool endOpChangeWithCycle = true;
-        int unrollNum=0;
+        int unrollNum = 0;
         for (auto ins = body->begin(); ins != body->end(); ins = ins->getNext())
         {
             unrollNum++;
@@ -491,9 +491,10 @@ void LoopUnroll::Unroll()
                 {
                     if (ivOpcode == BinaryInstruction::ADD)
                     {
-                        if(!discardLoop(unrollNum,body,cond,strideOp,beginOp,endOp)){
+                        if (!discardLoop(unrollNum, body, cond, strideOp, beginOp, endOp))
+                        {
                             // cout<<"normalUnroll +"<<endl;
-                            normalUnroll(cond, body, beginOp, endOp, strideOp);                            
+                            normalUnroll(cond, body, beginOp, endOp, strideOp);
                         }
                     }
                     else if (ivOpcode == BinaryInstruction::SUB)
@@ -1125,55 +1126,133 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
     }
     successUnroll = true;
 }
-bool LoopUnroll::discardLoop(int bodyInsNum,BasicBlock* bodybb,BasicBlock *condbb,Operand* strideOp,Operand *beginOp, Operand *endOp){
-    //能完全消除的循环，其中的操作数应该能根据phi指令串成一条链
-    //循环中至少有一条链是strideOp相关的
-    if(bodybb->getPred().size()!=2){
+
+bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *condbb, Operand *strideOp, Operand *beginOp, Operand *endOp)
+{
+    // 只消去归纳变量为i=i+1的循环
+    // 能完全消除的循环，其中的操作数应该能根据phi指令串成一条链
+    // 循环中至少有一条链是strideOp相关的
+    if (bodybb->getPred().size() != 2)
+    {
         return false;
     }
-    //每一个phi指令的def会映射到一个数对中，第一个为初始值，第二个为最后的值
-    unordered_map<Operand*, vector<Operand*>> phi_begin_end;
-    unordered_map<Operand*, vector<Operand*>> phiOpChain;
-    unordered_map<Operand*, vector<Instruction*>> phiInsChain;
-    int usefulInsNum=1;//肯定会有一条cond指令
-    for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
-        if(ins->isPhi()){
-            vector<Operand*> temp;
-            Operand* phiBeginOp=((PhiInstruction*)ins)->getBlockSrc(condbb);
-            Operand* phiEndOp=((PhiInstruction*)ins)->getBlockSrc(bodybb);
-            //循环变元的这条链有且仅有3条指令构成,这条链不处理
-            if(phiEndOp==strideOp){
-                usefulInsNum+=3;
-                continue;
-            }
-            temp.push_back(phiBeginOp);
-            temp.push_back(phiEndOp);
-
-            phi_begin_end[ins->getDef()]=temp;
-
-            temp.clear();
-            temp.push_back(ins->getDef());
-            phiOpChain[ins->getDef()]=temp;
-
-            vector<Instruction*> temp1;
-            temp1.push_back(ins);
-            phiInsChain[ins->getDef()]=temp1;
-            usefulInsNum++;
+    std::map<Operand *, int> appearTimes;
+    std::vector<Instruction *> chain;
+    std::set<Instruction *> color;
+    int phiInstNum = 0;
+    Instruction *cmpInst = nullptr;
+    for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
+    {
+        if (inst->isPhi())
+        {
+            phiInstNum++;
+            if (phiInstNum > 2)
+                return false;
+            auto phiEndOp = static_cast<PhiInstruction *>(inst)->getBlockSrc(bodybb);
+            if (phiEndOp == strideOp)
+                color.insert(inst);
         }
-        else if(ins->isBinary()){
-            Operand* useOp0=ins->getUse()[0];
-            Operand* useOp1=ins->getUse()[1];
-            if(useOp0->getDef()->getParent()==bodybb){
-                if(useOp1->getEntry()->isConstant()){
-                    
-                }
+        if (inst->isCmp())
+        {
+            if (cmpInst == nullptr)
+                cmpInst = inst;
+            else
+                return false;
+        }
+
+        auto def = inst->getDef();
+        if (def != nullptr)
+            appearTimes[def]++;
+        for (auto use : inst->getUse())
+        {
+            if (use != nullptr)
+                appearTimes[use]++;
+            if (color.count(use->getDef()) != 0)
+            {
+                color.insert(inst);
+                break;
             }
         }
-        else if(!ins->isCmp()&&!ins->isCond()){
-            return false;
+        if (color.count(inst) == 0)
+            chain.push_back(inst);
+    }
+    if (chain.size() <= 0 || chain.size() > 3)
+        return false;
+    if (!chain[0]->isPhi())
+        return false;
+    auto varBeginOp = static_cast<PhiInstruction *>(chain[0])->getBlockSrc(condbb);
+    auto varEndOp = static_cast<PhiInstruction *>(chain[0])->getBlockSrc(bodybb);
+    if (varBeginOp == nullptr || varEndOp == nullptr || (!varBeginOp->getEntry()->isConstant() && appearTimes[varBeginOp] != 1))
+        return false;
+    if (chain.size() == 2)
+    {
+        // 先不处理
+        return false;
+        auto binaryInst = chain[1];
+        if (!(binaryInst->isBinary() && (binaryInst->getOpCode() == BinaryInstruction::ADD || binaryInst->getOpCode() == BinaryInstruction::SUB)))
+        {
         }
     }
-
-
-
+    else if (chain.size() == 3)
+    {
+        auto addInst = chain[1];
+        auto sremInst = chain[2];
+        if (!(addInst->isBinary() && (addInst->getOpCode() == BinaryInstruction::ADD)))
+            return false;
+        if (!(sremInst->isBinary() && (sremInst->getOpCode() == BinaryInstruction::MOD)))
+            return false;
+        Operand *addConstOp = nullptr;
+        if (addInst->getUse()[0] == chain[0]->getDef())
+            addConstOp = addInst->getUse()[1];
+        else if (addInst->getUse()[1] == chain[0]->getDef())
+            addConstOp = addInst->getUse()[0];
+        else
+            return false;
+        if (!addConstOp->getEntry()->isConstant() && appearTimes[addConstOp] != 1)
+            return false;
+        Operand *modConstOp = nullptr;
+        if (sremInst->getUse()[0] == chain[1]->getDef())
+            modConstOp = sremInst->getUse()[1];
+        else if (sremInst->getUse()[1] == chain[1]->getDef())
+            modConstOp = sremInst->getUse()[0];
+        else
+            return false;
+        if (!modConstOp->getEntry()->isConstant() && appearTimes[modConstOp] != 1)
+            return false;
+        if (chain[2]->getDef() != varEndOp)
+            return false;
+        // addInst->replaceUse(addConstOp, endOp);
+        // cmpInst->replaceUse(endOp, addConstOp);
+        auto phiDef = chain[0]->getDef();
+        auto addDef = chain[1]->getDef();
+        auto modDef = chain[2]->getDef();
+        if (addDef->getUse().size() != 1 || phiDef->getUse().size() != 1)
+            return false;
+        auto initInst = new BinaryInstruction(BinaryInstruction::ADD, phiDef, varBeginOp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
+        auto newTmp = new Operand(new TemporarySymbolEntry(varBeginOp->getType(), SymbolTable::getLabel()));
+        auto mulInst = new BinaryInstruction(BinaryInstruction::MUL, newTmp, endOp, addConstOp);
+        auto newAddInst = new BinaryInstruction(BinaryInstruction::ADD, addDef, newTmp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
+        auto newModInst = new BinaryInstruction(BinaryInstruction::MOD, modDef, addDef, modConstOp);
+        std::vector<Instruction *> insts;
+        for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
+        {
+            for (auto use : inst->getUse())
+                use->removeUse(inst);
+            insts.push_back(inst);
+        }
+        for (auto inst : insts)
+            bodybb->remove(inst);
+        bodybb->insertBack(initInst);
+        bodybb->insertBack(mulInst);
+        bodybb->insertBack(newAddInst);
+        bodybb->insertBack(newModInst);
+        bodybb->removeSucc(bodybb);
+        bodybb->removePred(bodybb);
+        assert(bodybb->getNumOfSucc() == 1);
+        auto uncondbr = new UncondBrInstruction(bodybb->getSucc()[0]);
+        bodybb->insertBack(uncondbr);
+        successUnroll = true;
+        return true;
+    }
+    return false;
 }

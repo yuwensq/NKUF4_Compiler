@@ -185,48 +185,49 @@ void BinaryMInstruction::output()
     switch (this->op)
     {
     case BinaryMInstruction::ADD:
-        fprintf(yyout, "\tadd ");
+        fprintf(yyout, "\tadd");
         break;
     case BinaryMInstruction::SUB:
-        fprintf(yyout, "\tsub ");
+        fprintf(yyout, "\tsub");
         break;
     case BinaryMInstruction::MUL:
-        fprintf(yyout, "\tmul ");
+        fprintf(yyout, "\tmul");
         break;
     case BinaryMInstruction::DIV:
-        fprintf(yyout, "\tsdiv ");
+        fprintf(yyout, "\tsdiv");
         break;
     case BinaryMInstruction::AND:
-        fprintf(yyout, "\tand ");
+        fprintf(yyout, "\tand");
         break;
     case BinaryMInstruction::OR:
-        fprintf(yyout, "\torr ");
+        fprintf(yyout, "\torr");
         break;
     case BinaryMInstruction::VADD:
-        fprintf(yyout, "\tvadd.f32 ");
+        fprintf(yyout, "\tvadd.f32");
         break;
     case BinaryMInstruction::VSUB:
-        fprintf(yyout, "\tvsub.f32 ");
+        fprintf(yyout, "\tvsub.f32");
         break;
     case BinaryMInstruction::VMUL:
-        fprintf(yyout, "\tvmul.f32 ");
+        fprintf(yyout, "\tvmul.f32");
         break;
     case BinaryMInstruction::VDIV:
-        fprintf(yyout, "\tvdiv.f32 ");
+        fprintf(yyout, "\tvdiv.f32");
         break;
     case BinaryMInstruction::LSL:
-        fprintf(yyout, "\tlsl ");
+        fprintf(yyout, "\tlsl");
         break;
     case BinaryMInstruction::LSR:
-        fprintf(yyout, "\tlsr ");
+        fprintf(yyout, "\tlsr");
         break;
     case BinaryMInstruction::ASR:
-        fprintf(yyout, "\tasr ");
+        fprintf(yyout, "\tasr");
         break;
     default:
         break;
     }
     this->PrintCond();
+    fprintf(yyout, " ");
     this->def_list[0]->output();
     fprintf(yyout, ", ");
     this->use_list[0]->output();
@@ -296,14 +297,16 @@ void LoadMInstruction::output()
     switch (op)
     {
     case LDR:
-        fprintf(yyout, "\tldr ");
+        fprintf(yyout, "\tldr");
         break;
     case VLDR:
-        fprintf(yyout, "\tvldr.32 ");
+        fprintf(yyout, "\tvldr.32");
         break;
     default:
         break;
     }
+    this->PrintCond();
+    fprintf(yyout, " ");
     this->def_list[0]->output();
     fprintf(yyout, ", ");
 
@@ -356,14 +359,16 @@ void StoreMInstruction::output()
     switch (op)
     {
     case STR:
-        fprintf(yyout, "\tstr ");
+        fprintf(yyout, "\tstr");
         break;
     case VSTR:
-        fprintf(yyout, "\tvstr.32 ");
+        fprintf(yyout, "\tvstr.32");
         break;
     default:
         break;
     }
+    this->PrintCond();
+    fprintf(yyout, " ");
     this->use_list[0]->output();
     fprintf(yyout, ", ");
     // Store address
@@ -485,14 +490,16 @@ void CmpMInstruction::output()
     switch (op)
     {
     case CMP:
-        fprintf(yyout, "\tcmp ");
+        fprintf(yyout, "\tcmp");
         break;
     case VCMP:
-        fprintf(yyout, "\tvcmp.f32 ");
+        fprintf(yyout, "\tvcmp.f32");
         break;
     default:
         break;
     }
+    PrintCond();
+    fprintf(yyout, " ");
     use_list[0]->output();
     fprintf(yyout, ", ");
     use_list[1]->output();

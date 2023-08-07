@@ -11,17 +11,18 @@ private:
     MachineUnit *unit;
     std::map<int, std::pair<MachineBlock *, MachineBlock *>> blk2blk;
     // junctions存可以被合并到父节点的节点
-    std::unordered_set<MachineBlock*> junctions;
+    std::unordered_set<MachineBlock *> junctions;
     void getSlimBlock();
     void removeSlimBlock();
-
     void getJunctions();
     void mergeJunctions();
+    void pass1();
+    void pass2();
 
 public:
     MachineStraight(MachineUnit *unit) : unit(unit) {}
     void pass();
-    void pass2();
+    void lastPass();
 };
 
 #endif

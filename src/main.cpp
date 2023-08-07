@@ -131,15 +131,19 @@ int main(int argc, char *argv[])
     pairCodeElim();
     finline.pass();
     pairCodeElim();
-    // spcfg.pass();
-    // lcm.pass();
-    // pairCodeElim();
-    // do
-    // {
-    //     pairCodeElim();
-    // } while (lcm.pass1());
-    // pairCodeElim();
-    // pe.pass();
+    spcfg.pass();
+    if (optmize)
+        lcm.pass();
+    pairCodeElim();
+    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    {
+        do
+        {
+            pairCodeElim();
+        } while (lcm.pass1());
+    }
+    pairCodeElim();
+    pe.pass();
     iph.pass2();
     tca.pass();
 
@@ -163,10 +167,12 @@ int main(int argc, char *argv[])
         mlvn.pass();
         mcp.pass();
         mph.pass();
-        mdce.pass();
+        if (optmize) // shm写的活跃变量分析太拉了，这个开了long_line超时
+            mdce.pass();
         mph.pass();
         mlvn.pass();
-        mdce.pass();
+        if (optmize)
+            mdce.pass();
         mst.pass();
         mtch.pass(); // 把这个放在最后做，要不大概率会有问题
         Log("目标代码优化成功");
@@ -183,7 +189,7 @@ int main(int argc, char *argv[])
         Log("寄存器分配完成\n");
         mph.pass(true);
         mst.pass();
-        mst.pass2(); // 这个放在最后做
+        mst.lastPass(); // 这个放在最后做
 
         mUnit.output();
     }

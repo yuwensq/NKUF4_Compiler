@@ -513,15 +513,16 @@ static void reomveDeadBlock(Function *func)
     std::vector<BasicBlock *> phiRemoveList;
     BasicBlock *bb = nullptr;
     q.push(func->getEntry());
+    color.insert(func->getEntry());
     while (!q.empty())
     {
         bb = q.front();
         q.pop();
-        color.insert(bb);
         for (auto succ = bb->succ_begin(); succ != bb->succ_end(); succ++)
         {
             if (color.find(*succ) != color.end())
                 continue;
+            color.insert(*succ);
             q.push(*succ);
         }
     }
@@ -582,7 +583,6 @@ static void reomveDeadBlock(Function *func)
 
 void IRSparseCondConstProp::pass()
 {
-
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         sccpInFunc(*func);

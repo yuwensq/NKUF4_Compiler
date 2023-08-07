@@ -215,3 +215,38 @@ void MachineStraight::pass2()
         }
     }
 }
+
+void MachineStraight::lastPass()
+{
+    pass1();
+    pass2();
+}
+
+// 这个优化主要是针对b{cond}这种条件跳转，如果目标块里面只有binaryinst、load|strinst
+// movinst，且这个基本块只有一个后继(末尾只有一条b指令)，可以把这个基本块合进来
+void MachineStraight::pass1()
+{
+    std::map<MachineBlock *, bool> couldBeMerged;
+    auto isGoodInst = [&](MachineInstruction *inst)
+    {
+        if (inst->getCond() == MachineInstruction::NONE && (inst->isBinary() || inst->isLoad() || inst->isStore() || inst->isMov() || inst->isUBranch()))
+            return true;
+        return false;
+    };
+    for (auto func : unit->getFuncs())
+    {
+        for (auto blk : func->getBlocks())
+        {
+            bool cbm = true;
+            for (auto inst : blk->getInsts())
+            {
+                if (!isGoodInst(inst))
+                {
+                    cbm = false;
+                    break;
+                }
+            }
+            couldBeMerged[blk] = cbm;
+        }
+    };
+}

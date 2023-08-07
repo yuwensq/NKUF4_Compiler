@@ -49,34 +49,34 @@ $(BINARY):$(OBJ)
 app:$(LEXER) $(PARSER) $(BINARY)
 
 run:app
-	@$(BINARY) -o example.s -S example.sy
+	@$(BINARY) -O2 -o example.s -S example.sy
 
 run1:app
-	@$(BINARY) -o example.s -S example.sy
+	@$(BINARY) -O2 -o example.s -S example.sy
 	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/sylib.a -o example
 	qemu-arm -L /usr/arm-linux-gnueabihf/ ./example
 	echo $$?
 
 run2:app
-	@$(BINARY) -o example.s -S example.sy
+	@$(BINARY) -O2 -o example.s -S example.sy
 	arm-linux-gnueabihf-gcc example.s $(SYSLIB_PATH)/sylib.a -o example
 	qemu-arm -L /usr/arm-linux-gnueabihf/ ./example
 	echo $$?
 
 ll:app
-	@$(BINARY) -o example.ll -i example.sy
+	@$(BINARY) -O2 -o example.ll -i example.sy
 
 ll1:app
-	@$(BINARY) -o example.ll -i example.sy 
+	@$(BINARY) -O2 -o example.ll -i example.sy 
 
 llrun:app
-	@$(BINARY) -o example.ll -i example.sy 
+	@$(BINARY) -O2 -o example.ll -i example.sy 
 	clang -o example example.ll sysyruntimelibrary/sylib.c
 	./example 
 	echo $$?
 
 llrun1:app
-	@$(BINARY) -o example.ll -i example.sy
+	@$(BINARY) -O2 -o example.ll -i example.sy
 	clang -o example example.ll sysyruntimelibrary/sylib.c
 	./example 
 	echo $$?
@@ -126,7 +126,7 @@ test:app
 		FILE=$${file##*/}
 		FILE=$${FILE%.*}
 		@compile_start=$$(date +%s.%3N); \
-		timeout 180s $(BINARY) $${file} -o $${ASM} -S 2>$${LOG};	\
+		timeout 180s $(BINARY) $${file} -O2 -o $${ASM} -S 2>$${LOG};	\
 		RETURN_VALUE=$$?;	\
 		compile_end=$$(date +%s.%3N); \
 		compile_time=$$(echo "$$compile_end - $$compile_start" | bc)
@@ -201,7 +201,7 @@ lltest:app
 		OUT=$${file%.*}.out
 		FILE=$${file##*/}
 		FILE=$${FILE%.*}
-		timeout 300s $(BINARY) $${file} -o $${IR} -i 2>$${LOG}
+		timeout 300s $(BINARY) $${file} -O2 -o $${IR} -i 2>$${LOG}
 		RETURN_VALUE=$$?
 		if [ $$RETURN_VALUE = 124 ]; then
 			echo "\033[1;31mFAIL:\033[0m $${FILE}\t\033[1;31mCompile Timeout\033[0m"
