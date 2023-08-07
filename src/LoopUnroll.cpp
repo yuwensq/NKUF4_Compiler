@@ -491,8 +491,10 @@ void LoopUnroll::Unroll()
                 {
                     if (ivOpcode == BinaryInstruction::ADD)
                     {
-                        // cout<<"normalUnroll +"<<endl;
-                        normalUnroll(cond, body, beginOp, endOp, strideOp);
+                        if(!discardLoop(unrollNum,body,cond,strideOp,beginOp,endOp)){
+                            // cout<<"normalUnroll +"<<endl;
+                            normalUnroll(cond, body, beginOp, endOp, strideOp);                            
+                        }
                     }
                     else if (ivOpcode == BinaryInstruction::SUB)
                     {
@@ -1122,4 +1124,56 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
         }
     }
     successUnroll = true;
+}
+bool LoopUnroll::discardLoop(int bodyInsNum,BasicBlock* bodybb,BasicBlock *condbb,Operand* strideOp,Operand *beginOp, Operand *endOp){
+    //能完全消除的循环，其中的操作数应该能根据phi指令串成一条链
+    //循环中至少有一条链是strideOp相关的
+    if(bodybb->getPred().size()!=2){
+        return false;
+    }
+    //每一个phi指令的def会映射到一个数对中，第一个为初始值，第二个为最后的值
+    unordered_map<Operand*, vector<Operand*>> phi_begin_end;
+    unordered_map<Operand*, vector<Operand*>> phiOpChain;
+    unordered_map<Operand*, vector<Instruction*>> phiInsChain;
+    int usefulInsNum=1;//肯定会有一条cond指令
+    for(auto ins=bodybb->begin();ins!=bodybb->end();ins=ins->getNext()){
+        if(ins->isPhi()){
+            vector<Operand*> temp;
+            Operand* phiBeginOp=((PhiInstruction*)ins)->getBlockSrc(condbb);
+            Operand* phiEndOp=((PhiInstruction*)ins)->getBlockSrc(bodybb);
+            //循环变元的这条链有且仅有3条指令构成,这条链不处理
+            if(phiEndOp==strideOp){
+                usefulInsNum+=3;
+                continue;
+            }
+            temp.push_back(phiBeginOp);
+            temp.push_back(phiEndOp);
+
+            phi_begin_end[ins->getDef()]=temp;
+
+            temp.clear();
+            temp.push_back(ins->getDef());
+            phiOpChain[ins->getDef()]=temp;
+
+            vector<Instruction*> temp1;
+            temp1.push_back(ins);
+            phiInsChain[ins->getDef()]=temp1;
+            usefulInsNum++;
+        }
+        else if(ins->isBinary()){
+            Operand* useOp0=ins->getUse()[0];
+            Operand* useOp1=ins->getUse()[1];
+            if(useOp0->getDef()->getParent()==bodybb){
+                if(useOp1->getEntry()->isConstant()){
+                    
+                }
+            }
+        }
+        else if(!ins->isCmp()&&!ins->isCond()){
+            return false;
+        }
+    }
+
+
+
 }

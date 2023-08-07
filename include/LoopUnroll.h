@@ -42,6 +42,7 @@ public:
     Operand *getBeginOp(BasicBlock *bb, Operand *strideOp, stack<Instruction *> &Insstack);
     void specialUnroll(BasicBlock *bb, int count, Operand *endOp, Operand *strideOp, bool ifall);
     void normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *beginOp, Operand *endOp, Operand *strideOp, bool isIncrease = true);
+    bool discardLoop(int bodyInsNum,BasicBlock* bodybb,BasicBlock *condbb,Operand* strideOp,Operand *beginOp, Operand *endOp); //直接不要循环的优化
 
     void Unroll();
     bool successUnroll = false;
