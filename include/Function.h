@@ -116,6 +116,9 @@ public:
     void computeRIdom(BasicBlock *exit);
     void reverseSearch(TreeNode *node, bool *visited);
 
+    std::vector<BasicBlock *> getReversedTopsort();
+    void rTopDFS(std::vector<BasicBlock *>&, BasicBlock *, std::map<BasicBlock*,bool>&);
+
     void de_phi();
 };
 

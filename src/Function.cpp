@@ -454,6 +454,27 @@ void Function::computeRDF()
     delete exit;
 }
 
+std::vector<BasicBlock *> Function::getReversedTopsort()
+{
+    std::vector<BasicBlock *> res(block_list.size());
+    std::map<BasicBlock *, bool> visited;
+    rTopDFS(res, entry, visited);
+    return res;
+}
+
+void Function::rTopDFS(std::vector<BasicBlock *> &res, BasicBlock *block, std::map<BasicBlock *, bool> &visited)
+{
+    visited[block] = true;
+    for (auto it = block->succ_begin(); it != block->succ_end(); it++)
+    {
+        if (!visited[*it])
+        {
+            rTopDFS(res, *it, visited);
+            res.push_back(*it);
+        }
+    }
+}
+
 void Function::de_phi()
 {
     std::map<BasicBlock *, std::vector<Instruction *>> pcopy;
