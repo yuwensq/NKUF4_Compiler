@@ -67,84 +67,134 @@ bool isSameRHS(Instruction *a, Instruction *b)
 void GlobalValueNumbering::preprocess(Function *func)
 {
     vector<BasicBlock *> blocks;
-    unordered_map<BasicBlock *, bool> visited;
-    queue<BasicBlock *> q;
-    q.push(func->getEntry());
-    visited[func->getEntry()] = true;
-    while (!q.empty())
+    unordered_set<BasicBlock *> visited;
+    func->genReversedTopsort_N_LoopHeader(rtop, loopheaders);
+    for (auto it = rtop.rbegin(); it != rtop.rend(); it++)
     {
-        auto BB = q.front();
-        q.pop();
+        auto &BB = *it;
         blocks.push_back(BB);
+        visited.insert(BB);
         for (auto inst = BB->begin(); inst != BB->end(); inst = inst->getNext())
         {
             assignRanks(inst);
-            if (inst->isAdd() && inst->getOperands()[1]->getEntry()->isTemporary() && inst->getOperands()[2]->toStr() == "0")
+            if (inst->isAdd() && inst->getOperands()[2]->toStr() == "0")
             {
-                trivial_worklist.push_back(inst);
+                if (inst->getOperands()[1]->getEntry()->isTemporary() && !((TemporarySymbolEntry *)inst->getOperands()[1]->getEntry())->isParam())
+                {
+                    trivial_worklist.push_back(inst);
+                }
             }
             else if (inst->isBinary())
             {
                 LCTs[BB][inst].push_back(inst);
             }
         }
-        for (auto succ = BB->succ_begin(); succ != BB->succ_end(); succ++)
+        if (loopheaders.count(BB))
         {
-            if (!visited[*succ])
+            // ??? judge pre-test block by topsort order
+            auto &loopheader = BB;
+            int num = 0;
+            // 2. add a landing pad
+            auto landingpad = new BasicBlock(func);
+            landingpads.insert(landingpad);
+            // 1. find entrance
+            for (auto &&test : loopheader->getPredRef())
             {
-                q.push(*succ);
-                visited[*succ] = true;
-            }
-            else
-            {
-                auto &loopheader = *succ;
-                loopheaders.insert(loopheader);
-                // 1. find entrance
-                assert(loopheader->getNumOfPred() == 1);
-                auto test = *(loopheader->pred_begin());
-                // 2. add a landing pad
-                auto landingpad = new BasicBlock(func);
-                landingpads.insert(landingpad);
+                if (visited.find(test) == visited.end())
+                    continue;
+                num++;
                 loopheader->removePred(test);
                 test->removeSucc(loopheader);
                 loopheader->addPred(landingpad);
                 landingpad->addPred(test);
                 // 3. find exit
-                auto next = *(test->succ_begin());
-                assert(next != landingpad);
-                // 4. add a virtual edge
-                virtualEdge[landingpad].insert(next);
-                virtualREdge[next].insert(landingpad);
-                // auto &loopheader = *succ;
-                // unordered_map<BasicBlock *, bool> backwards;
-                // queue<BasicBlock *> loopbody;
-                // q.push(BB);
-                // visited[BB] = true;
-                // visited[loopheader] = true;
-                // while (!loopbody.empty())
-                // {
-                //     auto cur = loopbody.front();
-                //     loopbody.pop();
-                //     for (auto pred = cur->pred_begin(); pred != cur->pred_end(); pred++)
-                //     {
-                //         if (*pred == loopheader) // TODO：or a previously visited node
-                //             break;
-                //         if (!backwards[*pred])
-                //         {
-                //             loopbody.push(*pred);
-                //             backwards[*pred] = true;
-                //         }
-                //     }
-                // }
-                // auto &next = loopheader->getSucc();
-                // assert(next.size() == 2);
-                // if (backwards[next[0]])
-                //     loopexits.push_back({loopheader, next[0]});
-                // else
-                //     loopexits.push_back({loopheader, next[1]});
+                // auto next = *(test->succ_begin());
+                // assert(next != landingpad);
             }
+            // 4. add a virtual edge
+            // virtualEdge[landingpad].insert(next);
+            // virtualREdge[next].insert(landingpad);
+            assert(num * 2 == loopheader->getNumOfPred());
         }
     }
+
+    // queue<BasicBlock *> q;
+    // q.push(func->getEntry());
+    // visited[func->getEntry()] = true;
+    // while (!q.empty())
+    // {
+    //     auto BB = q.front();
+    //     q.pop();
+    //     blocks.push_back(BB);
+    //     for (auto inst = BB->begin(); inst != BB->end(); inst = inst->getNext())
+    //     {
+    //         assignRanks(inst);
+    //         if (inst->isAdd() && inst->getOperands()[1]->getEntry()->isTemporary() && inst->getOperands()[2]->toStr() == "0")
+    //         {
+    //             trivial_worklist.push_back(inst);
+    //         }
+    //         else if (inst->isBinary())
+    //         {
+    //             LCTs[BB][inst].push_back(inst);
+    //         }
+    //     }
+    //     for (auto succ = BB->succ_begin(); succ != BB->succ_end(); succ++)
+    //     {
+    //         if (!visited[*succ])
+    //         {
+    //             q.push(*succ);
+    //             visited[*succ] = true;
+    //         }
+    //         else
+    //         {
+    //             auto &loopheader = *succ;
+    //             loopheaders.insert(loopheader);
+    //             // 1. find entrance
+    //             assert(loopheader->getNumOfPred() == 1);
+    //             auto test = *(loopheader->pred_begin());
+    //             // 2. add a landing pad
+    //             auto landingpad = new BasicBlock(func);
+    //             landingpads.insert(landingpad);
+    //             loopheader->removePred(test);
+    //             test->removeSucc(loopheader);
+    //             loopheader->addPred(landingpad);
+    //             landingpad->addPred(test);
+    //             // 3. find exit
+    //             auto next = *(test->succ_begin());
+    //             assert(next != landingpad);
+    //             // 4. add a virtual edge
+    //             virtualEdge[landingpad].insert(next);
+    //             virtualREdge[next].insert(landingpad);
+    //             // auto &loopheader = *succ;
+    //             // unordered_map<BasicBlock *, bool> backwards;
+    //             // queue<BasicBlock *> loopbody;
+    //             // q.push(BB);
+    //             // visited[BB] = true;
+    //             // visited[loopheader] = true;
+    //             // while (!loopbody.empty())
+    //             // {
+    //             //     auto cur = loopbody.front();
+    //             //     loopbody.pop();
+    //             //     for (auto pred = cur->pred_begin(); pred != cur->pred_end(); pred++)
+    //             //     {
+    //             //         if (*pred == loopheader) // TODO：or a previously visited node
+    //             //             break;
+    //             //         if (!backwards[*pred])
+    //             //         {
+    //             //             loopbody.push(*pred);
+    //             //             backwards[*pred] = true;
+    //             //         }
+    //             //     }
+    //             // }
+    //             // auto &next = loopheader->getSucc();
+    //             // assert(next.size() == 2);
+    //             // if (backwards[next[0]])
+    //             //     loopexits.push_back({loopheader, next[0]});
+    //             // else
+    //             //     loopexits.push_back({loopheader, next[1]});
+    //         }
+    //     }
+    // }
 
     // Modify the Graph
     // DELETED!!~~~~
@@ -177,17 +227,27 @@ void GlobalValueNumbering::assignRanks(Instruction *inst)
 
 void GlobalValueNumbering::removeTrivialAssignments()
 {
+    // Log("remove start,%d", trivial_worklist.size());
     for (auto &&inst : trivial_worklist)
     {
         auto &ops = inst->getOperands();
         auto &A = ops[0], &B = ops[1];
-        if (A->getUse().size() < B->getUse().size())
+        // Log("inst: %s", inst->getDef()->toStr().c_str());
+        if (B->getUse().size() > A->getUse().size())
         {
             for (auto &&use_inst : A->getUse())
             {
-                use_inst->replaceUse(A, B);
-                if (use_inst->isBinary())
+                if (LCTs[use_inst->getParent()].count(use_inst))
+                {
+                    auto &tmp = LCTs[use_inst->getParent()][use_inst];
+                    tmp.erase(find(tmp.begin(), tmp.end(), use_inst));
+                    use_inst->replaceUse(A, B);
                     LCTs[use_inst->getParent()][use_inst].push_back(use_inst);
+                }
+                else
+                {
+                    use_inst->replaceUse(A, B);
+                }
                 /*else if (use_inst->isPhi())
                 {
                     bool allsame = true;
@@ -209,28 +269,43 @@ void GlobalValueNumbering::removeTrivialAssignments()
         }
         else
         {
+            // Log(">");
+            B->getDef()->replaceDef(A);
             for (auto &&use_inst : B->getUse())
             {
-                use_inst->replaceUse(B, A);
-                if (use_inst->isBinary())
+                if (LCTs[use_inst->getParent()].count(use_inst))
+                {
+                    auto &tmp = LCTs[use_inst->getParent()][use_inst];
+                    tmp.erase(find(tmp.begin(), tmp.end(), use_inst));
+                    use_inst->replaceUse(B, A);
                     LCTs[use_inst->getParent()][use_inst].push_back(use_inst);
+                }
+                else
+                {
+                    use_inst->replaceUse(B, A);
+                }
             }
         }
+        // Log("A:%s", A->toStr().c_str());
+        // Log("B:%s", B->toStr().c_str());
         inst->getParent()->remove(inst);
         delete inst;
     }
-    eliminateLocalRedundancies();
+    trivial_worklist.clear();
+    // Log("eliminate start");
+    return eliminateLocalRedundancies();
 }
 
 void GlobalValueNumbering::eliminateLocalRedundancies()
 {
     for (auto &&[block, list] : LCTs)
     {
+        // Log("BB:%d", block->getNo());
         for (auto inst = block->begin(); inst != block->end(); inst = inst->getNext())
         {
             if (inst->isBinary())
             {
-                if (list[inst].size() > 1)
+                if (list.count(inst) && list[inst].size() > 1)
                 {
                     for (auto &&elim : list[inst])
                     {
@@ -246,17 +321,22 @@ void GlobalValueNumbering::eliminateLocalRedundancies()
                         block->remove(elim);
                         delete elim;
                     }
+                    vector<Instruction *>({inst}).swap(list[inst]);
+                    // Log("inst: %s", inst->getDef()->toStr().c_str());
                 }
             }
         }
     }
+    // Log("end");
     if (!trivial_worklist.empty())
-        removeTrivialAssignments();
+    {
+        // Log("end2");
+        return removeTrivialAssignments();
+    }
 }
 
 void GlobalValueNumbering::eliminateRedundancies(Function *func)
 {
-    func->getReversedTopsort().swap(rtop);
     for (cur_rank = 0; cur_rank < max_rank; cur_rank++)
     {
         // for each node n (in reverse topsort order) do
@@ -298,7 +378,8 @@ void GlobalValueNumbering::eliminateRedundancies(Function *func)
                             ranks[use_inst->getDef()] = cur_rank + 1;
                     }
                 }
-                eliminateGlobalRedundancies(del_list, inst);
+                eliminateGlobalRedundancies(inst);
+                del_list.push_back(inst);
             }
             for (auto &&inst : del_list)
             {
@@ -399,7 +480,7 @@ void GlobalValueNumbering::identifyMovableComputations(BasicBlock *block)
             auto &srcs2 = ((PhiInstruction *)inst2)->getSrcs();
             assert(block->getNumOfPred() == srcs1.size());
             assert(block->getNumOfPred() == srcs2.size());
-            for (auto &&pred : block->getPred())
+            for (auto &&pred : block->getPredRef())
             {
                 MCTs[{pred, block}].push_back(
                     new BinaryInstruction(
@@ -441,7 +522,7 @@ void GlobalValueNumbering::identifyMovableComputations(BasicBlock *block)
         {
             if (inst1->getParent() == block || inst2->getParent() == block)
                 continue;
-            for (auto &&pred : block->getPred())
+            for (auto &&pred : block->getPredRef())
             {
                 MCTs[{pred, block}].push_back(
                     new BinaryInstruction(
@@ -512,7 +593,7 @@ bool GlobalValueNumbering::qpLocalSearch(Instruction *inst)
             return false;
         if (!inst2->isPhi() && inst2->getParent() == *it) // 6
             return false;
-        for (auto &&pred : (*it)->getPred())
+        for (auto &&pred : (*it)->getPredRef())
         {
             if (inst1->isPhi() && inst1->getParent() == *it)
             {
@@ -567,7 +648,7 @@ bool GlobalValueNumbering::qpGlobalSearch(std::vector<Instruction *> &may_list, 
             return false;
         if (!inst2->isPhi() && inst2->getParent() == *it) // 6
             return false;
-        for (auto &&pred : (*it)->getPred())
+        for (auto &&pred : (*it)->getPredRef())
         {
             if (inst1->isPhi() && inst1->getParent() == *it)
             {
@@ -736,7 +817,7 @@ void GlobalValueNumbering::moveComputationsIntoPad(BasicBlock *pad)
     }
 }
 
-void GlobalValueNumbering::eliminateGlobalRedundancies(std::vector<Instruction *> &del_list, Instruction *inst)
+void GlobalValueNumbering::eliminateGlobalRedundancies(Instruction *inst)
 {
     vector<Instruction *> may_list;
     if (!qpGlobalSearch(may_list, inst))
@@ -782,5 +863,4 @@ void GlobalValueNumbering::eliminateGlobalRedundancies(std::vector<Instruction *
         zero);
     inst->getParent()->insertBefore(trivial, inst);
     trivial_worklist.push_back(trivial);
-    del_list.push_back(inst);
 }

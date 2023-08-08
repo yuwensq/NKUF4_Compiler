@@ -171,7 +171,7 @@ public:
     }
     bool replaceUse(MachineOperand *old, MachineOperand *rep)
     {
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -213,7 +213,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -243,7 +243,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -275,7 +275,7 @@ public:
     {
         if (rep->isImm() && (op == VMOV || op == VMOV32))
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -332,7 +332,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -382,7 +382,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -415,7 +415,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -440,7 +440,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {
@@ -464,7 +464,7 @@ public:
     {
         if (rep->isImm())
             return false;
-        for (int i = 0; i < use_list.size(); i++)
+        for (size_t i = 0; i < use_list.size(); i++)
         {
             if (use_list[i] == old)
             {

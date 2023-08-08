@@ -454,11 +454,45 @@ void Function::computeRDF()
     delete exit;
 }
 
+void mytop(std::vector<TreeNode *> &preOrder2DFS, std::vector<BasicBlock *> &res, BasicBlock *block, std::map<BasicBlock *, bool> &visited)
+{
+    visited[block] = true;
+    for (auto it = block->succ_begin(); it != block->succ_end(); it++)
+    {
+        if (!visited[*it])
+        {
+            mytop(preOrder2DFS, res, *it, visited);
+        }
+        else
+        {
+            if (preOrder2DFS[block->order]->isAncestor(preOrder2DFS[(*it)->order]))
+            {
+                auto &head = *it;
+                int num1 = 0, num2 = 0;
+                for (auto pred = head->pred_begin(); pred != head->pred_end(); pred++)
+                {
+
+                    if (find(res.begin(), res.end(), *pred) > find(res.begin(), res.end(), head))
+                        num1++;
+                    if (preOrder2DFS[(*pred)->order]->parent->isAncestor(preOrder2DFS[(*it)->order]))
+                        num2++;
+                }
+                Log("head:%d,%d,%d,%d", (*it)->getNo(), num1, num2, head->getNumOfPred());
+                assert(num1 * 2 == head->getNumOfPred());
+            }
+        }
+    }
+}
+
 std::vector<BasicBlock *> Function::getReversedTopsort()
 {
-    std::vector<BasicBlock *> res(block_list.size());
+    computeDFSTree();
+    std::vector<BasicBlock *> res;
+    res.reserve(block_list.size());
     std::map<BasicBlock *, bool> visited;
     rTopDFS(res, entry, visited);
+    visited.clear();
+    mytop(preOrder2DFS, res, entry, visited);
     return res;
 }
 
@@ -470,9 +504,56 @@ void Function::rTopDFS(std::vector<BasicBlock *> &res, BasicBlock *block, std::m
         if (!visited[*it])
         {
             rTopDFS(res, *it, visited);
-            res.push_back(*it);
+        }
+        else
+        {
+            if (preOrder2DFS[block->order]->isAncestor(preOrder2DFS[(*it)->order]))
+            {
+                auto &head = *it;
+                int num1 = 0, num2 = 0;
+                for (auto pred = head->pred_begin(); pred != head->pred_end(); pred++)
+                {
+                    if (preOrder2DFS[(*it)->order]->parent->isAncestor(preOrder2DFS[(*pred)->order]))
+                        num1++;
+                    if (preOrder2DFS[(*pred)->order]->parent->isAncestor(preOrder2DFS[(*it)->order]))
+                        num2++;
+                }
+                Log("head:%d,%d,%d,%d", (*it)->getNo(), num1, num2, head->getNumOfPred());
+                assert(num1 * 2 == head->getNumOfPred() || num2 * 2 == head->getNumOfPred());
+            }
         }
     }
+    res.push_back(block);
+}
+
+void Function::genByDFS(std::vector<BasicBlock *> &rtop, std::unordered_set<BasicBlock *> &loopheaders, BasicBlock *block, std::unordered_set<BasicBlock *> &visited)
+{
+    visited.insert(block);
+    for (auto it = block->succ_begin(); it != block->succ_end(); it++)
+    {
+        if (visited.find(*it) != visited.end())
+        {
+            genByDFS(rtop, loopheaders, *it, visited);
+        }
+        else
+        {
+            if (preOrder2DFS[block->order]->isAncestor(preOrder2DFS[(*it)->order]))
+            {
+                loopheaders.insert(*it);
+            }
+        }
+    }
+    rtop.push_back(block);
+}
+
+void Function::genReversedTopsort_N_LoopHeader(std::vector<BasicBlock *> &rtop, std::unordered_set<BasicBlock *> &loopheaders)
+{
+    computeDFSTree();
+    loopheaders.clear();
+    rtop.clear();
+    rtop.reserve(block_list.size());
+    std::unordered_set<BasicBlock *> visited;
+    genByDFS(rtop, loopheaders, entry, visited);
 }
 
 void Function::de_phi()
