@@ -16,6 +16,7 @@ private:
     void removeSlimBlock();
     void getJunctions();
     void mergeJunctions();
+    void doMerge(MachineBlock *);
     void pass1();
     void pass2();
 

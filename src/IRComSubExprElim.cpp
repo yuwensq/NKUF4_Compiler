@@ -258,6 +258,11 @@ bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
             else
                 return false;
         }
+        else if (se1->isVariable() && se2->isVariable())
+        {
+            if (static_cast<IdentifierSymbolEntry *>(op1->getEntry())->getName() != static_cast<IdentifierSymbolEntry *>((*op2)->getEntry())->getName())
+                return false;
+        }
         else if (op1 != (*op2))
             return false;
         op2++;
@@ -287,7 +292,9 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
             return nullptr;
         }
         if (isSameExpr(preInst, inst))
+        {
             return preInst;
+        }
     }
     return nullptr;
 }
@@ -714,14 +721,20 @@ void IRComSubExprElim::clearData()
     outBBOp.clear();
 }
 
-void IRComSubExprElim::pass()
+void IRComSubExprElim::pass(bool debug)
 {
 #ifdef PRINTLOG
     Log("公共子表达式删除开始");
 #endif
     clearData();
+    this->debug = debug;
     // 这个加load可能会导致变慢
     insertLoadAfterStore();
+    if (debug)
+    {
+        fprintf(yyout, "load over\n");
+        unit->output();
+    }
     doCSE();
     removeLoadAfterStore();
 #ifdef PRINTLOG

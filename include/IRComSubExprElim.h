@@ -57,6 +57,7 @@ private:
     PureFunctionAnalyser *pfa;
     std::unordered_map<Instruction *, Instruction *> gep2Alloc; // 这个变量用来加速getSrc函数
     std::vector<std::pair<Instruction *, Instruction *>> addedLoad;
+    bool debug = false;
 
     std::vector<Expr> exprVec;
     // 指令to表达式
@@ -129,7 +130,7 @@ private:
 public:
     IRComSubExprElim(Unit *unit);
     ~IRComSubExprElim();
-    void pass();
+    void pass(bool debug = false);
 };
 
 #endif

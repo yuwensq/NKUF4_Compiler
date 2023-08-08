@@ -172,7 +172,7 @@ void IRPeepHole::subPass(Function *func)
         if (mulUseOp == nullptr || mulConstOp == nullptr || inst->getDef() == nullptr || inst->getDef()->getUse().size() != 1)
             return false;
         auto [divUseOp, divConstOp] = isBinaryConst(inst->getDef()->getUse()[0], BinaryInstruction::DIV);
-        if (divUseOp == nullptr || mulConstOp == nullptr)
+        if (divUseOp == nullptr || divConstOp == nullptr)
             return false;
         if (!mulConstOp->getType()->isInt())
             return false;
@@ -242,6 +242,67 @@ void IRPeepHole::subPass(Function *func)
         addBB->remove(addInst);
         return prevInst;
     };
+    auto case8 = [&](Instruction *inst)
+    {
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        if (mulUseOp == nullptr || mulConstOp == nullptr || !mulConstOp->getType()->isInt() || static_cast<ConstantSymbolEntry *>(mulConstOp->getEntry())->getValue() != 1)
+            return false;
+        return true;
+    };
+    auto solveCase8 = [&](Instruction *inst)
+    {
+        auto prev = inst->getPrev();
+        std::vector<Instruction *> uses(inst->getDef()->getUse());
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        mulConstOp->removeUse(inst);
+        mulUseOp->removeUse(inst);
+        for (auto use : uses)
+            use->replaceUse(inst->getDef(), mulUseOp);
+        inst->getParent()->remove(inst);
+        return prev;
+    };
+    auto case9 = [&](Instruction *inst)
+    {
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        if (addUseOp == nullptr || addConstOp == nullptr || inst->getDef() == nullptr || inst->getDef()->getUse().size() != 1)
+            return false;
+        auto [subUseOp, subConstOp] = isBinaryConst(inst->getDef()->getUse()[0], BinaryInstruction::SUB);
+        if (subUseOp == nullptr || subConstOp == nullptr || subConstOp != inst->getDef()->getUse()[0]->getUse()[1])
+            return false;
+        if (!addConstOp->getType()->isInt())
+            return false;
+        return true;
+    };
+    auto solveCase9 = [&](Instruction *inst)
+    {
+        auto prevInst = inst->getPrev();
+        auto subInst = inst->getDef()->getUse()[0];
+        auto addBB = inst->getParent();
+        auto subBB = subInst->getParent();
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        auto [subUseOp, subConstOp] = isBinaryConst(subInst, BinaryInstruction::SUB);
+        auto addConstValue = int(static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue());
+        auto subConstValue = int(static_cast<ConstantSymbolEntry *>(subConstOp->getEntry())->getValue());
+        if (addConstValue >= subConstValue)
+        {
+            subUseOp->removeUse(subInst);
+            subConstOp->removeUse(subInst);
+            inst->setDef(subInst->getDef());
+            inst->replaceUse(addConstOp, new Operand(new ConstantSymbolEntry(addConstOp->getType(), addConstValue - subConstValue)));
+            addBB->remove(inst);
+            subBB->insertBefore(inst, subInst);
+            subBB->remove(subInst);
+        }
+        else
+        {
+            addUseOp->removeUse(inst);
+            addConstOp->removeUse(inst);
+            subInst->replaceUse(subUseOp, addUseOp);
+            subInst->replaceUse(subConstOp, new Operand(new ConstantSymbolEntry(addConstOp->getType(), subConstValue - addConstValue)));
+            addBB->remove(inst);
+        }
+        return prevInst;
+    };
     bool change = false;
     do
     {
@@ -283,6 +344,16 @@ void IRPeepHole::subPass(Function *func)
                 if (case7(inst))
                 {
                     inst = solveCase7(inst);
+                    change = true;
+                }
+                if (case8(inst))
+                {
+                    inst = solveCase8(inst);
+                    change = true;
+                }
+                if (case9(inst))
+                {
+                    inst = solveCase9(inst);
                     change = true;
                 }
             }

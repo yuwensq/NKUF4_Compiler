@@ -1161,7 +1161,6 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             else
                 return false;
         }
-
         auto def = inst->getDef();
         if (def != nullptr)
             appearTimes[def]++;
@@ -1186,17 +1185,57 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
     auto varEndOp = static_cast<PhiInstruction *>(chain[0])->getBlockSrc(bodybb);
     if (varBeginOp == nullptr || varEndOp == nullptr || (!varBeginOp->getEntry()->isConstant() && appearTimes[varBeginOp] != 1))
         return false;
+    // Log("x %d", chain.size());
+    // for (auto c : chain)
+    //     c->output();
     if (chain.size() == 2)
     {
         // 先不处理
-        return false;
-        auto binaryInst = chain[1];
-        if (!(binaryInst->isBinary() && (binaryInst->getOpCode() == BinaryInstruction::ADD || binaryInst->getOpCode() == BinaryInstruction::SUB)))
+        auto addInst = chain[1];
+        if (!(addInst->isBinary() && (addInst->getOpCode() == BinaryInstruction::ADD)))
+            return false;
+        Operand *addConstOp = nullptr;
+        if (addInst->getUse()[0] == chain[0]->getDef())
+            addConstOp = addInst->getUse()[1];
+        else if (addInst->getUse()[1] == chain[0]->getDef())
+            addConstOp = addInst->getUse()[0];
+        else
+            return false;
+        if (!addConstOp->getEntry()->isConstant() && appearTimes[addConstOp] != 1)
+            return false;
+        if (addInst->getDef() != varEndOp)
+            return false;
+        auto phiDef = chain[0]->getDef();
+        auto addDef = chain[1]->getDef();
+        if (addDef->getUse().size() != 1)
+            return false;
+        auto initInst = new BinaryInstruction(BinaryInstruction::ADD, phiDef, varBeginOp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
+        auto newTmp = new Operand(new TemporarySymbolEntry(varBeginOp->getType(), SymbolTable::getLabel()));
+        auto mulInst = new BinaryInstruction(BinaryInstruction::MUL, newTmp, endOp, addConstOp);
+        auto newAddInst = new BinaryInstruction(BinaryInstruction::ADD, addDef, newTmp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
+        std::vector<Instruction *> insts;
+        for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
         {
+            for (auto use : inst->getUse())
+                use->removeUse(inst);
+            insts.push_back(inst);
         }
+        for (auto inst : insts)
+            bodybb->remove(inst);
+        bodybb->insertBack(initInst);
+        bodybb->insertBack(mulInst);
+        bodybb->insertBack(newAddInst);
+        bodybb->removeSucc(bodybb);
+        bodybb->removePred(bodybb);
+        assert(bodybb->getNumOfSucc() == 1);
+        auto uncondbr = new UncondBrInstruction(bodybb->getSucc()[0]);
+        bodybb->insertBack(uncondbr);
+        successUnroll = true;
+        return true;
     }
     else if (chain.size() == 3)
     {
+        Log("y");
         auto addInst = chain[1];
         auto sremInst = chain[2];
         if (!(addInst->isBinary() && (addInst->getOpCode() == BinaryInstruction::ADD)))
@@ -1221,7 +1260,7 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             return false;
         if (!modConstOp->getEntry()->isConstant() && appearTimes[modConstOp] != 1)
             return false;
-        if (chain[2]->getDef() != varEndOp)
+        if (sremInst->getDef() != varEndOp)
             return false;
         // addInst->replaceUse(addConstOp, endOp);
         // cmpInst->replaceUse(endOp, addConstOp);

@@ -223,9 +223,11 @@ void MachineStraight::lastPass()
 }
 
 // 这个优化主要是针对b{cond}这种条件跳转，如果目标块里面只有binaryinst、load|strinst
-// movinst，且这个基本块只有一个后继(末尾只有一条b指令)，可以把这个基本块合进来
+// movinst，且这个基本块只有一个后继(末尾只有一条b指令)，可以把这个基本块合进来，且这个基本块指令不多
+// 先限制5条吧
 void MachineStraight::pass1()
 {
+    const int maxInstNum = 6;
     std::map<MachineBlock *, bool> couldBeMerged;
     auto isGoodInst = [&](MachineInstruction *inst)
     {
@@ -237,6 +239,11 @@ void MachineStraight::pass1()
     {
         for (auto blk : func->getBlocks())
         {
+            if (blk->getInsts().size() > maxInstNum || blk->getPreds().size() != 1 || blk->getSuccs().size() != 1)
+            {
+                couldBeMerged[blk] = false;
+                continue;
+            }
             bool cbm = true;
             for (auto inst : blk->getInsts())
             {
@@ -249,4 +256,52 @@ void MachineStraight::pass1()
             couldBeMerged[blk] = cbm;
         }
     };
+    for (auto func : unit->getFuncs())
+    {
+        std::vector<MachineBlock *> blks(func->getBlocks().begin(), func->getBlocks().end());
+        for (auto blk : blks)
+        {
+            if (couldBeMerged[blk])
+            {
+                doMerge(blk);
+            }
+        }
+    }
+}
+
+void MachineStraight::doMerge(MachineBlock *blk)
+{
+    auto pred = blk->getPreds()[0];
+    auto succ = blk->getSuccs()[0];
+    auto &insts = pred->getInsts();
+    for (int i = insts.size() - 1; i >= 0; i--)
+    {
+        if (insts[i]->isBranch() && !insts[i]->isUBranch())
+        {
+            auto nowInst = insts[i];
+            auto target = static_cast<BranchMInstruction *>(nowInst)->getUse()[0];
+            auto label = target->getLabel();
+            label = label.substr(2, label.size() - 2);
+            int target_no = atoi(label.c_str());
+            if (target_no == blk->getNo())
+            {
+                int cond = insts[i]->getCond();
+                for (auto inst : blk->getInsts())
+                {
+                    inst->setCond(cond);
+                    pred->insertBefore(inst, nowInst);
+                    inst->setParent(pred);
+                }
+                pred->eraseInst(nowInst);
+                pred->removeSucc(blk);
+                blk->removePred(pred);
+                succ->removePred(blk);
+                blk->removeSucc(succ);
+                pred->addSucc(succ);
+                succ->addPred(pred);
+                blk->getParent()->RemoveBlock(blk);
+                return;
+            }
+        }
+    }
 }
