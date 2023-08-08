@@ -280,6 +280,8 @@ void FunctionInline::merge(Function *func, Instruction *callInst)
             movList.push_back(inst);
     for (auto inst : movList)
     {
+        for (auto use : inst->getUse())
+            use->removeUse(inst);
         entryBlock->remove(inst);
         entry->insertFront(inst, static_cast<AllocaInstruction *>(inst)->getEntry()->getType()->isArray());
     }
@@ -316,6 +318,8 @@ void FunctionInline::merge(Function *func, Instruction *callInst)
     }
     // headB设置后继关系
     auto retValue = callInst->getDef();
+    for (auto use : callInst->getUse())
+        use->removeUse(callInst);
     headB->remove(callInst);
     new UncondBrInstruction(entryBlock, headB);
     headB->cleanAllSucc();

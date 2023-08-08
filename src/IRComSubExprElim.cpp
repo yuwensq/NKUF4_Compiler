@@ -294,7 +294,6 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
 
 bool IRComSubExprElim::localCSE(Function *func)
 {
-    // return true;
     static int round = 0;
     round++;
 #ifdef PRINTLOG

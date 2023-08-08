@@ -747,7 +747,7 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
     if (src2->isImm())
     {
         // 为零可以特殊处理
-        if (src2->getVal() == 0)
+        if (src2->getVal() == 0) // 注意这里，因为浮点数0的位模式全零，也可以这样判断
         {
             if (opcode == ADD || opcode == SUB)
             {
@@ -762,6 +762,11 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
                     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, genMachineImm(0)));
                 return;
             }
+        }
+        if (src2->getVal() == 1 && (opcode == MUL || opcode == DIV) && !floatVersion)
+        {
+            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, src1));
+            return;
         }
         if (floatVersion) // 如果是浮点数，直接放寄存器里得了
         {

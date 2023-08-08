@@ -792,6 +792,8 @@ void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand 
             }
             BinaryInstruction *newDefBin = new BinaryInstruction(BinaryInstruction::ADD, phi->getDef(), phiOp, new Operand(new ConstantSymbolEntry(phiOp->getEntry()->getType(), 0)), nullptr);
             Instruction *phiNext = phi->getNext();
+            for (auto use : phi->getUse())
+                use->removeUse(phi);
             bb->remove(phi);
             bb->insertBefore(newDefBin, phiNext);
         }

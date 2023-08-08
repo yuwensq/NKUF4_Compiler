@@ -114,7 +114,7 @@ public:
     MachineBlock *getParent() { return parent; };
     void setParent(MachineBlock *parent) { this->parent = parent; };
     virtual bool replaceUse(MachineOperand *, MachineOperand *) { return false; };
-    int setCond(int newCond) { cond = newCond; };
+    void setCond(int newCond) { cond = newCond; };
     int getCond() { return cond; };
     bool isStack() { return type == STACK; };
     // 这个几个函数有的写的比较死，就用op的几个，要注意后期改代码的时候op的值

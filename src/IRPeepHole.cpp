@@ -2,14 +2,16 @@
 #include "Type.h"
 #include "debug.h"
 
+const int INTMAX = 2147483647;
+
 extern FILE *yyout;
 
 void IRPeepHole::subPass(Function *func)
 {
-    auto isAddConst = [&](Instruction *inst)
+    auto isBinaryConst = [&](Instruction *inst, int opCode)
     {
-        bool cond1 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[1]->getEntry()->isConstant());
-        bool cond2 = (inst->isBinary() && inst->getOpCode() == BinaryInstruction::ADD && inst->getUse()[0]->getEntry()->isConstant());
+        bool cond1 = (inst->isBinary() && inst->getOpCode() == opCode && inst->getUse()[1]->getEntry()->isConstant());
+        bool cond2 = (inst->isBinary() && inst->getOpCode() == opCode && inst->getUse()[0]->getEntry()->isConstant());
         Operand *useOp = nullptr;
         Operand *constOp = nullptr;
         if (cond1 && !cond2)
@@ -137,12 +139,12 @@ void IRPeepHole::subPass(Function *func)
     };
     auto case5 = [&](Instruction *inst)
     {
-        auto [useOp, constOp] = isAddConst(inst);
+        auto [useOp, constOp] = isBinaryConst(inst, BinaryInstruction::ADD);
         if (useOp == nullptr || useOp->getDef() == nullptr)
             return false;
         if (useOp->getDef()->getUse().size() != 1)
             return false;
-        auto [useOp2, constOp2] = isAddConst(useOp->getDef());
+        auto [useOp2, constOp2] = isBinaryConst(useOp->getDef(), BinaryInstruction::ADD);
         if (useOp2 == nullptr)
             return false;
         if (useOp2->getDef()->getParent() == func->getEntry())
@@ -151,8 +153,8 @@ void IRPeepHole::subPass(Function *func)
     };
     auto solveCase5 = [&](Instruction *inst)
     {
-        auto [useOp, constOp] = isAddConst(inst);
-        auto [useOp2, constOp2] = isAddConst(useOp->getDef());
+        auto [useOp, constOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        auto [useOp2, constOp2] = isBinaryConst(useOp->getDef(), BinaryInstruction::ADD);
         useOp->removeUse(inst);
         inst->replaceUse(useOp, useOp2);
         // 这里直接相加
@@ -163,6 +165,82 @@ void IRPeepHole::subPass(Function *func)
         auto bb = useOp->getDef()->getParent();
         bb->remove(useOp->getDef());
         return inst->getPrev();
+    };
+    auto case6 = [&](Instruction *inst)
+    {
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        if (mulUseOp == nullptr || mulConstOp == nullptr || inst->getDef() == nullptr || inst->getDef()->getUse().size() != 1)
+            return false;
+        auto [divUseOp, divConstOp] = isBinaryConst(inst->getDef()->getUse()[0], BinaryInstruction::DIV);
+        if (divUseOp == nullptr || mulConstOp == nullptr)
+            return false;
+        if (!mulConstOp->getType()->isInt())
+            return false;
+        if (int(static_cast<ConstantSymbolEntry *>(mulConstOp->getEntry())->getValue()) % int(static_cast<ConstantSymbolEntry *>(divConstOp->getEntry())->getValue()) == 0)
+            return true;
+        return false;
+    };
+    auto solveCase6 = [&](Instruction *inst)
+    {
+        auto prevInst = inst->getPrev();
+        auto divInst = inst->getDef()->getUse()[0];
+        auto mulBB = inst->getParent();
+        auto divBB = divInst->getParent();
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        auto [divUseOp, divConstOp] = isBinaryConst(divInst, BinaryInstruction::DIV);
+        auto mulConstValue = int(static_cast<ConstantSymbolEntry *>(mulConstOp->getEntry())->getValue());
+        auto divConstValue = int(static_cast<ConstantSymbolEntry *>(divConstOp->getEntry())->getValue());
+        divUseOp->removeUse(divInst);
+        divConstOp->removeUse(divInst);
+        inst->setDef(divInst->getDef());
+        inst->replaceUse(mulConstOp, new Operand(new ConstantSymbolEntry(mulConstOp->getType(), mulConstValue / divConstValue)));
+        mulBB->remove(inst);
+        divBB->insertBefore(inst, divInst);
+        divBB->remove(divInst);
+        return prevInst;
+    };
+    auto case7 = [&](Instruction *inst)
+    {
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        if (mulUseOp == nullptr || mulConstOp == nullptr || inst->getDef() == nullptr || inst->getDef()->getUse().size() != 1)
+            return false;
+        auto addInst = inst->getDef()->getUse()[0];
+        if (addInst->isBinary() && addInst->getOpCode() == BinaryInstruction::ADD)
+        {
+            Operand *baseOp = nullptr;
+            if (addInst->getUse()[0] == inst->getDef())
+                baseOp = addInst->getUse()[1];
+            else if (addInst->getUse()[1] == inst->getDef())
+                baseOp = addInst->getUse()[0];
+            if (baseOp == nullptr || baseOp != mulUseOp || !mulConstOp->getType()->isInt() || static_cast<ConstantSymbolEntry *>(mulConstOp->getEntry())->getValue() >= INTMAX)
+                return false;
+            else
+                return true;
+        }
+        return false;
+    };
+    auto solveCase7 = [&](Instruction *inst)
+    {
+        auto prevInst = inst->getPrev();
+        auto addInst = inst->getDef()->getUse()[0];
+        auto mulBB = inst->getParent();
+        auto addBB = addInst->getParent();
+        auto [mulUseOp, mulConstOp] = isBinaryConst(inst, BinaryInstruction::MUL);
+        Operand *baseOp = nullptr;
+        Operand *passOp = inst->getDef();
+        if (addInst->getUse()[0] == passOp)
+            baseOp = addInst->getUse()[1];
+        else
+            baseOp = addInst->getUse()[0];
+        auto mulConstValue = int(static_cast<ConstantSymbolEntry *>(mulConstOp->getEntry())->getValue());
+        passOp->removeUse(addInst);
+        baseOp->removeUse(addInst);
+        inst->setDef(addInst->getDef());
+        inst->replaceUse(mulConstOp, new Operand(new ConstantSymbolEntry(mulConstOp->getType(), mulConstValue + 1)));
+        mulBB->remove(inst);
+        addBB->insertBefore(inst, addInst);
+        addBB->remove(addInst);
+        return prevInst;
     };
     bool change = false;
     do
@@ -195,6 +273,16 @@ void IRPeepHole::subPass(Function *func)
                 if (case5(inst))
                 {
                     inst = solveCase5(inst);
+                    change = true;
+                }
+                if (case6(inst))
+                {
+                    inst = solveCase6(inst);
+                    change = true;
+                }
+                if (case7(inst))
+                {
+                    inst = solveCase7(inst);
                     change = true;
                 }
             }
