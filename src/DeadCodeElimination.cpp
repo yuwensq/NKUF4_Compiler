@@ -64,7 +64,7 @@ void DeadCodeElimination::initalize(Function *func)
     {
         // 将基本块的mark标记置为false
         (*it)->unsetMark();
-        // 将基本块其中所有的mark标记置为false（但head应该是没有）
+        // 将基本块其中所有的mark标记置为false
         (*it)->cleanAllMark();
         // 遍历指令，执行某一些条件判断，标记其中的一些指令以及基本块，压入worklist
         for (auto it1 = (*it)->begin(); it1 != (*it)->end(); it1 = it1->getNext())
@@ -400,7 +400,6 @@ bool DeadCodeElimination::remove(Function *func)
             if (!it->getMark())
             {
                 // 未被标记的返回语句->有返回值，但是调用这个函数的所有call指令都不利用这个函数的返回值
-                // 改写：返回0->这是有必要的吗？
                 // 考虑一种情况 return expr（这个expr非常复杂，那么在这种情况下，我们不会标记这个return，expr的计算也就不会被标记
                 // 这些计算会被抹去，是有其合理性的
                 if (it->isRet())
@@ -431,7 +430,7 @@ bool DeadCodeElimination::remove(Function *func)
                 // 未被标记的无条件跳转并不会去删除
                 if (!it->isUncond())
                     temp.push_back(it);
-                // 处理条件跳转，
+                // 处理条件跳转
                 if (it->isCond())
                 {
                     // 获取到离它最近的被标记的那个后支配节点去，getMarkBranch后面再过来看看它咋写的

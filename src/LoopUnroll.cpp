@@ -3,7 +3,7 @@ using namespace std;
 
 void LoopUnroll::calculateCandidateLoop(vector<vector<BasicBlock *>> LoopList)
 {
-    // 理应只针对最内循环做展开
+    // 只针对最内循环做展开
     vector<vector<BasicBlock *>> InnerLoop;
     for (auto loopi : LoopList)
     {
@@ -71,7 +71,7 @@ void LoopUnroll::Unroll()
 {
     for (auto loop : candidateLoops)
     {
-        // 包含call指令的不展开(call系统函数的或许可以展开？)
+        // 包含call指令的不展开(call系统函数可以)
         bool hasCall = false;
         BasicBlock *cond = loop->getcond(), *body = loop->getbody();
         for (auto ins = body->begin(); ins != body->end(); ins = ins->getNext())
@@ -575,7 +575,7 @@ Operand *LoopUnroll::getBeginOp(BasicBlock *bb, Operand *strideOp, stack<Instruc
 
 bool LoopUnroll::isRegionConst(Operand *i, Operand *c)
 {
-    // 常数，总感觉下面这些判断过于粗糙
+    // 常数
     if (c->getEntry()->isConstant())
     {
         return true;
