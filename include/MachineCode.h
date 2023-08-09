@@ -131,6 +131,7 @@ public:
     bool isSub() { return type == BINARY && this->op == 1; };
     bool isVSub() { return type == BINARY && op == 7; };
     bool isBinary() { return type == BINARY; };
+    bool isVBinary() { return type == BINARY && (op == 6 || op == 7 || op == 8 || op == 9); };
     bool isRet() { return type == BRANCH && op == 2; };
     bool isUncondBranch() { return type == BRANCH && (op == 2 || (op == 0 && cond == MachineInstruction::NONE)); };
     bool isUBranch() { return type == BRANCH && op == 0 && cond == MachineInstruction::NONE; }
@@ -148,7 +149,7 @@ class BinaryMInstruction : public MachineInstruction
 public:
     enum opType
     {
-        ADD,
+        ADD = 0,
         SUB,
         MUL,
         DIV,
@@ -502,9 +503,19 @@ public:
         this->no = no;
     };
     void InsertInst(MachineInstruction *inst) { this->inst_list.push_back(inst); };
-    void addPred(MachineBlock *p) { this->pred.push_back(p); };
+    void addPred(MachineBlock *p)
+    {
+        // 自动去重
+        if (std::find(this->pred.begin(), this->pred.end(), p) == this->pred.end())
+            this->pred.push_back(p);
+    };
     void removePred(MachineBlock *p) { this->pred.erase(std::find(this->pred.begin(), this->pred.end(), p)); };
-    void addSucc(MachineBlock *s) { this->succ.push_back(s); };
+    void addSucc(MachineBlock *s)
+    {
+        // 自动去重
+        if (std::find(this->succ.begin(), this->succ.end(), s) == this->succ.end())
+            this->succ.push_back(s);
+    };
     void removeSucc(MachineBlock *s) { this->succ.erase(std::find(this->succ.begin(), this->succ.end(), s)); };
     void insertBefore(MachineInstruction *, MachineInstruction *);
     void insertAfter(MachineInstruction *, MachineInstruction *);

@@ -16,7 +16,10 @@ private:
     void removeSlimBlock();
     void getJunctions();
     void mergeJunctions();
+    int getTargetNo(MachineInstruction *);
     void doMerge(MachineBlock *);
+    void removeRedundancyBInst(MachineBlock *);
+    void removeRedundancyB();
     void pass1();
     void pass2();
 

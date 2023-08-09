@@ -1224,7 +1224,10 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
             step *= indexs[j];
         }
         auto off = genMachineVReg();
-        cur_block->InsertInst(new LoadMInstruction(cur_block, LoadMInstruction::LDR, off, genMachineImm(step)));
+        if (AsmBuilder::isLegalImm(step))
+            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, off, genMachineImm(step)));
+        else
+            cur_block->InsertInst(new LoadMInstruction(cur_block, LoadMInstruction::LDR, off, genMachineImm(step)));
         auto internal_reg1 = genMachineVReg();
         auto src1 = genMachineOperand(operands[i]);
         cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::MUL, internal_reg1, src1, new MachineOperand(*off)));

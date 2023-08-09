@@ -1,3 +1,4 @@
+#define __GVN_H__
 #ifndef __GVN_H__
 #define __GVN_H__
 
@@ -67,11 +68,11 @@ public:
     void identifyMovableComputations2(BasicBlock *);
     bool questionPropagation(Instruction *);
     bool qpLocalSearch(Instruction *);
-    bool qpGlobalSearch(std::vector<Instruction *>&, Instruction *);
+    bool qpGlobalSearch(std::vector<Instruction *> &, Instruction *);
     // std::vector<std::pair<BasicBlock *, Instruction *>> renameExpression(Instruction *);
     void moveComputationsOutOfALoop(BasicBlock *);
     void moveComputationsIntoPad(BasicBlock *);
-    void eliminateGlobalRedundancies(std::vector<Instruction *>&, Instruction *);
+    void eliminateGlobalRedundancies(std::vector<Instruction *> &, Instruction *);
 };
 
 #endif

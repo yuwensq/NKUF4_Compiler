@@ -3,6 +3,7 @@
 #include <sstream>
 #include <string>
 
+extern FILE *yyout;
 // #define PRINTLOG
 
 void MachineStraight::getSlimBlock()
@@ -155,6 +156,7 @@ void MachineStraight::pass()
 #endif
     getSlimBlock();
     removeSlimBlock();
+    removeRedundancyB();
 #ifdef PRINTLOG
     Log("伸直化阶段1完成");
 #endif
@@ -169,35 +171,90 @@ void MachineStraight::pass()
 // 打印出来，然后把b指令删掉
 void MachineStraight::pass2()
 {
+    std::map<int, MachineBlock *> no2blk;
+    std::map<MachineBlock *, MachineBlock *> pre2suc;
+    std::set<MachineBlock *> headB;
+    std::set<MachineBlock *> allBlks;
     for (auto func : unit->getFuncs())
     {
-        std::map<int, MachineBlock *> no2blk;
+        no2blk.clear();
+        pre2suc.clear();
+        headB.clear();
         for (auto blk : func->getBlocks())
-            no2blk[blk->getNo()] = blk;
-        std::vector<MachineBlock *> tmp_blks;
-        tmp_blks.assign(func->getBlocks().begin(), func->getBlocks().end());
-        func->getBlocks().clear();
-        for (auto i = 0; i < tmp_blks.size(); i++)
         {
-            if (no2blk.find(tmp_blks[i]->getNo()) == no2blk.end())
-                continue;
-            func->getBlocks().push_back(tmp_blks[i]);
-            no2blk.erase(tmp_blks[i]->getNo());
-            auto lastInst = tmp_blks[i]->getInsts().back();
-            if (lastInst->isUBranch())
+            allBlks.insert(blk);
+            headB.insert(blk);
+            no2blk[blk->getNo()] = blk;
+        }
+        for (auto blk : func->getBlocks())
+        {
+            auto bInst = blk->getInsts().back();
+            if (bInst->isUBranch())
             {
-                auto label = lastInst->getUse()[0]->getLabel();
-                label = label.substr(2, label.size() - 2);
-                auto succNo = atoi(label.c_str());
-                if (no2blk.find(succNo) != no2blk.end())
-                {
-                    func->getBlocks().push_back(no2blk[succNo]);
-                    no2blk.erase(succNo);
-                    tmp_blks[i]->eraseInst(lastInst);
-                }
+                int succNo = getTargetNo(bInst);
+                pre2suc[blk] = no2blk[succNo];
+                headB.erase(no2blk[succNo]);
+            }
+        }
+        func->getBlocks().clear();
+        auto nowB = func->getEntry();
+        do
+        {
+            headB.erase(nowB);
+            allBlks.erase(nowB);
+            func->getBlocks().push_back(nowB);
+            while (pre2suc.find(nowB) != pre2suc.end() && allBlks.find(pre2suc[nowB]) != allBlks.end())
+            {
+                nowB = pre2suc[nowB];
+                allBlks.erase(nowB);
+                func->getBlocks().push_back(nowB);
+            }
+            if (headB.empty())
+                break;
+            nowB = *headB.begin();
+        } while (true);
+        while (!allBlks.empty())
+        {
+            nowB = *allBlks.begin();
+            allBlks.erase(nowB);
+            func->getBlocks().push_back(nowB);
+            while (pre2suc.find(nowB) != pre2suc.end() && allBlks.find(pre2suc[nowB]) != allBlks.end())
+            {
+                nowB = pre2suc[nowB];
+                allBlks.erase(nowB);
+                func->getBlocks().push_back(nowB);
             }
         }
     }
+    // for (auto func : unit->getFuncs())
+    // {
+    //     std::map<int, MachineBlock *> no2blk;
+    //     for (auto blk : func->getBlocks())
+    //         no2blk[blk->getNo()] = blk;
+    //     std::vector<MachineBlock *> tmp_blks;
+    //     tmp_blks.assign(func->getBlocks().begin(), func->getBlocks().end());
+    //     func->getBlocks().clear();
+    //     for (auto i = 0; i < tmp_blks.size(); i++)
+    //     {
+    //         if (no2blk.find(tmp_blks[i]->getNo()) == no2blk.end())
+    //             continue;
+    //         func->getBlocks().push_back(tmp_blks[i]);
+    //         no2blk.erase(tmp_blks[i]->getNo());
+    //         auto lastInst = tmp_blks[i]->getInsts().back();
+    //         if (lastInst->isUBranch())
+    //         {
+    //             auto label = lastInst->getUse()[0]->getLabel();
+    //             label = label.substr(2, label.size() - 2);
+    //             auto succNo = atoi(label.c_str());
+    //             if (no2blk.find(succNo) != no2blk.end())
+    //             {
+    //                 func->getBlocks().push_back(no2blk[succNo]);
+    //                 no2blk.erase(succNo);
+    //                 tmp_blks[i]->eraseInst(lastInst);
+    //             }
+    //         }
+    //     }
+    // }
     for (auto func : unit->getFuncs())
     {
         for (int i = 0; i < func->getBlocks().size() - 1; i++)
@@ -231,7 +288,7 @@ void MachineStraight::pass1()
     std::map<MachineBlock *, bool> couldBeMerged;
     auto isGoodInst = [&](MachineInstruction *inst)
     {
-        if (inst->getCond() == MachineInstruction::NONE && (inst->isBinary() || inst->isLoad() || inst->isStore() || inst->isMov() || inst->isUBranch()))
+        if (inst->getCond() == MachineInstruction::NONE && (inst->isBinary() || inst->isLoad() || inst->isStore() || inst->isMov() || inst->isUBranch()) && !inst->isVBinary() && !inst->isVLoad() && !inst->isVStore())
             return true;
         return false;
     };
@@ -279,10 +336,7 @@ void MachineStraight::doMerge(MachineBlock *blk)
         if (insts[i]->isBranch() && !insts[i]->isUBranch())
         {
             auto nowInst = insts[i];
-            auto target = static_cast<BranchMInstruction *>(nowInst)->getUse()[0];
-            auto label = target->getLabel();
-            label = label.substr(2, label.size() - 2);
-            int target_no = atoi(label.c_str());
+            int target_no = getTargetNo(nowInst);
             if (target_no == blk->getNo())
             {
                 int cond = insts[i]->getCond();
@@ -300,8 +354,42 @@ void MachineStraight::doMerge(MachineBlock *blk)
                 pred->addSucc(succ);
                 succ->addPred(pred);
                 blk->getParent()->RemoveBlock(blk);
+                removeRedundancyBInst(pred);
                 return;
             }
+        }
+    }
+}
+
+int MachineStraight::getTargetNo(MachineInstruction *ins)
+{
+    auto target = static_cast<BranchMInstruction *>(ins)->getUse()[0];
+    auto label = target->getLabel();
+    label = label.substr(2, label.size() - 2);
+    int target_no = atoi(label.c_str());
+    return target_no;
+}
+
+void MachineStraight::removeRedundancyBInst(MachineBlock *blk)
+{
+    auto bInst = blk->getInsts()[blk->getInsts().size() - 1];
+    auto bcondInst = blk->getInsts()[blk->getInsts().size() - 2];
+    if (bInst->isUBranch() && (bcondInst->isBranch() && !bcondInst->isUBranch()))
+    {
+        auto bInstTNO = getTargetNo(bInst);
+        auto bcondInstTNO = getTargetNo(bcondInst);
+        if (bInstTNO == bcondInstTNO)
+            blk->eraseInst(bcondInst);
+    }
+}
+
+void MachineStraight::removeRedundancyB()
+{
+    for (auto &func : unit->getFuncs())
+    {
+        for (auto &blk : func->getBlocks())
+        {
+            removeRedundancyBInst(blk);
         }
     }
 }
