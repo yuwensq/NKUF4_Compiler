@@ -1,4 +1,3 @@
-#define __GVN_H__
 #ifndef __GVN_H__
 #define __GVN_H__
 
