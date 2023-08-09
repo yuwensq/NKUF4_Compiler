@@ -1,6 +1,9 @@
 #include "LoopUnroll.h"
 using namespace std;
 
+extern FILE *yyout;
+const int INTMAX = 2147483647;
+
 void LoopUnroll::calculateCandidateLoop(vector<vector<BasicBlock *>> LoopList)
 {
     // 只针对最内循环做展开
@@ -1134,7 +1137,11 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
     // 只消去归纳变量为i=i+1的循环
     // 能完全消除的循环，其中的操作数应该能根据phi指令串成一条链
     // 循环中至少有一条链是strideOp相关的
-    if (bodybb->getPred().size() != 2)
+    // return false;
+    // 如果已经搞过了，就不搞了这个块，要不会死循环
+    if (bbDiscarded[bodybb])
+        return false;
+    if (!condbb || bodybb->getPred().size() != 2 || bodyInsNum > 7)
     {
         return false;
     }
@@ -1142,7 +1149,10 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
     std::vector<Instruction *> chain;
     std::set<Instruction *> color;
     int phiInstNum = 0;
-    Instruction *cmpInst = nullptr;
+    Instruction *bodyPhiInst = nullptr;
+    Instruction *bodyCmpInst = nullptr;
+    Operand *iBeginOp = nullptr;
+    // 把循环相关的指令摘出去
     for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
     {
         if (inst->isPhi())
@@ -1150,47 +1160,54 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             phiInstNum++;
             if (phiInstNum > 2)
                 return false;
-            auto phiEndOp = static_cast<PhiInstruction *>(inst)->getBlockSrc(bodybb);
-            if (phiEndOp == strideOp)
-                color.insert(inst);
+            if (static_cast<PhiInstruction *>(inst)->getBlockSrc(bodybb) == strideOp)
+            {
+                bodyPhiInst = inst;
+                iBeginOp = inst->getDef();
+            }
         }
         if (inst->isCmp())
         {
-            if (cmpInst == nullptr)
-                cmpInst = inst;
+            if (bodyCmpInst == nullptr)
+                bodyCmpInst = inst;
             else
                 return false;
         }
+        if (inst->isCond())
+            color.insert(inst);
         auto def = inst->getDef();
         if (def != nullptr)
+        {
             appearTimes[def]++;
+            if (def == strideOp)
+                color.insert(inst);
+        }
         for (auto use : inst->getUse())
         {
-            if (use != nullptr)
-                appearTimes[use]++;
-            if (color.count(use->getDef()) != 0)
-            {
+            appearTimes[use]++;
+            if (use == strideOp)
                 color.insert(inst);
-                break;
-            }
         }
         if (color.count(inst) == 0)
             chain.push_back(inst);
     }
-    if (chain.size() <= 0 || chain.size() > 3)
+    if (chain.size() <= 0 || chain.size() > 3 || static_cast<CmpInstruction *>(bodyCmpInst)->getOpCode() != CmpInstruction::L)
         return false;
     if (!chain[0]->isPhi())
         return false;
     auto varBeginOp = static_cast<PhiInstruction *>(chain[0])->getBlockSrc(condbb);
     auto varEndOp = static_cast<PhiInstruction *>(chain[0])->getBlockSrc(bodybb);
-    if (varBeginOp == nullptr || varEndOp == nullptr || (!varBeginOp->getEntry()->isConstant() && appearTimes[varBeginOp] != 1))
+    // 这里先限制的死一点，限制变量初值为0
+    // if (varBeginOp == nullptr || varEndOp == nullptr || (!varBeginOp->getEntry()->isConstant() && appearTimes[varBeginOp] != 1))
+    if (varBeginOp == nullptr || varEndOp == nullptr || !varBeginOp->getEntry()->isConstant() || static_cast<ConstantSymbolEntry *>(varBeginOp->getEntry())->getValue() != 0)
         return false;
-    // Log("x %d", chain.size());
+    // fprintf(yyout, "chain over\n");
     // for (auto c : chain)
     //     c->output();
     if (chain.size() == 2)
     {
         // 先不处理
+        return false;
         auto addInst = chain[1];
         if (!(addInst->isBinary() && (addInst->getOpCode() == BinaryInstruction::ADD)))
             return false;
@@ -1235,7 +1252,8 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
     }
     else if (chain.size() == 3)
     {
-        Log("y");
+        // 目前，只有加和模能简化
+        // 这里分两种情况，一种是加一个循环不变的变量，一种是加一个循环相关的变量
         auto addInst = chain[1];
         auto sremInst = chain[2];
         if (!(addInst->isBinary() && (addInst->getOpCode() == BinaryInstruction::ADD)))
@@ -1249,8 +1267,6 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             addConstOp = addInst->getUse()[0];
         else
             return false;
-        if (!addConstOp->getEntry()->isConstant() && appearTimes[addConstOp] != 1)
-            return false;
         Operand *modConstOp = nullptr;
         if (sremInst->getUse()[0] == chain[1]->getDef())
             modConstOp = sremInst->getUse()[1];
@@ -1262,37 +1278,141 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             return false;
         if (sremInst->getDef() != varEndOp)
             return false;
-        // addInst->replaceUse(addConstOp, endOp);
-        // cmpInst->replaceUse(endOp, addConstOp);
+        auto condBInst = condbb->end()->getPrev();
+        auto bodyBInst = bodybb->end()->getPrev();
+        if (!condBInst->isCond())
+            return false;
+        if (!bodyBInst->isCond())
+            return false;
+        // 这里有分歧
         auto phiDef = chain[0]->getDef();
         auto addDef = chain[1]->getDef();
         auto modDef = chain[2]->getDef();
         if (addDef->getUse().size() != 1 || phiDef->getUse().size() != 1)
             return false;
-        auto initInst = new BinaryInstruction(BinaryInstruction::ADD, phiDef, varBeginOp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
-        auto newTmp = new Operand(new TemporarySymbolEntry(varBeginOp->getType(), SymbolTable::getLabel()));
-        auto mulInst = new BinaryInstruction(BinaryInstruction::MUL, newTmp, endOp, addConstOp);
-        auto newAddInst = new BinaryInstruction(BinaryInstruction::ADD, addDef, newTmp, new Operand(new ConstantSymbolEntry(varBeginOp->getType(), 0)));
-        auto newModInst = new BinaryInstruction(BinaryInstruction::MOD, modDef, addDef, modConstOp);
-        std::vector<Instruction *> insts;
+
+        int maxTurnValue = 40000;
+        auto func = bodybb->getParent();
+        auto beginBB = new BasicBlock(func);
+        auto brotherBB = new BasicBlock(func);
+        auto endBB = new BasicBlock(func);
+
+        Operand *newResult = nullptr;
+        if (addConstOp == iBeginOp && appearTimes[iBeginOp] == 3)
+        {
+            // Log("case a");
+            auto type = endOp->getType();
+            auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, endOp, brotherBB);
+            auto tmp2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::SUB, tmp2, tmp1, endOp, brotherBB);
+            auto tmp3 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::DIV, tmp3, tmp2, new Operand(new ConstantSymbolEntry(type, 2)), brotherBB);
+            auto tmp4 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::MOD, tmp4, tmp3, modConstOp, brotherBB);
+            new UncondBrInstruction(endBB, brotherBB);
+            newResult = tmp4;
+        }
+        else if (addConstOp->getEntry()->isConstant() && addConstOp->getType()->isInt())
+        {
+            // Log("case b");
+            maxTurnValue = INTMAX / int(static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue());
+            auto type = addConstOp->getType();
+            auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, addConstOp, brotherBB);
+            auto tmp2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::MOD, tmp2, tmp1, modConstOp, brotherBB);
+            new UncondBrInstruction(endBB, brotherBB);
+            newResult = tmp2;
+        }
+        else
+            return false;
+
+        // 连接cond和begin
+        if (static_cast<CondBrInstruction *>(condBInst)->getTrueBranch() == bodybb)
+            static_cast<CondBrInstruction *>(condBInst)->setTrueBranch(beginBB);
+        else
+            static_cast<CondBrInstruction *>(condBInst)->setFalseBranch(beginBB);
+
+        condbb->removeSucc(bodybb);
+        bodybb->removePred(condbb);
+        condbb->addSucc(beginBB);
+        beginBB->addPred(condbb);
+        beginBB->addSucc(bodybb);
+        bodybb->addPred(beginBB);
+        beginBB->addSucc(brotherBB);
+        brotherBB->addPred(beginBB);
+
         for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
         {
-            for (auto use : inst->getUse())
-                use->removeUse(inst);
-            insts.push_back(inst);
+            if (!inst->isPhi())
+                break;
+            auto &srcs = static_cast<PhiInstruction *>(inst)->getSrcs();
+            if (srcs.find(condbb) != srcs.end())
+            {
+                auto op = srcs[condbb];
+                static_cast<PhiInstruction *>(inst)->removeBlockSrc(condbb);
+                static_cast<PhiInstruction *>(inst)->addSrc(beginBB, op);
+            }
         }
-        for (auto inst : insts)
-            bodybb->remove(inst);
-        bodybb->insertBack(initInst);
-        bodybb->insertBack(mulInst);
-        bodybb->insertBack(newAddInst);
-        bodybb->insertBack(newModInst);
-        bodybb->removeSucc(bodybb);
-        bodybb->removePred(bodybb);
-        assert(bodybb->getNumOfSucc() == 1);
-        auto uncondbr = new UncondBrInstruction(bodybb->getSucc()[0]);
-        bodybb->insertBack(uncondbr);
-        successUnroll = true;
+
+        auto newCond = new Operand(new TemporarySymbolEntry(TypeSystem::boolType, SymbolTable::getLabel()));
+        new CmpInstruction(CmpInstruction::LE, newCond, endOp, new Operand(new ConstantSymbolEntry(endOp->getType(), maxTurnValue)), beginBB);
+        new CondBrInstruction(brotherBB, bodybb, newCond, beginBB);
+
+        // 连接end和brother、body
+        BasicBlock *exitBB = nullptr;
+        if (static_cast<CondBrInstruction *>(bodyBInst)->getTrueBranch() == bodybb)
+        {
+            exitBB = static_cast<CondBrInstruction *>(bodyBInst)->getFalseBranch();
+            static_cast<CondBrInstruction *>(bodyBInst)->setFalseBranch(endBB);
+        }
+        else
+        {
+            exitBB = static_cast<CondBrInstruction *>(bodyBInst)->getTrueBranch();
+            static_cast<CondBrInstruction *>(bodyBInst)->setTrueBranch(endBB);
+        }
+
+        bodybb->removeSucc(exitBB);
+        exitBB->removePred(bodybb);
+        endBB->addSucc(exitBB);
+        exitBB->addPred(endBB);
+        bodybb->addSucc(endBB);
+        endBB->addPred(bodybb);
+        brotherBB->addSucc(endBB);
+        endBB->addPred(brotherBB);
+
+        for (auto inst = exitBB->begin(); inst != exitBB->end(); inst = inst->getNext())
+        {
+            if (!inst->isPhi())
+                break;
+            auto &srcs = static_cast<PhiInstruction *>(inst)->getSrcs();
+            if (srcs.find(bodybb) != srcs.end())
+            {
+                auto op = srcs[bodybb];
+                static_cast<PhiInstruction *>(inst)->removeBlockSrc(bodybb);
+                static_cast<PhiInstruction *>(inst)->addSrc(endBB, op);
+            }
+        }
+
+        auto finalRes = new Operand(new TemporarySymbolEntry(endOp->getType(), SymbolTable::getLabel()));
+        auto lastPhi = new PhiInstruction(finalRes, endBB);
+        finalRes->setDef(lastPhi);
+        lastPhi->addEdge(brotherBB, newResult);
+        lastPhi->addEdge(bodybb, modDef);
+        new UncondBrInstruction(exitBB, endBB);
+
+        std::vector<Instruction *> uses(modDef->getUse().begin(), modDef->getUse().end());
+        for (auto use : uses)
+        {
+            if (use->getParent() == bodybb || use->getParent() == endBB)
+                continue;
+            use->replaceUse(modDef, finalRes);
+        }
+        // bodybb->getParent()->getParent()->output();
+        // fflush(yyout);
+        // exit(0);
+        bbDiscarded[bodybb] = true;
         return true;
     }
     return false;

@@ -1257,28 +1257,6 @@ void GepInstruction::genMachineCode(AsmBuilder *builder)
         cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, new_base, new MachineOperand(*base), new MachineOperand(*internal_reg1)));
         base = new MachineOperand(*new_base);
     }
-    // for (unsigned long int i = 2; i < operands.size(); i++)
-    // {
-    //     unsigned int step = 4;
-    //     for (unsigned long int j = i - (type2 ? 2 : 1); j < indexs.size(); j++)
-    //     {
-    //         step *= indexs[j];
-    //     }
-    //     auto off = genMachineVReg();
-    //     cur_block->InsertInst(new LoadMInstruction(cur_block, off, genMachineImm(step)));
-    //     auto internal_reg1 = genMachineVReg();
-    //     auto src1 = genMachineOperand(operands[i]);
-    //     if (src1->isImm())
-    //     {
-    //         auto internal_reg = genMachineVReg();
-    //         cur_block->InsertInst(new LoadMInstruction(cur_block, internal_reg, src1));
-    //         src1 = new MachineOperand(*internal_reg);
-    //     }
-    //     cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::MUL, internal_reg1, src1, off));
-    //     auto internal_reg2 = genMachineVReg();
-    //     cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, internal_reg2, new MachineOperand(*base), new MachineOperand(*internal_reg1)));
-    //     base = new MachineOperand(*internal_reg2);
-    // }
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, base));
 }
 

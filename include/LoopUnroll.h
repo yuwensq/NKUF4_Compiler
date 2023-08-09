@@ -29,6 +29,7 @@ class LoopUnroll
 {
     unordered_map<Function *, unordered_map<BasicBlock *, vector<BasicBlock *>>> DomBBSet;
     vector<loop *> candidateLoops;
+    std::map<BasicBlock*, bool> bbDiscarded;
     int MAXUNROLLNUM = 400;
     int UNROLLNUM = 4;
     int MAXUNROLLINSNUM = 4000;
