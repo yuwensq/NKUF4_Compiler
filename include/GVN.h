@@ -19,7 +19,7 @@ bool isSameRHS(Instruction *, Instruction *);
 
 struct Cmp
 {
-    bool operator()(Instruction *&a, Instruction *&b)
+    bool operator()(Instruction *const &a, Instruction *const &b) const
     {
         assert(a->isBinary() && b->isBinary());
         if (isSameRHS(a, b))
@@ -40,7 +40,7 @@ class GlobalValueNumbering
 private:
     Unit *unit;
     std::vector<BasicBlock *> rtop;
-    std::vector<std::pair<BasicBlock *, BasicBlock *>> loopexits;
+    // std::vector<std::pair<BasicBlock *, BasicBlock *>> loopexits;
     std::unordered_set<BasicBlock *> loopheaders;
     std::unordered_set<BasicBlock *> landingpads;
     std::unordered_map<BasicBlock *, std::unordered_set<BasicBlock *>> virtualEdge;
@@ -68,11 +68,11 @@ public:
     void identifyMovableComputations2(BasicBlock *);
     bool questionPropagation(Instruction *);
     bool qpLocalSearch(Instruction *);
-    bool qpGlobalSearch(std::vector<Instruction *> &, Instruction *);
+    bool qpGlobalSearch(std::vector<Instruction *> &may_list, Instruction *);
     // std::vector<std::pair<BasicBlock *, Instruction *>> renameExpression(Instruction *);
     void moveComputationsOutOfALoop(BasicBlock *);
     void moveComputationsIntoPad(BasicBlock *);
-    void eliminateGlobalRedundancies(std::vector<Instruction *> &, Instruction *);
+    void eliminateGlobalRedundancies(Instruction *);
 };
 
 #endif

@@ -37,8 +37,10 @@ public:
     void addPred(BasicBlock *);
     void removePred(BasicBlock *);
     int getNo() { return no; };
-    std::vector<BasicBlock *> getPred() { return std::vector(pred.begin(), pred.end()); };
-    std::vector<BasicBlock *> getSucc() { return std::vector(succ.begin(), succ.end()); };
+    std::vector<BasicBlock *> getPred() { return std::vector<BasicBlock *>(pred.begin(), pred.end()); };
+    std::vector<BasicBlock *> getSucc() { return std::vector<BasicBlock *>(succ.begin(), succ.end()); };
+    std::set<BasicBlock *> &getPredRef() { return pred; }
+    std::set<BasicBlock *> &getSuccRef() { return succ; }
     Function *getParent() { return parent; };
     Instruction *begin() { return head->getNext(); };
     Instruction *end() { return head; };

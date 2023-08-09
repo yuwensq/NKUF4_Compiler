@@ -9,7 +9,7 @@ void LoopCodeMotion::clearData()
     loopStoreOperands.clear();
 }
 
-// 目前只完成代码外提的优化，还可以加强度削弱、循环展开
+// 代码外提
 void LoopCodeMotion::pass()
 {
     clearData();
@@ -278,7 +278,6 @@ std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> LoopCodeMotion::
                     tempgroup.assign(group.begin(), group.end());
                     tempgroup.push_back(edge);
                     edgeGroups.push_back(tempgroup);
-                    // 这真的不会报错吗？？？感觉严重拖慢了速度
                     edgeGroups.erase(remove(edgeGroups.begin(), edgeGroups.end(), group), edgeGroups.end());
                     find_group = true;
                     break;
@@ -533,7 +532,7 @@ void LoopCodeMotion::printLoopConst(std::vector<Instruction *> LoopConstInstruct
     }
 }
 
-// 计算循环不变信息，返回指令的向量集合,同时将不变的操作数存入LoopConst（需要大量补充？？？？？？？？）
+// 计算循环不变信息，返回指令的向量集合,同时将不变的操作数存入LoopConst
 // 循环不变运算可以是一元/二元/赋值/等等，这边具体参考我们已经有的所有可能的中间代码指令类型，需要仔细设计
 std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<BasicBlock *> Loop, Function *func)
 {
@@ -829,7 +828,7 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
     {
         while (temp != block->end())
         {
-            // //默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
+            // 默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
             // if(temp->isStore()){return true;}
             // 如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
             for (auto use : temp->getUse())

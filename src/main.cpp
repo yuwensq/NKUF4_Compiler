@@ -25,6 +25,7 @@
 #include "GraphColor.h"
 #include "MachineLVN.h"
 #include "IRPeepHole.h"
+#include "GVN.h"
 
 using namespace std;
 
@@ -110,6 +111,7 @@ int main(int argc, char *argv[])
     FunctionInline finline(&unit);
     TailCallAnalyser tca(&unit);
     IRPeepHole iph(&unit);
+    GlobalValueNumbering gvn(&unit);
 
     auto atomicCodeElim = [&]()
     {

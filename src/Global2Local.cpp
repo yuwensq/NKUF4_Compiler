@@ -61,7 +61,7 @@ void Global2Local::recordGlobals()
     vector<int> outDeg(idx, 0);
     for (int i = 0; i < idx; i++)
     {
-        // 这边把递归函数清空（自己调用自己）？
+        // 这边把递归函数清空
         matrix[i][i] = 0;
         // 求和，存储第i个函数调用的其他函数的总数
         outDeg[i] = accumulate(matrix[i].begin(), matrix[i].end(), 0);
@@ -92,7 +92,7 @@ void Global2Local::recordGlobals()
         }
     }
 
-    // main函数的store清空，why？
+    // main函数的store清空
     //  printAllRecord();
     write[unit->getMain()].clear();
     // printAllRecord();
@@ -148,7 +148,7 @@ void Global2Local::pass(Function *func)
         addr_se->setType(new PointerType(type));
         auto addr = new Operand(addr_se);
         auto dst = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-        // main函数里是不是可以生成add指令
+
         Instruction *load = nullptr;
         if (static_cast<IdentifierSymbolEntry *>(func->getSymPtr())->getName() == "main")
         {
@@ -186,7 +186,7 @@ void Global2Local::pass(Function *func)
         if (in->isRet())
             // 遍历这个函数所有store
             // write对应store全局的指令，考虑call调用的其他函数有的write，但把main函数清空
-            // 也是考虑到main函数的ret其实我们不用考虑，因为不会有函数调用main，是否这样理解？
+            // main函数的ret其实我们不用考虑，因为不会有函数调用main
             for (auto it : write[func])
             {
                 if (!g2l[it])

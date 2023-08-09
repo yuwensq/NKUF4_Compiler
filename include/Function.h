@@ -4,6 +4,8 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 #include <iostream>
 #include "BasicBlock.h"
@@ -43,6 +45,17 @@ struct TreeNode
             temp = temp->parent;
         }
         return height;
+    }
+    bool isAncestor(TreeNode *node)
+    {
+        auto cur = this;
+        while (cur)
+        {
+            if (cur == node)
+                return true;
+            cur = cur->parent;
+        }
+        return false;
     }
 };
 
@@ -117,7 +130,9 @@ public:
     void reverseSearch(TreeNode *node, bool *visited);
 
     std::vector<BasicBlock *> getReversedTopsort();
-    void rTopDFS(std::vector<BasicBlock *>&, BasicBlock *, std::map<BasicBlock*,bool>&);
+    void rTopDFS(std::vector<BasicBlock *> &, BasicBlock *, std::map<BasicBlock *, bool> &);
+    void genByDFS(std::vector<BasicBlock *> &, std::unordered_set<BasicBlock *> &, BasicBlock *, std::unordered_set<BasicBlock *> &);
+    void genReversedTopsort_N_LoopHeader(std::vector<BasicBlock *> &, std::unordered_set<BasicBlock *> &);
 
     void de_phi();
 };
