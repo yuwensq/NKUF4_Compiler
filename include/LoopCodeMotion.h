@@ -18,7 +18,8 @@ class LoopCodeMotion
     std::unordered_map<Function *, std::unordered_map<BasicBlock *, std::vector<BasicBlock *>>> DomBBSet;
     // 循环中不变的常量（以操作数形式）
     std::map<Function *, std::map<std::vector<BasicBlock *>, std::set<Operand *>>> LoopConst;
-    std::set<Operand *> loopStoreOperands; // 每一个loop中，所有store语句的use[0]操作数
+    std::set<Operand *> loopStoreGlobal; // 每一个loop中，所有store语句的use[0]操作数
+    std::set<Operand *> loopStoreGep;
 
 public:
     // 代码外提
