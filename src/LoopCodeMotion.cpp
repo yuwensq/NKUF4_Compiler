@@ -9,7 +9,8 @@ void LoopCodeMotion::clearData()
 {
     DomBBSet.clear();
     LoopConst.clear();
-    loopStoreOperands.clear();
+    loopStoreGlobal.clear();
+    loopStoreGep.clear();
 }
 
 // 代码外提
@@ -539,14 +540,19 @@ void LoopCodeMotion::printLoopConst(std::vector<Instruction *> LoopConstInstruct
 // 循环不变运算可以是一元/二元/赋值/等等，这边具体参考我们已经有的所有可能的中间代码指令类型，需要仔细设计
 std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<BasicBlock *> Loop, Function *func)
 {
-    loopStoreOperands.clear();
+    loopStoreGlobal.clear();
+    loopStoreGep.clear();
     for (auto block : Loop)
     {
         for (auto ins = block->begin(); ins != block->end(); ins = ins->getNext())
         {
             if (ins->isStore())
             {
-                loopStoreOperands.insert(ins->getUse()[0]);
+                loopStoreGlobal.insert(ins->getUse()[0]);
+                Operand* op=ins->getUse()[0];
+                if(op->getDef()&&op->getDef()->isGep()){
+                    loopStoreGep.insert(op->getDef()->getUse()[0]);
+                }    
             }
         }
     }
@@ -827,11 +833,19 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
 {
     // 考虑函数内联后，对样例37的特殊处理
     Operand *loadUse = ins->getUse()[0];
-    for (auto use : loopStoreOperands)
+    for (auto use : loopStoreGlobal)
     {
         if (use->toStr() == loadUse->toStr())
         {
             return true;
+        }
+    }
+    if(loadUse->getDef()&&loadUse->getDef()->isGep()){
+        Operand* op=loadUse->getDef()->getUse()[0];
+        for(auto use:loopStoreGep){
+            if(use->toStr()==op->toStr()){
+                return true;
+            }
         }
     }
     Instruction *temp = ins->getNext();
