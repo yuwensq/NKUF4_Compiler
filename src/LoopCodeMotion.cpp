@@ -641,7 +641,6 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
                     else if (ins->isGep())
                     {
                         std::vector<Operand *> useOperands = ins->getUse();
-                        Operand *gepDef = ins->getDef();
                         int constant_count = 0;
                         for (auto useOp : useOperands)
                         {
@@ -669,7 +668,7 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
                                     constant_count++;
                                 }
                                 // 对该操作数的定值运算全部被标记为循环不变
-                                else if (OperandIsLoopConst(useOp, Loop, LoopConstInstructions, true, gepDef))
+                                else if (OperandIsLoopConst(useOp, Loop, LoopConstInstructions, ins))
                                 {
                                     LoopConst[func][Loop].insert(useOp);
                                     constant_count++;
@@ -866,7 +865,7 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
 // 但凡在循环中存在一条对该操作数的定值语句，它没有被标记为循环不变语句，就不通过
 // 若定值全在外，或有在里面，但都被标记，则true
 // 现在全部的依凭就是LoopConstInstructions
-bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, bool isGepPtr, Operand *gepDef)
+bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, Instruction *gepIns)
 {
     for (auto block : Loop)
     {
@@ -891,24 +890,34 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> L
                 }
             }
             // 考虑数组在循环中，另外被load然后store赋值的情况
-            if (isGepPtr && i->isGep())
+            if (gepIns && i->isGep())
             {
-                if (i->getDef()->toStr() != gepDef->toStr() && i->getUse()[0]->toStr() == op->toStr())
+                Operand* gepDef=gepIns->getDef();
+                bool needConsider=true;
+                if (i->getDef()->toStr() != gepDef->toStr() && i->getUse().size()==gepIns->getUse().size())
                 {
-                    // 下面就只是处理一维的情况
-                    Operand *def = i->getDef();
-                    Instruction *temp = i;
-                    while (temp != last)
-                    {
-                        if (temp->isStore() && temp->getUse()[0] == def)
-                        {
-                            return false;
+                    //细化判断，要求每一个偏移都一样
+                    for(auto pos=0;pos<i->getUse().size();pos++){
+                        if(i->getUse()[pos]->toStr()!=gepIns->getUse()[pos]->toStr()){
+                            needConsider=false;
+                            break;
                         }
-                        temp = temp->getNext();
+                    }
+                    if(needConsider){
+                        // 下面就只是处理一维的情况
+                        Operand *def = i->getDef();
+                        Instruction *temp = i;
+                        while (temp != last)
+                        {
+                            if (temp->isStore() && temp->getUse()[0] == def)
+                            {
+                                return false;
+                            }
+                            temp = temp->getNext();
+                        }                       
                     }
                 }
             }
-
             i = i->getNext();
         }
     }

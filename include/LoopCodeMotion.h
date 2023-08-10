@@ -31,7 +31,7 @@ public:
     std::vector<std::pair<BasicBlock *, BasicBlock *>> getBackEdges(Function *func);
     std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> mergeEdge(std::vector<std::pair<BasicBlock *, BasicBlock *>> &BackEdges);
     std::vector<std::vector<BasicBlock *>> calculateLoopList(Function *func, std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> &edgeGroups);
-    bool OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, bool isGepPtr = false, Operand *gepDef = nullptr);
+    bool OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, Instruction *gepIns = nullptr);
     std::vector<Instruction *> calculateLoopConstant(std::vector<BasicBlock *> Loop, Function *func);
     std::vector<BasicBlock *> calculateOutBlock(std::vector<BasicBlock *> &Loop);
     void changePhiInstruction(std::vector<BasicBlock *> &Loop, BasicBlock *newPreBlock, std::vector<BasicBlock *> oldBlocks);
