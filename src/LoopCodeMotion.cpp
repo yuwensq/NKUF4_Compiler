@@ -1,6 +1,9 @@
 #include "LoopCodeMotion.h"
 #include <algorithm>
 #include "LoopUnroll.h"
+#include "PureFunctionAnalyser.h"
+
+PureFunctionAnalyser *pureFunc1 = nullptr; // 检测纯函数
 
 void LoopCodeMotion::clearData()
 {
@@ -27,7 +30,7 @@ void LoopCodeMotion::pass()
         // 获取回边组，要求每个组中的回边的到达节点是同一个
         std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> edgeGroups = mergeEdge(BackEdges);
         // printEdgeGroups(edgeGroups);
-
+        
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
         // printLoop(LoopList);
@@ -742,8 +745,41 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
                         }
                         if (constant_count == 2)
                         {
-                            LoopConstInstructions.push_back(ins);
-                            // store 不增加新的def
+                            //面向样例加点特殊的判断
+                            Operand* gepBaseDef=nullptr;
+                            if(addrOp->getDef()&&addrOp->getDef()->isGep()){
+                                Operand* gepBase=addrOp->getDef()->getUse()[0];
+                                if(gepBase->getDef()&&gepBase->getDef()->isGep()){
+                                    gepBaseDef=gepBase->getDef()->getUse()[0];
+                                }
+                            }
+                            bool notPull=false;
+                            if(gepBaseDef&&gepBaseDef->isGlobal()){
+                                //向下找call指令，看看被调函数是否修改了gepBaseDef
+                                //std::cout<<gepBaseDef->toStr();
+                                for(auto temp=ins->getNext();temp!=ins->getParent()->end();temp=temp->getNext()){
+                                    if(temp->isCall()){
+                                        Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp)->getFunc()))->getFunction();
+                                        if(pureFunc1==nullptr){
+                                            pureFunc1 = new PureFunctionAnalyser(func->getParent());
+                                        }
+                                        std::set<std::string> storeGlobalVar=pureFunc1->getStoreGlobalVar(func); 
+                                        for(auto str1:storeGlobalVar){
+                                            if(str1==gepBaseDef->toStr().substr(1)){
+                                                notPull=true;
+                                                break;
+                                            }
+                                        }
+                                        if(notPull){
+                                            break;
+                                        }            
+                                    }
+                                }
+                            }
+                            if(!notPull){
+                                LoopConstInstructions.push_back(ins);
+                                // store 不增加新的def                                
+                            }
                         }
                     }
                     // 根据数据流分析，load的def不能够影响到所在基本块的cmp语句中的任一use，否则一些判断会出错，造成死循环
@@ -809,10 +845,16 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
         {
             if (temp1->isCall())
             {
-                // Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp1)->getFunc()))->getFunction();
-                // pureFunc = new PureFunctionAnalyser(func->getParent());
-                // bool ispure = pureFunc->isPure(func);
-                return true;
+                Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp1)->getFunc()))->getFunction();
+                if(pureFunc1==nullptr){
+                    pureFunc1 = new PureFunctionAnalyser(func->getParent());
+                }
+                std::set<std::string> storeGlobalVar=pureFunc1->getStoreGlobalVar(func); 
+                for(auto str1:storeGlobalVar){
+                    if(str1==loadUse->toStr().substr(1)){
+                        return true;
+                    }
+                }
             }
             temp1 = temp1->getNext();
         }
