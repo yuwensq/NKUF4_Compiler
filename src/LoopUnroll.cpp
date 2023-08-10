@@ -797,17 +797,15 @@ void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand 
             }
             BinaryInstruction *newDefBin = new BinaryInstruction(BinaryInstruction::ADD, phi->getDef(), phiOp, new Operand(new ConstantSymbolEntry(phiOp->getEntry()->getType(), 0)), nullptr);
             Instruction *phiNext = phi->getNext();
-            for (auto use : phi->getUse())
-                use->removeUse(phi);
-            bb->remove(phi);
+            bb->strongRemove(phi);
             bb->insertBefore(newDefBin, phiNext);
         }
 
         // 去除块中的比较跳转指令，完全展开后直接跳转到exit基本块即可
         CondBrInstruction *cond = (CondBrInstruction *)cmp->getNext();
         UncondBrInstruction *newUnCond = new UncondBrInstruction(cond->getFalseBranch(), nullptr);
-        bb->remove(cmp);
-        bb->remove(cond);
+        bb->strongRemove(cmp);
+        bb->strongRemove(cond);
         bb->insertBack(newUnCond);
         bb->removePred(bb);
         bb->removeSucc(bb);

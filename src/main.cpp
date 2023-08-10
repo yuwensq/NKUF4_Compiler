@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string.h>
 #include <unistd.h>
+#include <sstream>
 #include "Ast.h"
 #include "Unit.h"
 #include "SymbolTable.h"
@@ -26,6 +27,7 @@
 #include "MachineLVN.h"
 #include "IRPeepHole.h"
 #include "GVN.h"
+#include "IRDefUseCheck.h"
 
 using namespace std;
 
@@ -112,14 +114,26 @@ int main(int argc, char *argv[])
     TailCallAnalyser tca(&unit);
     IRPeepHole iph(&unit);
     GlobalValueNumbering gvn(&unit);
+    DefUseCheck duc(&unit);
 
     auto atomicCodeElim = [&]()
     {
+        static int turn = 1;
+        stringstream ss;
+        ss << turn;
+        std::string num;
+        ss >> num;
         spcfg.pass();
+        duc.pass("spcfg" + num);
         iph.pass();
+        duc.pass("iph" + num);
         sccp.pass();
+        duc.pass("sccp" + num);
         cse.pass();
+        duc.pass("cse" + num);
         dce.pass();
+        duc.pass("dce" + num);
+        turn++;
     };
 
     auto pairCodeElim = [&]()
@@ -129,7 +143,9 @@ int main(int argc, char *argv[])
     };
 
     g2l.pass();
+    duc.pass("g2l");
     m2r.pass(); // Only IR supported
+    duc.pass("m2r");
     pairCodeElim();
     finline.pass();
     pairCodeElim();
@@ -139,16 +155,20 @@ int main(int argc, char *argv[])
     pairCodeElim();
     // lcm.pass1();
     // pairCodeElim();
-    // lcm.pass1();
-    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    {
-        do
-        {
-            pairCodeElim();
-        } while (lcm.pass1());
-    }
-    pairCodeElim();
-    pe.pass();
+    unit.output();
+    lcm.pass1();
+    duc.pass("x");
+    // atomicCodeElim();
+    // pairCodeElim();
+    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    // {
+    //     do
+    //     {
+    //         pairCodeElim();
+    //     } while (lcm.pass1());
+    // }
+    // pairCodeElim();
+    // pe.pass();
     iph.pass2();
     tca.pass();
 

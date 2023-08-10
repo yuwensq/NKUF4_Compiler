@@ -163,3 +163,10 @@ BasicBlock::~BasicBlock()
         bb->removePred(this);
     parent->remove(this);
 }
+
+void BasicBlock::strongRemove(Instruction *inst)
+{
+    for (auto use : inst->getUse())
+        use->removeUse(inst);
+    remove(inst);
+}

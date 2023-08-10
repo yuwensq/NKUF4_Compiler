@@ -27,6 +27,7 @@ public:
     void insertBefore(Instruction *dst, Instruction *src);
     void insertAfter(Instruction *dst, Instruction *src);
     void remove(Instruction *);
+    void strongRemove(Instruction *);
     bool empty() const { return head->getNext() == head; }
     void output() const;
     bool succEmpty() const { return succ.empty(); };
