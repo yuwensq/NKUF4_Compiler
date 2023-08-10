@@ -71,7 +71,7 @@ public:
     // std::vector<std::pair<BasicBlock *, Instruction *>> renameExpression(Instruction *);
     void moveComputationsOutOfALoop(BasicBlock *);
     void moveComputationsIntoPad(BasicBlock *);
-    void eliminateGlobalRedundancies(Instruction *);
+    void eliminateGlobalRedundancies(std::vector<Instruction *> &del_list, Instruction *);
 };
 
 #endif
