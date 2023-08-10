@@ -17,36 +17,36 @@ void Global2Local::pass()
 
 void Global2Local::recordGlobals()
 {
-    map<Function *, int> func2idx; // 给每一个函数一个编号，这种关系存储在map中
-    int idx = 0;
+    map<Function *, int> func2pos; // 给每一个函数一个编号，这种关系存储在map中
+    int pos = 0;
     // 遍历每一个函数
     for (auto it = unit->begin(); it != unit->end(); it++)
     {
-        func2idx[*it] = idx++;
+        func2pos[*it] = pos++;
         // 遍历每一个基本块
         for (auto block : (*it)->getBlockList())
             // 遍历基本块每一条指令
-            for (auto in = block->begin(); in != block->end(); in = in->getNext())
+            for (auto ins = block->begin(); ins != block->end(); ins = ins->getNext())
                 // 遍历找use为全局操作数的指令，插入我们的各map中
-                for (auto u : in->getUse())
+                for (auto u : ins->getUse())
                     if (u->isGlobal())
                     {
                         auto entry = u->getEntry();
-                        globals[entry][*it].push_back(in);
+                        globals[entry][*it].push_back(ins);
                         usedGlobals[*it].insert(entry);
-                        if (in->isLoad())
+                        if (ins->isLoad())
                             read[*it].insert(entry);
-                        else if (in->isStore())
+                        else if (ins->isStore())
                             write[*it].insert(entry);
                     }
     }
     // printAllRecord();
-    // 初始化一个二维的matrix, 行idx,列idx,且值为0
-    // idx就是函数的总个数，猜测这个矩阵用来表示函数之间的调用关系
-    vector<vector<int>> matrix(idx, vector<int>(idx));
+    // 初始化一个二维的matrix, 行pos,列pos,且值为0
+    // pos就是函数的总个数，猜测这个矩阵用来表示函数之间的调用关系
+    vector<vector<int>> matrix(pos, vector<int>(pos));
     // 遍历每一个函数，我们这边getPreds获取这个函数的前继，也就是调用了当前函数的那些call语句
     // 组织形式为map<Function*, std::vector<Instruction*>>，因此fist为“调用了当前函数的那些函数”
-    for (auto &[func, id] : func2idx)
+    for (auto &[func, id] : func2pos)
     {
         for (auto inst : func->getCallPred())
         {
@@ -54,29 +54,29 @@ void Global2Local::recordGlobals()
             Function *funcPred = inst->getParent()->getParent();
             // 比如编号为3的函数里面有一个call调用了编号为1的函数，那么matrix[3][1]+=1
             // 注意可能有多次对相同函数的调用，每次要+1，而非只有1
-            matrix[func2idx[funcPred]][id] += 1;
+            matrix[func2pos[funcPred]][id] += 1;
         }
     }
-    // outDeg记录每一个函数均调用了多少个其他的函数
-    vector<int> outDeg(idx, 0);
-    for (int i = 0; i < idx; i++)
+    // callNum记录每一个函数均调用了多少个其他的函数
+    vector<int> callNum(pos, 0);
+    for (int i = 0; i < pos; i++)
     {
         // 这边把递归函数清空
         matrix[i][i] = 0;
         // 求和，存储第i个函数调用的其他函数的总数
-        outDeg[i] = accumulate(matrix[i].begin(), matrix[i].end(), 0);
+        callNum[i] = accumulate(matrix[i].begin(), matrix[i].end(), 0);
     }
     // finish表示已经处理的函数的个数
     int finish = 0;
-    while (finish < idx)
+    while (finish < pos)
     {
         // i从0开始，作为一个索引，当找到满足outDeg[i] == 0跳出
         int i;
-        for (i = 0; i < idx; i++)
-            if (outDeg[i] == 0)
+        for (i = 0; i < pos; i++)
+            if (callNum[i] == 0)
                 break;
         // 这个函数如果没有调用其他任何，就记outDeg为-1。
-        outDeg[i] = -1;
+        callNum[i] = -1;
         // 已经处理的函数数+1
         finish++;
         // 找到这个函数
@@ -88,7 +88,7 @@ void Global2Local::recordGlobals()
             Function *funcPred = it->getParent()->getParent();
             read[funcPred].insert(read[func].begin(), read[func].end());
             write[funcPred].insert(write[func].begin(), write[func].end());
-            outDeg[func2idx[funcPred]]--; // 这种调用关系处理掉了1
+            callNum[func2pos[funcPred]]--; // 这种调用关系处理掉了1
         }
     }
 

@@ -931,6 +931,11 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
             Instruction *gepDef = (endOpDef->getUse()[0])->getDef();
             if (gepDef->isGep())
             {
+                // 这种情况下，这个gepDef还需要继续追朔，就比较麻烦
+                if(gepDef->getParent()==bodybb){
+                    // cout<<"gepDef->getParent()==bodybb"<<endl;
+                    return;                    
+                }
                 for (auto ins = bodybb->begin(); ins != bodybb->end(); ins = ins->getNext())
                 {
                     if (ins->isStore() && ins->getUse()[0] == gepDef->getUse()[0])

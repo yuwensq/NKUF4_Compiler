@@ -18,7 +18,8 @@ class LoopCodeMotion
     std::unordered_map<Function *, std::unordered_map<BasicBlock *, std::vector<BasicBlock *>>> DomBBSet;
     // 循环中不变的常量（以操作数形式）
     std::map<Function *, std::map<std::vector<BasicBlock *>, std::set<Operand *>>> LoopConst;
-    std::set<Operand *> loopStoreOperands; // 每一个loop中，所有store语句的use[0]操作数
+    std::set<Operand *> loopStoreGlobal; // 每一个loop中，所有store语句的use[0]操作数
+    std::set<Operand *> loopStoreGep;
 
 public:
     // 代码外提
@@ -31,7 +32,7 @@ public:
     std::vector<std::pair<BasicBlock *, BasicBlock *>> getBackEdges(Function *func);
     std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> mergeEdge(std::vector<std::pair<BasicBlock *, BasicBlock *>> &BackEdges);
     std::vector<std::vector<BasicBlock *>> calculateLoopList(Function *func, std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> &edgeGroups);
-    bool OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, bool isGepPtr = false, Operand *gepDef = nullptr);
+    bool OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> Loop, std::vector<Instruction *> LoopConstInstructions, Instruction *gepIns = nullptr);
     std::vector<Instruction *> calculateLoopConstant(std::vector<BasicBlock *> Loop, Function *func);
     std::vector<BasicBlock *> calculateOutBlock(std::vector<BasicBlock *> &Loop);
     void changePhiInstruction(std::vector<BasicBlock *> &Loop, BasicBlock *newPreBlock, std::vector<BasicBlock *> oldBlocks);
