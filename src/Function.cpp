@@ -531,7 +531,7 @@ void Function::genByDFS(std::vector<BasicBlock *> &rtop, std::unordered_set<Basi
     visited.insert(block);
     for (auto it = block->succ_begin(); it != block->succ_end(); it++)
     {
-        if (visited.find(*it) != visited.end())
+        if (visited.find(*it) == visited.end())
         {
             genByDFS(rtop, loopheaders, *it, visited);
         }
