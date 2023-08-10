@@ -11,6 +11,8 @@ void GlobalValueNumbering::pass()
     for (auto it = unit->begin(); it != unit->end(); it++)
     {
         preprocess(*it);
+        eliminateRedundancies(*it);
+        removeTrivialAssignments();
     }
 }
 
@@ -22,44 +24,21 @@ bool isSameRHS(Instruction *a, Instruction *b)
         return false;
     auto a1 = a->getOperands()[1], a2 = a->getOperands()[2];
     auto b1 = b->getOperands()[1], b2 = b->getOperands()[2];
-    if (a1 == b1)
+    bool c[] = {a1->getType()->isConst(),
+                b1->getType()->isConst(),
+                a2->getType()->isConst(),
+                b2->getType()->isConst()};
+    if (a1 == b1 || c[0] && c[1] && (((ConstantSymbolEntry *)a1->getEntry())->getValue() == ((ConstantSymbolEntry *)b1->getEntry())->getValue()))
     {
-        if (a2 == b2)
-            return true;
-        if (a2->getType()->isConst() && b2->getType()->isConst())
-        {
-            if (((ConstantSymbolEntry *)a2->getEntry())->getValue() == ((ConstantSymbolEntry *)b2->getEntry())->getValue())
-                return true;
-        }
+        return a2 == b2 || c[2] && c[3] && (((ConstantSymbolEntry *)a2->getEntry())->getValue() == ((ConstantSymbolEntry *)b2->getEntry())->getValue());
     }
-    else if (a1 == b2)
+    if (a->getOpCode() == BinaryInstruction::SUB || a->getOpCode() == BinaryInstruction::DIV || a->getOpCode() == BinaryInstruction::MOD)
     {
-        if (a2 == b1)
-            return true;
-        if (a2->getType()->isConst() && b1->getType()->isConst())
-        {
-            if (((ConstantSymbolEntry *)a2->getEntry())->getValue() == ((ConstantSymbolEntry *)b1->getEntry())->getValue())
-                return true;
-        }
+        return false;
     }
-    else if (a1->getType()->isConst())
+    if (a1 == b2 || c[0] && c[3] && (((ConstantSymbolEntry *)a1->getEntry())->getValue() == ((ConstantSymbolEntry *)b2->getEntry())->getValue()))
     {
-        if (a2 == b2)
-        {
-            if (a1->getType()->isConst() && b1->getType()->isConst())
-            {
-                if (((ConstantSymbolEntry *)a1->getEntry())->getValue() == ((ConstantSymbolEntry *)b1->getEntry())->getValue())
-                    return true;
-            }
-        }
-        else if (a2 == b1)
-        {
-            if (a1->getType()->isConst() && b2->getType()->isConst())
-            {
-                if (((ConstantSymbolEntry *)a1->getEntry())->getValue() == ((ConstantSymbolEntry *)b2->getEntry())->getValue())
-                    return true;
-            }
-        }
+        return a2 == b1 || c[2] && c[1] && (((ConstantSymbolEntry *)a2->getEntry())->getValue() == ((ConstantSymbolEntry *)b1->getEntry())->getValue());
     }
     return false;
 }
@@ -113,7 +92,7 @@ void GlobalValueNumbering::preprocess(Function *func)
                     test = loopheader->getPredRef().erase(test);
                 }
             }
-            Log("loopheader:%d", iewno = loopheader->getNo());
+            // Log("loopheader:%d", iewno = loopheader->getNo());
             assert(num == loopheader->getNumOfPred());
             if (num == 1)
             {
@@ -160,7 +139,7 @@ void GlobalValueNumbering::preprocess(Function *func)
                             it = srcs.erase(it);
                         }
                     }
-                    Log("size=%ld", srcs.size());
+                    // Log("size=%ld", srcs.size());
                     assert(srcs.size() == (size_t)loopheader->getNumOfPred());
                     origin->addEdge(landingpad, dest->getDef());
                 }
@@ -173,6 +152,21 @@ void GlobalValueNumbering::preprocess(Function *func)
             loopheader->addPred(landingpad);
             landingpad->addSucc(loopheader);
             new UncondBrInstruction(loopheader, landingpad);
+            for (auto inst = landingpad->begin(); inst != landingpad->end(); inst = inst->getNext())
+            {
+                assignRanks(inst);
+                if (inst->isAdd() && inst->getOperands()[2]->toStr() == "0")
+                {
+                    if (inst->getOperands()[1]->getEntry()->isTemporary() && !((TemporarySymbolEntry *)inst->getOperands()[1]->getEntry())->isParam())
+                    {
+                        trivial_worklist.push_back(inst);
+                    }
+                }
+                else if (inst->isBinary())
+                {
+                    LCTs[landingpad][inst].push_back(inst);
+                }
+            }
         }
         for (auto inst = BB->begin(); inst != BB->end(); inst = inst->getNext())
         {
@@ -222,13 +216,13 @@ void GlobalValueNumbering::assignRanks(Instruction *inst)
 
 void GlobalValueNumbering::removeTrivialAssignments()
 {
-    Log("remove start,%d", trivial_worklist.size());
+    // Log("remove start,%d", trivial_worklist.size());
     for (auto &&inst : trivial_worklist)
     {
         auto &ops = inst->getOperands();
         auto &A = ops[0], &B = ops[1];
-        Log("inst: %s", inst->getDef()->toStr().c_str());
-        if (true)//(B->getUse().size() > A->getUse().size())
+        // Log("inst: %s", inst->getDef()->toStr().c_str());
+        if (true) //(B->getUse().size() > A->getUse().size())
         {
             for (auto &&use_inst : A->getUse())
             {
@@ -264,9 +258,9 @@ void GlobalValueNumbering::removeTrivialAssignments()
         }
         else
         {
-            Log(">");
-            Log("A:%s", A->toStr().c_str());
-            Log("B:%s", B->toStr().c_str());
+            // Log(">");
+            // Log("A:%s", A->toStr().c_str());
+            // Log("B:%s", B->toStr().c_str());
             /*
             C <= E
             B <= C + 0
@@ -288,16 +282,20 @@ void GlobalValueNumbering::removeTrivialAssignments()
                     use_inst->replaceUse(B, A);
                 }
             }
-            B->getDef()->replaceDef(A);
-            A->setDef(B->getDef());
+            // Log("remove B-0");
+            auto tmp = B->getDef();
+            auto AA = A;
+            inst->setDef(B);
+            tmp->replaceDef(AA);
+            // Log("remove B-2");
         }
-        Log("A:%s", A->toStr().c_str());
-        Log("B:%s", B->toStr().c_str());
+        // Log("A:%s", A->toStr().c_str());
+        // Log("B:%s", B->toStr().c_str());
         inst->getParent()->remove(inst);
         delete inst;
     }
     trivial_worklist.clear();
-    Log("eliminate start");
+    // Log("eliminate start");
     return eliminateLocalRedundancies();
 }
 
@@ -305,17 +303,21 @@ void GlobalValueNumbering::eliminateLocalRedundancies()
 {
     for (auto &&[block, list] : LCTs)
     {
-        Log("BB:%d", block->getNo());
+        // Log("BB:%d", block->getNo());
         for (auto inst = block->begin(); inst != block->end(); inst = inst->getNext())
         {
             if (inst->isBinary())
             {
                 if (list.count(inst) && list[inst].size() > 1)
                 {
-                    for (auto &&elim : list[inst])
+                    for (auto it = list[inst].begin(); it != list[inst].end();)
                     {
+                        auto &elim = *it;
                         if (elim == inst)
+                        {
+                            it++;
                             continue;
+                        }
                         auto trivial = new BinaryInstruction(
                             BinaryInstruction::ADD,
                             elim->getDef(),
@@ -325,17 +327,18 @@ void GlobalValueNumbering::eliminateLocalRedundancies()
                         trivial_worklist.push_back(trivial);
                         block->remove(elim);
                         delete elim;
+                        it = list[inst].erase(it);
                     }
                     vector<Instruction *>({inst}).swap(list[inst]);
-                    Log("inst: %s", inst->getDef()->toStr().c_str());
+                    // Log("inst: %s", inst->getDef()->toStr().c_str());
                 }
             }
         }
     }
-    Log("end");
+    // Log("end");
     if (!trivial_worklist.empty())
     {
-        Log("end2");
+        // Log("end2");
         return removeTrivialAssignments();
     }
 }
@@ -348,35 +351,35 @@ void GlobalValueNumbering::eliminateRedundancies(Function *func)
                            [](const pair<Operand *, int> &a, const pair<Operand *, int> &b)
                            { return a.second < b.second; })
                    ->second;
-    Log("max_rank=%d", max_rank);
+    // Log("max_rank=%d", max_rank);
     for (cur_rank = 0; cur_rank < max_rank; cur_rank++)
     {
         // for each node n (in reverse topsort order) do
         for (auto &BB : rtop)
         {
-            Log("BB:%d", BB->getNo());
+            // Log("BB:%d", BB->getNo());
             if (landingpads.count(BB))
             {
-                Log("landingpads");
+                // Log("landingpads");
                 moveComputationsFromSuccessors(BB);
                 moveComputationsIntoPad(BB);
                 identifyMovableComputations(BB);
             }
             else if (loopheaders.count(BB))
             {
-                Log("loopheaders");
+                // Log("loopheaders");
                 moveComputationsFromSuccessors(BB);
                 identifyMovableComputations2(BB);
             }
             else
             {
-                Log("normal");
+                // Log("normal");
                 moveComputationsFromSuccessors(BB);
                 identifyMovableComputations(BB);
             }
         }
 
-        Log("Elimination start.");
+        // Log("Elimination start.");
         for (auto it = rtop.rbegin(); it != rtop.rend(); it++)
         {
             vector<Instruction *> del_list;
@@ -386,7 +389,7 @@ void GlobalValueNumbering::eliminateRedundancies(Function *func)
                     continue;
                 if (ranks[inst->getDef()] != cur_rank)
                     continue;
-                Log("inst:%s", inst->getDef()->toStr().c_str());
+                // Log("inst:%s", inst->getDef()->toStr().c_str());
                 auto &ops = inst->getOperands();
                 if (ranks[ops[0]] > max(ranks[ops[2]], ranks[ops[1]]) + 1)
                 {
@@ -398,11 +401,11 @@ void GlobalValueNumbering::eliminateRedundancies(Function *func)
                             ranks[use_inst->getDef()] = cur_rank + 1;
                     }
                 }
-                Log("eliminateGlobalRedundancies");
+                // Log("eliminateGlobalRedundancies");
                 eliminateGlobalRedundancies(del_list, inst);
-                Log("eliminateGlobalRedundancies");
+                // Log("eliminateGlobalRedundancies");
             }
-            Log("del_list");
+            // Log("del_list");
             for (auto &&inst : del_list)
             {
                 //???
@@ -419,7 +422,7 @@ void GlobalValueNumbering::eliminateRedundancies(Function *func)
                 inst->getParent()->remove(inst);
                 delete inst;
             }
-            Log("pause");
+            // Log("pause");
         }
     }
 }
@@ -509,7 +512,7 @@ void GlobalValueNumbering::identifyMovableComputations(BasicBlock *block)
         auto inst1 = op1->getDef(), inst2 = op2->getDef();
         if (inst1 == nullptr || inst2 == nullptr)
         {
-            Log("non-def:%s", inst->getDef()->toStr().c_str());
+            // Log("non-def:%s", inst->getDef()->toStr().c_str());
             continue;
         }
         if (!inst1->isPhi() && inst1->getParent() == block)
@@ -592,7 +595,7 @@ bool GlobalValueNumbering::qpLocalSearch(Instruction *inst)
         auto inst1 = ops[1]->getDef(), inst2 = ops[2]->getDef();
         if (inst1 == nullptr || inst2 == nullptr)
         {
-            Log("non-def:%s", inst->getDef()->toStr().c_str());
+            // Log("non-def:%s", inst->getDef()->toStr().c_str());
             continue;
         }
         if (!inst1->isPhi() && inst1->getParent() == *it) // 6
@@ -634,37 +637,58 @@ bool GlobalValueNumbering::qpLocalSearch(Instruction *inst)
     return true;
 }
 
+void rtopsortPreds(std::vector<BasicBlock *> &rtop, BasicBlock *block, std::unordered_set<BasicBlock *> &visited)
+{
+    visited.insert(block);
+    for (auto &pred : block->getPredRef())
+    {
+        if (visited.find(pred) == visited.end())
+        {
+            rtopsortPreds(rtop, pred, visited);
+        }
+    }
+    rtop.push_back(block);
+}
+
 bool GlobalValueNumbering::qpGlobalSearch(std::vector<Instruction *> &may_list, Instruction *inst)
 {
-    auto block = inst->getParent();
-    auto it = find(rtop.begin(), rtop.end(), block);
+    auto source = inst->getParent();
+    // auto it = find(rtop.begin(), rtop.end(), source);
     unordered_map<BasicBlock *, Instruction *> questions;
-    questions[block] = inst;
-    for (; it != rtop.end() - 1; it++) // 2
+    questions[source] = inst;
+    // Log("prog-inst: %s = %s %s", inst->getDef()->toStr().c_str(), inst->getUse()[0]->toStr().c_str(), inst->getUse()[1]->toStr().c_str());
+    unordered_set<BasicBlock *> visited;
+    vector<BasicBlock *> preds;
+    rtopsortPreds(preds, source, visited);
+    while (!preds.empty()) // 2
     {
-        if (questions.find(*it) == questions.end())
+        auto block = preds.back();
+        preds.pop_back();
+        if (questions.find(block) == questions.end())
             continue;
-        Log("prog:%d", (*it)->getNo());
-        auto inst = questions[*it];
+        auto inst = questions[block];
+        // Log("prog:%d", block->getNo());
         auto &ops = inst->getOperands();
         auto op1 = ops[1], op2 = ops[2];
         auto inst1 = ops[1]->getDef(), inst2 = ops[2]->getDef();
         if (inst1 == nullptr || inst2 == nullptr)
         {
-            Log("non-def:%s", inst->getDef()->toStr().c_str());
+            // Log("non-def:%s", inst->getDef()->toStr().c_str());
             continue;
         }
-        if (!inst1->isPhi() && inst1->getParent() == *it) // 6
+        if (!inst1->isPhi() && inst1->getParent() == block) // 6
             return false;
-        if (!inst2->isPhi() && inst2->getParent() == *it) // 6
+        if (!inst2->isPhi() && inst2->getParent() == block) // 6
             return false;
-        for (auto &&pred : (*it)->getPredRef())
+        for (auto &&pred : block->getPredRef())
         {
-            if (inst1->isPhi() && inst1->getParent() == *it)
+            if (visited.find(pred) != visited.end())
+                continue;
+            if (inst1->isPhi() && inst1->getParent() == block)
             {
                 op1 = ((PhiInstruction *)inst1)->getEdge(pred);
             }
-            if (inst2->isPhi() && inst2->getParent() == *it)
+            if (inst2->isPhi() && inst2->getParent() == block)
             {
                 op2 = ((PhiInstruction *)inst2)->getEdge(pred);
             }
@@ -830,10 +854,10 @@ void GlobalValueNumbering::moveComputationsIntoPad(BasicBlock *pad)
 void GlobalValueNumbering::eliminateGlobalRedundancies(std::vector<Instruction *> &del_list, Instruction *inst)
 {
     vector<Instruction *> may_list;
-    Log("qpg start.");
+    // Log("qpg start.");
     if (!qpGlobalSearch(may_list, inst))
         return;
-    Log("qpg end.");
+    // Log("qpg end.");
     if (may_list.empty())
         return;
     del_list.push_back(inst);
@@ -855,7 +879,7 @@ void GlobalValueNumbering::eliminateGlobalRedundancies(std::vector<Instruction *
     }
     else
     {
-    Log("Phi.%s",variable->toStr().c_str());
+        // Log("Phi.%s", variable->toStr().c_str());
         auto phi = new PhiInstruction(variable);
         for (auto &&c : may_list)
         {
