@@ -607,6 +607,8 @@ bool LoopUnroll::isRegionConst(Operand *i, Operand *c)
 
 void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand *strideOp, bool ifall)
 {
+    if (bbDiscarded[bb])
+        return;
     vector<Instruction *> preInsList;
     vector<Instruction *> nextInsList;
     vector<Instruction *> phis;
@@ -1295,19 +1297,36 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         auto func = bodybb->getParent();
         auto beginBB = new BasicBlock(func);
         auto brotherBB = new BasicBlock(func);
+        auto safeBB = new BasicBlock(func);
         auto endBB = new BasicBlock(func);
+
+        auto safeI = new Operand(new TemporarySymbolEntry(TypeSystem::intType, SymbolTable::getLabel()));
+        auto safePhi = new PhiInstruction(safeI, safeBB);
+        auto safeStride = new Operand(new TemporarySymbolEntry(TypeSystem::intType, SymbolTable::getLabel()));
+        new BinaryInstruction(BinaryInstruction::ADD, safeStride, safeI, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 1)), safeBB);
+        safeI->setDef(safePhi);
+        safePhi->addEdge(beginBB, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 0)));
+        safePhi->addEdge(safeBB, safeStride);
+        auto safeCond = new Operand(new TemporarySymbolEntry(TypeSystem::boolType, SymbolTable::getLabel()));
+        new CmpInstruction(CmpInstruction::LE, safeCond, safeStride, new Operand(new ConstantSymbolEntry(TypeSystem::intType, 448)), safeBB);
+        new CondBrInstruction(safeBB, brotherBB, safeCond, safeBB);
 
         Operand *newResult = nullptr;
         if (addConstOp == iBeginOp && appearTimes[iBeginOp] == 3)
         {
+            // return false;
             // Log("case a");
             auto type = endOp->getType();
             auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
             new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, endOp, brotherBB);
+            auto tmpSafe1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::ADD, tmpSafe1, tmp1, safeStride, brotherBB);
             auto tmp2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::SUB, tmp2, tmp1, endOp, brotherBB);
+            new BinaryInstruction(BinaryInstruction::SUB, tmp2, tmpSafe1, endOp, brotherBB);
+            auto tmpSafe2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::SUB, tmpSafe2, tmp2, safeStride, brotherBB);
             auto tmp3 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::DIV, tmp3, tmp2, new Operand(new ConstantSymbolEntry(type, 2)), brotherBB);
+            new BinaryInstruction(BinaryInstruction::DIV, tmp3, tmpSafe2, new Operand(new ConstantSymbolEntry(type, 2)), brotherBB);
             auto tmp4 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
             new BinaryInstruction(BinaryInstruction::MOD, tmp4, tmp3, modConstOp, brotherBB);
             new UncondBrInstruction(endBB, brotherBB);
@@ -1315,13 +1334,18 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         }
         else if (addConstOp->getEntry()->isConstant() && addConstOp->getType()->isInt())
         {
+            // return false;
             // Log("case b");
             maxTurnValue = INTMAX / int(static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue());
             auto type = addConstOp->getType();
             auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
             new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, addConstOp, brotherBB);
+            auto tmpSafe1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::ADD, tmpSafe1, tmp1, safeStride, brotherBB);
+            auto tmpSafe2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
+            new BinaryInstruction(BinaryInstruction::SUB, tmpSafe2, tmpSafe1, safeStride, brotherBB);
             auto tmp2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::MOD, tmp2, tmp1, modConstOp, brotherBB);
+            new BinaryInstruction(BinaryInstruction::MOD, tmp2, tmpSafe2, modConstOp, brotherBB);
             new UncondBrInstruction(endBB, brotherBB);
             newResult = tmp2;
         }
@@ -1340,8 +1364,8 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         beginBB->addPred(condbb);
         beginBB->addSucc(bodybb);
         bodybb->addPred(beginBB);
-        beginBB->addSucc(brotherBB);
-        brotherBB->addPred(beginBB);
+        beginBB->addSucc(safeBB);
+        safeBB->addPred(beginBB);
 
         for (auto inst = bodybb->begin(); inst != bodybb->end(); inst = inst->getNext())
         {
@@ -1358,9 +1382,14 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
 
         auto newCond = new Operand(new TemporarySymbolEntry(TypeSystem::boolType, SymbolTable::getLabel()));
         new CmpInstruction(CmpInstruction::LE, newCond, endOp, new Operand(new ConstantSymbolEntry(endOp->getType(), maxTurnValue)), beginBB);
-        new CondBrInstruction(brotherBB, bodybb, newCond, beginBB);
+        new CondBrInstruction(safeBB, bodybb, newCond, beginBB);
 
-        // 连接end和brother、body
+        brotherBB->addPred(safeBB);
+        safeBB->addSucc(brotherBB);
+        safeBB->addPred(safeBB);
+        safeBB->addSucc(safeBB);
+
+        // 连接end和safe、body
         BasicBlock *exitBB = nullptr;
         if (static_cast<CondBrInstruction *>(bodyBInst)->getTrueBranch() == bodybb)
         {
@@ -1412,6 +1441,7 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         // bodybb->getParent()->getParent()->output();
         // fflush(yyout);
         // exit(0);
+        bbDiscarded[safeBB] = true;
         bbDiscarded[bodybb] = true;
         return true;
     }
