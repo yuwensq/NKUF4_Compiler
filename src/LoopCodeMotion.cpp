@@ -898,8 +898,18 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
                 return true;
             }
         }
+        if(temp[0]->getDef()&&temp[0]->getDef()->isGep()){
+            Operand* tempDef=temp[0]->getDef()->getUse()[0];
+            for (auto use : loopStoreGep)
+            {
+                if (tempDef->toStr() == use[0]->toStr())
+                {
+                    return true;
+                }
+            }
+        }
     }
-    Instruction *temp = ins->getNext();
+    // Instruction *temp = ins->getNext();
     BasicBlock *block = ins->getParent();
     // 如果load一个全局的话，这个全局变量之前可能call函数，修改了这个全局变量,这样就不是一个不变指令了
     // 下面的处理是很粗糙的
@@ -925,48 +935,49 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
         }
     }
 
-    std::vector<Operand *> affectedOperands;
-    affectedOperands.push_back(ins->getDef());
+    // std::vector<Operand *> affectedOperands;
+    // affectedOperands.push_back(ins->getDef());
     // 函数内联后出现了一个问题，有的基本块莫名被断成两半，因此
     // 如果一个基本块，以直接跳转结尾，就继续跳到那个基本块处理
     // 直到遇到一个cmp语句+分支跳转的基本块停下
-    while (true)
-    {
-        while (temp != block->end())
-        {
-            // 默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
-            // if(temp->isStore()){return true;}
-            // 如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
-            for (auto use : temp->getUse())
-            {
-                if (count(affectedOperands.begin(), affectedOperands.end(), use))
-                {
-                    // 如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
-                    // 如果遇到受影响的store，那么也返回true
-                    // 如果遇到call，参数中含有受影响的，也直接返回true
-                    if (temp->isCmp() || temp->isCall())
-                    // if (temp->isCmp() || temp->isStore() || temp->isCall())
-                    {
-                        return true;
-                    }
-                    affectedOperands.push_back(temp->getDef());
-                    break;
-                }
-            }
-            temp = temp->getNext();
-        }
-        // 如果是无条件跳转的话,更新
-        Instruction *last = temp->getPrev();
-        if (last->isUncond())
-        {
-            block = ((UncondBrInstruction *)last)->getBranch();
-            temp = block->begin();
-        }
-        else
-        {
-            break;
-        }
-    }
+    // while (true)
+    // {
+    //     while (temp != block->end())
+    //     {
+    //         // 默认store有影响，因为涉及到全局/数组的存取，这二者每次使用都需要重新load，中间变量不同，无法通过中间变量来判断
+    //         // if(temp->isStore()){return true;}
+    //         // 如果当前这条指令的use存在于affectedOperands，那么他的def就受影响
+    //         for (auto use : temp->getUse())
+    //         {
+    //             if (count(affectedOperands.begin(), affectedOperands.end(), use))
+    //             {
+    //                 // 如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
+    //                 // 如果遇到受影响的store，那么也返回true
+    //                 // 如果遇到call，参数中含有受影响的，也直接返回true
+    //                 // if(temp->isCall())
+    //                 // //if (temp->isCmp() || temp->isCall())
+    //                 // // if (temp->isCmp() || temp->isStore() || temp->isCall())
+    //                 // {
+    //                 //     return true;
+    //                 // }
+    //                 affectedOperands.push_back(temp->getDef());
+    //                 break;
+    //             }
+    //         }
+    //         temp = temp->getNext();
+    //     }
+    //     // 如果是无条件跳转的话,更新
+    //     Instruction *last = temp->getPrev();
+    //     if (last->isUncond())
+    //     {
+    //         block = ((UncondBrInstruction *)last)->getBranch();
+    //         temp = block->begin();
+    //     }
+    //     else
+    //     {
+    //         break;
+    //     }
+    // }
     return false;
 }
 
