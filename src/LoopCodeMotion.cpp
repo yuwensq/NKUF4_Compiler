@@ -11,6 +11,8 @@ void LoopCodeMotion::clearData()
     LoopConst.clear();
     loopStoreGlobal.clear();
     loopStoreGep.clear();
+    loopStoreGepDef.clear();
+    loopCallIns.clear();
 }
 
 // 代码外提
@@ -542,6 +544,9 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
 {
     loopStoreGlobal.clear();
     loopStoreGep.clear();
+    loopStoreGepDef.clear();
+    loopCallIns.clear();
+
     for (auto block : Loop)
     {
         for (auto ins = block->begin(); ins != block->end(); ins = ins->getNext())
@@ -570,6 +575,13 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
                     }
                     // loopStoreGep.insert(op->getDef()->getUse()[0]);
                 }    
+            }
+            if(ins->isCall()){
+                IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)(((CallInstruction *)ins)->getFunc());
+                if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32")
+                {
+                    loopCallIns.insert(ins);
+                }
             }
         }
     }
@@ -905,6 +917,28 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
                 if (tempDef->toStr() == use[0]->toStr())
                 {
                     return true;
+                }
+            }
+        }
+        for(auto ins:loopCallIns){
+            Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)ins)->getFunc()))->getFunction();
+            if(pureFunc1==nullptr){
+                pureFunc1 = new PureFunctionAnalyser(func->getParent());
+            }
+            std::vector<Operand*> argOps=ins->getUse();
+            std::vector<Operand*> chanegArgOps;
+            std::set<int> changeArg=pureFunc1->getChangeArgNum(func);
+            if(argOps.size()!=0&&!changeArg.empty()){
+                for(auto changePos:changeArg){
+                    chanegArgOps.push_back(argOps[changePos]);
+                }
+                for(auto use:chanegArgOps){
+                    if(use->getDef()&&use->getDef()->isGep()){
+                        Operand* gepDef=use->getDef()->getUse()[0];
+                        if(temp[0]->toStr()==gepDef->toStr()){
+                            return true;
+                        }
+                    }
                 }
             }
         }

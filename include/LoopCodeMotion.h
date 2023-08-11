@@ -21,6 +21,7 @@ class LoopCodeMotion
     std::set<Operand *> loopStoreGlobal; // 每一个loop中，所有store语句的use[0]操作数
     std::set<std::vector<Operand *>> loopStoreGep;
     std::set<Operand *> loopStoreGepDef;
+    std::set<Instruction *> loopCallIns;
 
 public:
     // 代码外提
