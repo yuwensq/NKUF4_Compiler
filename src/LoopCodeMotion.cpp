@@ -550,8 +550,25 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
             {
                 loopStoreGlobal.insert(ins->getUse()[0]);
                 Operand* op=ins->getUse()[0];
+                //std::cout<<op->toStr()<<std::endl;
                 if(op->getDef()&&op->getDef()->isGep()){
-                    loopStoreGep.insert(op->getDef()->getUse()[0]);
+                    std::vector<Operand*> temp; 
+                    for(auto t1=0;t1<op->getDef()->getUse().size();t1++){
+                        temp.push_back(op->getDef()->getUse()[t1]);
+                    }
+                    loopStoreGep.insert(temp);   
+                    
+                    Operand* opDef=op->getDef()->getUse()[0];
+                    //std::cout<<opDef->toStr()<<std::endl;
+                    if(opDef->getDef()&&opDef->getDef()->isGep()){
+                        // std::vector<Operand*> temp1; 
+                        // //std::cout<<opDef->getDef()->getUse()[0]->toStr()<<std::endl;
+                        // for(auto t1=0;t1<opDef->getDef()->getUse().size();t1++){
+                        //     temp1.push_back(opDef->getDef()->getUse()[t1]);
+                        // }
+                        loopStoreGepDef.insert(opDef->getDef()->getUse()[0]);                               
+                    }
+                    // loopStoreGep.insert(op->getDef()->getUse()[0]);
                 }    
             }
         }
@@ -841,9 +858,43 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
         }
     }
     if(loadUse->getDef()&&loadUse->getDef()->isGep()){
-        Operand* op=loadUse->getDef()->getUse()[0];
+        std::vector<Operand*> temp;
+        for(auto t1=0;t1<loadUse->getDef()->getUse().size();t1++){
+            temp.push_back(loadUse->getDef()->getUse()[t1]);
+        }
+        // Operand* op=loadUse->getDef()->getUse()[0];
         for(auto use:loopStoreGep){
-            if(use->toStr()==op->toStr()){
+            if(use[0]->toStr()==temp[0]->toStr()){
+                for(auto t2=1;t2<use.size();t2++){
+                    if(!use[t2]->getEntry()->isConstant()){
+                        return true;
+                    }
+                    else if(temp[t2]){
+                        if(temp[t2]->getEntry()->isConstant()){
+                            SymbolEntry* se1=use[t2]->getEntry();
+                            SymbolEntry* se2=temp[t2]->getEntry();
+                            //std::cout<<se1->toStr()<<" "<<se2->toStr()<<std::endl;
+                            if(((ConstantSymbolEntry*)se1)->getValue()==((ConstantSymbolEntry*)se2)->getValue()){
+                                return true;
+                            }
+                        }
+                        else{
+                            return true;
+                        }
+                    }
+                    else{
+                        return true;
+                    }
+                }                
+            }
+            // if(use->toStr()==op->toStr()){
+            //     return true;
+            // }
+        }
+        for (auto use : loopStoreGepDef)
+        {
+            if (temp[0]->toStr() == use->toStr())
+            {
                 return true;
             }
         }
@@ -893,7 +944,8 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
                     // 如果遇到cmp，要求不能有被影响的操作数,否则load就是有影响的
                     // 如果遇到受影响的store，那么也返回true
                     // 如果遇到call，参数中含有受影响的，也直接返回true
-                    if (temp->isCmp() || temp->isStore() || temp->isCall())
+                    if (temp->isCmp() || temp->isCall())
+                    // if (temp->isCmp() || temp->isStore() || temp->isCall())
                     {
                         return true;
                     }
