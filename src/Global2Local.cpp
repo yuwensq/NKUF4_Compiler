@@ -302,7 +302,7 @@ void Global2Local::unstoreGlobal2Const()
                             auto use = *(def->use_begin());
                             use->replaceUse(def, operand);
                         }
-                        in->getParent()->remove(in);
+                        in->getParent()->strongRemove(in);
                     }
             }
         }
@@ -349,13 +349,14 @@ void Global2Local::unstoreGlobal2Const()
                                 continue;
                             }
                             // 遍历这个def的所有use指令
-                            for (auto it2 = def->use_begin(); it2 != def->use_end(); it2++)
+                            std::vector<Instruction *> uses(def->use_begin(), def->use_end());
+                            for (auto use : uses)
                             {
                                 // 如果它是store，我们不处理的，我们这边只讨论它数组以及是load
                                 // 考虑load，所有用到load定值的use全部直接用那个值去替代
-                                if ((*it2)->isLoad())
+                                if (use->isLoad())
                                 {
-                                    auto loadDst = (*it2)->getDef();
+                                    auto loadDst = use->getDef();
                                     double *valArr = ((IdentifierSymbolEntry *)entry)->getArrayValue();
                                     double val = 0;
                                     // 获取对应偏移的值
@@ -368,11 +369,11 @@ void Global2Local::unstoreGlobal2Const()
                                         auto use = *(loadDst->use_begin());
                                         use->replaceUse(loadDst, operand);
                                     }
-                                    (*it2)->getParent()->remove(*it2);
-                                    in->getParent()->remove(in);
+                                    use->getParent()->strongRemove(use);
+                                    in->getParent()->strongRemove(in);
                                 }
                                 // 考虑数组,从数组地址中，依照偏移量，取出那个地址上的值，然后封装成一个const操作数
-                                if ((*it2)->isGep())
+                                if (use->isGep())
                                 {
                                     assert(true);
                                 }

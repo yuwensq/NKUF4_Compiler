@@ -422,9 +422,7 @@ static void replaceWithConst(Function *func)
         }
         for (auto rInst : removeList)
         {
-            bb->remove(rInst);
-            for (auto use : rInst->getUse())
-                use->removeUse(rInst);
+            bb->strongRemove(rInst);
         }
     }
 }
@@ -569,16 +567,12 @@ static void reomveDeadBlock(Function *func)
                     phiRemoveList.push_back(pa.first);
             }
             for (auto phiRB : phiRemoveList)
-            {
-                pairs.erase(phiRB);
-            }
+                static_cast<PhiInstruction *>(inst)->removeBlockSrc(phiRB);
             inst = inst->getNext();
         }
     }
     for (auto bb : removeList)
-    {
-        func->remove(bb);
-    }
+        func->strongRemove(bb);
 }
 
 void IRSparseCondConstProp::pass()

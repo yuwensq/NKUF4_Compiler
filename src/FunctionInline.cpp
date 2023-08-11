@@ -1,4 +1,5 @@
 #include "FunctionInline.h"
+#include "IRDefUseCheck.h"
 #include <queue>
 extern FILE *yyout;
 
@@ -180,7 +181,6 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 callIns[func].insert(newInst);
             }
         }
-
 #ifndef DEBUGPTR
         // 处理指针传参的问题
         for (auto inst = newBB->begin(); inst != newBB->end(); inst = inst->getNext())
@@ -198,7 +198,6 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
         }
 #endif
     }
-
     // 再把每个基本块连起来
     for (auto pa : blk2blk)
     {
@@ -224,8 +223,8 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
             for (auto src : tmp_srcs)
             {
                 auto op = src.second;
-                srcs.erase(src.first);
-                srcs.insert(std::make_pair(blk2blk[src.first], op));
+                static_cast<PhiInstruction *>(inst)->removeBlockSrc(src.first);
+                static_cast<PhiInstruction *>(inst)->addSrc(blk2blk[src.first], op);
             }
         }
         for (auto inst = newBlk->rbegin(); inst != newBlk->end(); inst = inst->getPrev())
@@ -280,8 +279,6 @@ void FunctionInline::merge(Function *func, Instruction *callInst)
             movList.push_back(inst);
     for (auto inst : movList)
     {
-        for (auto use : inst->getUse())
-            use->removeUse(inst);
         entryBlock->remove(inst);
         entry->insertFront(inst, static_cast<AllocaInstruction *>(inst)->getEntry()->getType()->isArray());
     }
@@ -318,9 +315,7 @@ void FunctionInline::merge(Function *func, Instruction *callInst)
     }
     // headB设置后继关系
     auto retValue = callInst->getDef();
-    for (auto use : callInst->getUse())
-        use->removeUse(callInst);
-    headB->remove(callInst);
+    headB->strongRemove(callInst);
     new UncondBrInstruction(entryBlock, headB);
     headB->cleanAllSucc();
     headB->addSucc(entryBlock);

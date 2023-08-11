@@ -81,6 +81,7 @@ public:
     BasicBlock *getEntry() { return entry; };
     void setEntry(BasicBlock *bb) { entry = bb; }
     void remove(BasicBlock *bb);
+    void strongRemove(BasicBlock *bb);
     void output() const;
     std::vector<BasicBlock *> &getBlockList() { return block_list; };
     iterator begin() { return block_list.begin(); };

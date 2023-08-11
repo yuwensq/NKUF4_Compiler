@@ -2,6 +2,8 @@
 #include "Type.h"
 #include <queue>
 
+extern FILE *yyout;
+
 std::set<BasicBlock *> freeList;
 std::set<Instruction *> freeInsts;
 
@@ -56,7 +58,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 else
                 {
                     assert(lastInst->isCond());
-                    pred->remove(lastInst);
+                    pred->strongRemove(lastInst);
                     freeInsts.insert(lastInst);
                     CondBrInstruction *branch = (CondBrInstruction *)(lastInst);
                     if (branch->getTrueBranch() == bb)
@@ -66,7 +68,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 }
                 pred->removeSucc(bb);
             }
-            F->remove(bb);
+            F->strongRemove(bb);
             freeList.insert(bb);
             change = true;
         }
@@ -110,7 +112,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                         branch->setFalseBranch(succ);
                     if (branch->getTrueBranch() == branch->getFalseBranch())
                     {
-                        pred->remove(lastInst);
+                        pred->strongRemove(lastInst);
                         freeInsts.insert(lastInst);
                         new UncondBrInstruction(branch->getTrueBranch(), pred);
                     }
@@ -141,16 +143,16 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 }
                 if (rep != srcs.end())
                 {
+                    static_cast<PhiInstruction *>(phi)->removeBlockSrc(rep->first);
                     for (auto &pred : preds)
                     {
-                        srcs[pred] = rep->second;
+                        static_cast<PhiInstruction *>(phi)->addSrc(pred, rep->second);
                     }
-                    srcs.erase(rep->first);
                 }
             }
             if (bb == F->getEntry())
                 F->setEntry(succ);
-            F->remove(bb);
+            F->strongRemove(bb);
             freeList.insert(bb);
             change = true;
         }
@@ -164,11 +166,9 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                 {
                     assert(static_cast<PhiInstruction *>(phi)->getSrcs().size() == 1);
                     auto prevIns = phi->getPrev();
-                    auto src = (*(static_cast<PhiInstruction *>(phi)->getSrcs().begin())).second;
-                    src->removeUse(phi);
                     auto def = phi->getDef();
-                    auto add = new BinaryInstruction(BinaryInstruction::ADD, def, src, new Operand(new ConstantSymbolEntry(def->getType(), 0)));
-                    bb->remove(phi);
+                    auto add = new BinaryInstruction(BinaryInstruction::ADD, def, phi->getUse()[0], new Operand(new ConstantSymbolEntry(def->getType(), 0)));
+                    bb->strongRemove(phi);
                     bb->insertAfter(add, prevIns);
                     phi = add;
                 }
@@ -180,7 +180,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
             auto lastInst = pred->rbegin();
             assert(lastInst->isUncond() || (lastInst->isCond() && ((CondBrInstruction *)(lastInst))->getTrueBranch() == ((CondBrInstruction *)(lastInst))->getFalseBranch()));
             freeInsts.insert(lastInst);
-            pred->remove(lastInst);
+            pred->strongRemove(lastInst);
             for (auto succ : succs)
                 pred->addSucc(succ);
             auto insts = std::vector<Instruction *>();
@@ -217,7 +217,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
                     }
                 }
             }
-            F->remove(bb);
+            F->strongRemove(bb);
             freeList.insert(bb);
             change = true;
         }
@@ -236,7 +236,7 @@ bool SimplifyCFG::removeUnreachableBlocks(Function *F)
     for (auto bb : blocks)
         if (!Reachable.count(bb))
         {
-            F->remove(bb);
+            F->strongRemove(bb);
             std::vector<BasicBlock *> preds(bb->pred_begin(), bb->pred_end());
             std::vector<BasicBlock *> succs(bb->succ_begin(), bb->succ_end());
             for (auto pred : preds)

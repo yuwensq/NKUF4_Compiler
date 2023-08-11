@@ -30,6 +30,13 @@ void Function::remove(BasicBlock *bb)
     block_list.erase(std::find(block_list.begin(), block_list.end(), bb));
 }
 
+void Function::strongRemove(BasicBlock *bb)
+{
+    for (auto inst = bb->begin(); inst != bb->end(); inst = inst->getNext())
+        bb->strongRemove(inst);
+    remove(bb);
+}
+
 void Function::output() const
 {
     FunctionType *funcType = dynamic_cast<FunctionType *>(sym_ptr->getType());

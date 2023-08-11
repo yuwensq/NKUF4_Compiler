@@ -325,9 +325,7 @@ bool IRComSubExprElim::localCSE(Function *func)
                     useInst->replaceUse(inst->getDef(), preInst->getDef());
                 }
                 preInst = inst->getPrev();
-                (*bb)->remove(inst);
-                for (auto use : inst->getUse())
-                    use->removeUse(inst);
+                (*bb)->strongRemove(inst);
                 inst = preInst;
             }
         }
@@ -604,9 +602,7 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
                 useInst->replaceUse(inst->getDef(), preBBOutOp[ins2Expr[inst]]);
             }
             auto preInst = inst->getPrev();
-            (*bb)->remove(inst);
-            for (auto use : inst->getUse())
-                use->removeUse(inst);
+            (*bb)->strongRemove(inst);
             inst = preInst;
         }
     }

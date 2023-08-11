@@ -2,6 +2,7 @@
 #define __OPERAND_H__
 
 #include "SymbolTable.h"
+#include <algorithm>
 #include <vector>
 
 class Instruction;
@@ -29,15 +30,17 @@ public:
     std::string toStr() const;
     SymbolEntry *getEntry() { return se; };
     Instruction *getDef() { return def; };
-    std::vector<Instruction*>& getUse() { return uses; };
-    bool isGlobal() const {
+    std::vector<Instruction *> &getUse() { return uses; };
+    bool isGlobal() const
+    {
         if (se->isVariable())
-            return ((IdentifierSymbolEntry*)se)->isGlobal();
+            return ((IdentifierSymbolEntry *)se)->isGlobal();
         return false;
     }
-    bool isParam() const {
+    bool isParam() const
+    {
         if (se->isVariable())
-            return ((IdentifierSymbolEntry*)se)->isParam();
+            return ((IdentifierSymbolEntry *)se)->isParam();
         return false;
     }
 };

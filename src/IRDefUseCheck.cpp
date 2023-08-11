@@ -1,5 +1,7 @@
 #include "IRDefUseCheck.h"
 
+extern FILE *yyout;
+
 void DefUseCheck::pass(std::string passName)
 {
     for (auto func_it = unit->begin(); func_it != unit->end(); func_it++)
@@ -36,9 +38,16 @@ void DefUseCheck::pass(std::string passName)
         {
             if (all_use[def] != def->getUse().size())
             {
-                for (auto use : def->getUse())
+                fprintf(yyout, "debug\n");
+                for (auto use : def->getUse()) {
                     use->output();
+                    for (auto useOp : use->getUse())
+                        if (useOp == def) {
+                            fprintf(yyout, "x\n");
+                        }
+                }
                 Log("%s Uses are not corresponding. %%t%d %d %d", passName.c_str(), static_cast<TemporarySymbolEntry *>(def->getEntry())->getLabel(), all_use[def], def->getUse().size());
+                // Assert(false, "%s Uses are not corresponding. %%t%d %d %d", passName.c_str(), static_cast<TemporarySymbolEntry *>(def->getEntry())->getLabel(), all_use[def], def->getUse().size());
             }
         }
         all_def.clear();

@@ -124,15 +124,15 @@ int main(int argc, char *argv[])
         std::string num;
         ss >> num;
         spcfg.pass();
-        duc.pass("spcfg" + num);
+        // duc.pass("spcfg" + num);
         iph.pass();
-        duc.pass("iph" + num);
+        // duc.pass("iph" + num);
         sccp.pass();
-        duc.pass("sccp" + num);
+        // duc.pass("sccp" + num);
         cse.pass();
-        duc.pass("cse" + num);
+        // duc.pass("cse" + num);
         dce.pass();
-        duc.pass("dce" + num);
+        // duc.pass("dce" + num);
         turn++;
     };
 
@@ -143,32 +143,26 @@ int main(int argc, char *argv[])
     };
 
     g2l.pass();
-    duc.pass("g2l");
+    // duc.pass("g2l");
     m2r.pass(); // Only IR supported
-    duc.pass("m2r");
+    // duc.pass("m2r");
     pairCodeElim();
     finline.pass();
+    // duc.pass("func inline");
     pairCodeElim();
     spcfg.pass();
     if (optmize)
         lcm.pass();
     pairCodeElim();
-    // lcm.pass1();
-    // pairCodeElim();
-    unit.output();
-    lcm.pass1();
-    duc.pass("x");
-    // atomicCodeElim();
-    // pairCodeElim();
-    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    // {
-    //     do
-    //     {
-    //         pairCodeElim();
-    //     } while (lcm.pass1());
-    // }
-    // pairCodeElim();
-    // pe.pass();
+    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    {
+        do
+        {
+            pairCodeElim();
+        } while (lcm.pass1());
+    }
+    pairCodeElim();
+    pe.pass();
     iph.pass2();
     tca.pass();
 
