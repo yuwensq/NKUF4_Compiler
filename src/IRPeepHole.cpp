@@ -303,6 +303,27 @@ void IRPeepHole::subPass(Function *func)
         }
         return prevInst;
     };
+    auto case10 = [&](Instruction *inst)
+    {
+        return inst->isBinary() && inst->getOpCode() == BinaryInstruction::MOD;
+    };
+    auto solveCase10 = [&](Instruction *inst)
+    {
+        auto bb = inst->getParent();
+        auto prevInst = inst->getPrev();
+        auto src1 = inst->getUse()[0];
+        auto src2 = inst->getUse()[1];
+        auto tmp1 = new Operand(new TemporarySymbolEntry(inst->getDef()->getType(), SymbolTable::getLabel()));
+        auto divInst = new BinaryInstruction(BinaryInstruction::DIV, tmp1, src1, src2);
+        auto tmp2 = new Operand(new TemporarySymbolEntry(inst->getDef()->getType(), SymbolTable::getLabel()));
+        auto mulInst = new BinaryInstruction(BinaryInstruction::MUL, tmp2, tmp1, src2);
+        auto subInst = new BinaryInstruction(BinaryInstruction::SUB, inst->getDef(), src1, tmp2);
+        bb->insertAfter(subInst, inst);
+        bb->insertAfter(mulInst, inst);
+        bb->insertAfter(divInst, inst);
+        bb->strongRemove(inst);
+        return prevInst;
+    };
     bool change = false;
     do
     {
@@ -354,6 +375,11 @@ void IRPeepHole::subPass(Function *func)
                 if (case9(inst))
                 {
                     inst = solveCase9(inst);
+                    change = true;
+                }
+                if (case10(inst))
+                {
+                    inst = solveCase10(inst);
                     change = true;
                 }
             }

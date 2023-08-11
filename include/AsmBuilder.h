@@ -70,6 +70,18 @@ public:
         unsigned int uimm = (unsigned int)imm;
         return legalVMOVImms.find(uimm) != legalVMOVImms.end();
     }
+    static int isPowNumber(int imm)
+    {
+        if ((imm & (imm - 1)) != 0)
+            return -1;
+        int x = 0;
+        while (imm > 1)
+        {
+            imm >>= 1;
+            x++;
+        }
+        return x;
+    }
 };
 
 #endif

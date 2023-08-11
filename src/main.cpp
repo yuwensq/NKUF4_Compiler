@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
             pairCodeElim();
         } while (lcm.pass1());
     }
+    // lcm.pass();
     pairCodeElim();
     pe.pass();
     iph.pass2();
