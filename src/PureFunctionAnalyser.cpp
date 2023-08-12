@@ -2,6 +2,7 @@
 #include "debug.h"
 #include <queue>
 
+extern FILE *yyout;
 // #define PUREFUNCDEBUG
 
 void PureFunctionAnalyser::analyseCallRelation()
@@ -86,7 +87,16 @@ bool PureFunctionAnalyser::srcIsLocal(Operand *op, std::string &name)
 int PureFunctionAnalyser::getArgNumber(Operand *op)
 {
     auto func = op->getDef()->getParent()->getParent();
-    while (dynamic_cast<GepInstruction *>(op->getDef()) != nullptr)
+    if (op->getDef() == nullptr)
+    {
+        fprintf(yyout, "%s\n", op->toStr().c_str());
+        fflush(yyout);
+    }
+    assert(op->getDef()->isGep());
+    op->getDef()->output();
+    fflush(yyout);
+    Log("x");
+    while (op->getDef() != nullptr && op->getDef()->isGep())
     {
         op = op->getDef()->getUse()[0];
     }

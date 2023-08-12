@@ -1,0 +1,3 @@
+  %t96 = getelementptr inbounds i32, i32* %t95, i32 %t29
+  %t98 = getelementptr inbounds i32, i32* %t97, i32 %t33
+  %t88 = getelementptr inbounds i32, i32* %t1, i32 %t20

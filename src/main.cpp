@@ -144,28 +144,28 @@ int main(int argc, char *argv[])
         atomicCodeElim();
     };
 
-    g2l.pass();
+    // g2l.pass();
     // duc.pass("g2l");
-    m2r.pass(); // Only IR supported
+    // m2r.pass(); // Only IR supported
     // duc.pass("m2r");
-    pairCodeElim();
-    finline.pass();
-    // duc.pass("func inline");
-    pairCodeElim();
-    spcfg.pass();
-    if (optmize)
-        lcm.pass();
-    pairCodeElim();
-    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    {
-        do
-        {
-            pairCodeElim();
-        } while (lcm.pass1());
-    }
-    lcm.pass();
-    pairCodeElim();
-    pe.pass();
+    // pairCodeElim();
+    // finline.pass();
+    // // duc.pass("func inline");
+    // pairCodeElim();
+    // spcfg.pass();
+    // if (optmize)
+    //     lcm.pass();
+    // pairCodeElim();
+    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    // {
+    //     do
+    //     {
+    //         pairCodeElim();
+    //     } while (lcm.pass1());
+    // }
+    // lcm.pass();
+    // pairCodeElim();
+    // pe.pass();
     iph.pass2();
     tca.pass();
 

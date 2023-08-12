@@ -45,6 +45,13 @@ bool isSameRHS(Instruction *a, Instruction *b)
 
 void GlobalValueNumbering::preprocess(Function *func)
 {
+    rtop.clear();
+    loopheaders.clear();
+    landingpads.clear();
+    ranks.clear();
+    LCTs.clear();
+    MCTs.clear();
+    MCTps.clear();
     unordered_set<BasicBlock *> visited;
     func->genReversedTopsort_N_LoopHeader(rtop, loopheaders);
     int iewno = 0;
@@ -222,7 +229,7 @@ void GlobalValueNumbering::removeTrivialAssignments()
         auto &ops = inst->getOperands();
         auto &A = ops[0], &B = ops[1];
         Log("inst: %s", inst->getDef()->toStr().c_str());
-        if (true) //(B->getUse().size() > A->getUse().size())
+        if (B->getUse().size() > A->getUse().size())
         {
             for (auto &&use_inst : A->getUse())
             {
