@@ -13,6 +13,7 @@ private:
     std::set<Operand*> gloOp; //load,src是全局的op
     std::set<Operand*> allocOp; //load,src的def是一个alloc语句
     std::set<Operand*> bitAllocOp; //与bitcast相关，load,src的def的def是一个alloc语句
+    std::set<Operand*> bitGloOp; //与bitcast相关，load,src的def的def是一个alloc语句
 
 public:
     DeadCodeElimination(Unit* unit) : unit(unit){};

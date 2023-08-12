@@ -11,6 +11,7 @@ void DeadCodeElimination::pass()
     gloOp.clear();
     allocOp.clear();
     bitAllocOp.clear();
+    bitGloOp.clear();
     // Log("死代码删除开始，round%d\n", round);
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -97,7 +98,7 @@ void DeadCodeElimination::mark(Function *func)
         // Log("markBasic:begin\n");
         markBasic(func);
         // Log("markBasic:end\n");
-        int temp = gepOp.size() + gloOp.size() + allocOp.size()+bitAllocOp.size();
+        int temp = gepOp.size() + gloOp.size() + allocOp.size()+bitAllocOp.size()+bitGloOp.size();
         if (temp > opNum)
         {
             opNum = temp;
@@ -256,6 +257,10 @@ void DeadCodeElimination::addCriticalOp(Instruction *ins)
                     //留到后面处理
                 }
             }
+            //对应全局数组
+            else if(useDefOp->isGlobal()){
+                bitGloOp.insert(useDefOp);
+            }
         }
     }
 }
@@ -348,6 +353,16 @@ void DeadCodeElimination::markStore(Function *func)
                             {
                                 use1 = def2->getUse()[0];
                             }
+                            if (def2 && def2->isBitcast())
+                            {
+                                use1 = def2->getUse()[0];
+                                while(use1->getDef()&&use1->getDef()->isBitcast()){
+                                    use1=use1->getDef()->getUse()[0];
+                                }
+                                if(use1->getDef()&&use1->getDef()->isGep()){
+                                    use1=use1->getDef()->getUse()[0];
+                                }
+                            }
                             for (auto ArrUse : gepOp)
                             {
                                 if (use->toStr() == ArrUse->toStr() || (use1 && use1->toStr() == ArrUse->toStr()))
@@ -367,6 +382,14 @@ void DeadCodeElimination::markStore(Function *func)
                                         markFlag=true;
                                         break;
                                     }
+                                }
+                            }
+                        }
+                        if(!markFlag&&!bitGloOp.empty()){
+                            for(auto bitGlo:bitGloOp){
+                                if(bitGlo->toStr()==use->toStr()){
+                                    markFlag=true;
+                                    break;                                    
                                 }
                             }
                         }
