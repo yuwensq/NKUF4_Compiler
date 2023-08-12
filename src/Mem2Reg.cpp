@@ -29,7 +29,6 @@ void Mem2Reg::insertPhiInstruction(Function *function)
 {
     vector<BinaryInstruction *>().swap(addZeroIns);
     vector<AllocaInstruction *>().swap(allocaIns);
-    vector<AllocaInstruction *> allocaArr;
     BasicBlock *entry = function->getEntry();
     for (auto i = entry->begin(); i != entry->end(); i = i->getNext())
     {
@@ -38,19 +37,12 @@ void Mem2Reg::insertPhiInstruction(Function *function)
         auto alloca = (AllocaInstruction *)i;
         if (!alloca->getEntry()->getType()->isArray() && !alloca->getEntry()->getType()->isPtr())
             allocaIns.push_back(alloca);
-        else
-        {
-            // Log("%s", alloca->getDef()->toStr().c_str());
-            auto &v = alloca->getDef()->getUse();
-            if (!v.empty() && v[0]->isStore())
-                allocaArr.push_back(alloca);
-        }
     }
     vector<BasicBlock *> worklist;
     set<BasicBlock *> inWorklist, inserted, assigns;
     for (auto i : allocaIns)
     {
-        worklist.clear();
+        vector<BasicBlock *>().swap(worklist);
         inWorklist.clear();
         inserted.clear();
         assigns.clear();
@@ -118,39 +110,6 @@ void Mem2Reg::insertPhiInstruction(Function *function)
                 }
             }
         }
-    }
-    for (auto &alloca : allocaArr)
-    {
-        auto defArray = alloca->getDef();
-        auto storeArray = alloca->getDef()->getUse()[0]; // parameter => defArray
-        auto paramArray = storeArray->getUse()[1];
-        assert(paramArray->getEntry()->isTemporary());
-        assert(((TemporarySymbolEntry *)paramArray->getEntry())->isParam());
-        auto bitcast = new BitcastInstruction(defArray, paramArray); // defArray <= parameter
-        entry->insertBefore(bitcast, storeArray);                    // alloca->bitcast->store
-        entry->remove(storeArray);
-        delete storeArray; // parameter->removeUse, defArray->removeUse
-        entry->remove(alloca);
-        delete alloca; // defArray->setDef(NULL)
-        defArray->setDef(bitcast);
-        auto uses = defArray->getUse(); // make a copy
-        for (auto &&load_inst : uses)
-        {
-            // %t <= defArray
-            if (load_inst == bitcast)
-                continue;
-            assert(load_inst->isLoad());
-            if (!load_inst->isLoad())
-                continue;
-            auto use_def = load_inst->getDef();
-            for (auto &&i : use_def->getUse())
-            {
-                i->replaceUse(use_def, paramArray);
-            }
-            load_inst->getParent()->remove(load_inst);
-            delete load_inst; // %t->setDef(NULL), %t will be deleted;  defArray->removeUse;
-        }
-        bitcast->getDef()->getEntry()->setType(paramArray->getType());
     }
 }
 

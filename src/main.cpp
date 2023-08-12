@@ -131,6 +131,8 @@ int main(int argc, char *argv[])
         // duc.pass("sccp" + num);
         cse.pass();
         // duc.pass("cse" + num);
+        // gvn.pass();
+        // duc.pass("gvn" + num);
         dce.pass();
         // duc.pass("dce" + num);
         turn++;

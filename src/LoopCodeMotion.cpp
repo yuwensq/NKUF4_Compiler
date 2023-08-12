@@ -33,7 +33,7 @@ void LoopCodeMotion::pass()
         // 获取回边组，要求每个组中的回边的到达节点是同一个
         std::vector<std::vector<std::pair<BasicBlock *, BasicBlock *>>> edgeGroups = mergeEdge(BackEdges);
         // printEdgeGroups(edgeGroups);
-        
+
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
         // printLoop(LoopList);
@@ -81,7 +81,7 @@ bool LoopCodeMotion::pass1()
             flag = true;
         }
     }
-    //cout<<flag<<endl;
+    // cout<<flag<<endl;
     return flag;
 }
 
@@ -554,29 +554,33 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
             if (ins->isStore())
             {
                 loopStoreGlobal.insert(ins->getUse()[0]);
-                Operand* op=ins->getUse()[0];
-                //std::cout<<op->toStr()<<std::endl;
-                if(op->getDef()&&op->getDef()->isGep()){
-                    std::vector<Operand*> temp; 
-                    for(auto t1=0;t1<op->getDef()->getUse().size();t1++){
+                Operand *op = ins->getUse()[0];
+                // std::cout<<op->toStr()<<std::endl;
+                if (op->getDef() && op->getDef()->isGep())
+                {
+                    std::vector<Operand *> temp;
+                    for (auto t1 = 0; t1 < op->getDef()->getUse().size(); t1++)
+                    {
                         temp.push_back(op->getDef()->getUse()[t1]);
                     }
-                    loopStoreGep.insert(temp);   
-                    
-                    Operand* opDef=op->getDef()->getUse()[0];
-                    //std::cout<<opDef->toStr()<<std::endl;
-                    if(opDef->getDef()&&opDef->getDef()->isGep()){
-                        // std::vector<Operand*> temp1; 
+                    loopStoreGep.insert(temp);
+
+                    Operand *opDef = op->getDef()->getUse()[0];
+                    // std::cout<<opDef->toStr()<<std::endl;
+                    if (opDef->getDef() && opDef->getDef()->isGep())
+                    {
+                        // std::vector<Operand*> temp1;
                         // //std::cout<<opDef->getDef()->getUse()[0]->toStr()<<std::endl;
                         // for(auto t1=0;t1<opDef->getDef()->getUse().size();t1++){
                         //     temp1.push_back(opDef->getDef()->getUse()[t1]);
                         // }
-                        loopStoreGepDef.insert(opDef->getDef()->getUse()[0]);                               
+                        loopStoreGepDef.insert(opDef->getDef()->getUse()[0]);
                     }
                     // loopStoreGep.insert(op->getDef()->getUse()[0]);
-                }    
+                }
             }
-            if(ins->isCall()){
+            if (ins->isCall())
+            {
                 IdentifierSymbolEntry *funcSE = (IdentifierSymbolEntry *)(((CallInstruction *)ins)->getFunc());
                 if (!funcSE->isSysy() && funcSE->getName() != "llvm.memset.p0i8.i32")
                 {
@@ -780,40 +784,50 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
                         }
                         if (constant_count == 2)
                         {
-                            //面向样例加点特殊的判断
-                            Operand* gepBaseDef=nullptr;
-                            if(addrOp->getDef()&&addrOp->getDef()->isGep()){
-                                Operand* gepBase=addrOp->getDef()->getUse()[0];
-                                if(gepBase->getDef()&&gepBase->getDef()->isGep()){
-                                    gepBaseDef=gepBase->getDef()->getUse()[0];
+                            // 面向样例加点特殊的判断
+                            Operand *gepBaseDef = nullptr;
+                            if (addrOp->getDef() && addrOp->getDef()->isGep())
+                            {
+                                Operand *gepBase = addrOp->getDef()->getUse()[0];
+                                if (gepBase->getDef() && gepBase->getDef()->isGep())
+                                {
+                                    gepBaseDef = gepBase->getDef()->getUse()[0];
                                 }
                             }
-                            bool notPull=false;
-                            if(gepBaseDef&&gepBaseDef->isGlobal()){
-                                //向下找call指令，看看被调函数是否修改了gepBaseDef
-                                //std::cout<<gepBaseDef->toStr();
-                                for(auto temp=ins->getNext();temp!=ins->getParent()->end();temp=temp->getNext()){
-                                    if(temp->isCall()){
-                                        Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp)->getFunc()))->getFunction();
-                                        if(pureFunc1==nullptr){
+                            bool notPull = false;
+                            if (gepBaseDef && gepBaseDef->isGlobal())
+                            {
+                                // 向下找call指令，看看被调函数是否修改了gepBaseDef
+                                // std::cout<<gepBaseDef->toStr();
+                                for (auto temp = ins->getNext(); temp != ins->getParent()->end(); temp = temp->getNext())
+                                {
+                                    if (temp->isCall())
+                                    {
+                                        Function *func = ((IdentifierSymbolEntry *)(((CallInstruction *)temp)->getFunc()))->getFunction();
+                                        if (pureFunc1 == nullptr)
+                                        {
                                             pureFunc1 = new PureFunctionAnalyser(func->getParent());
                                         }
-                                        std::set<std::string> storeGlobalVar=pureFunc1->getStoreGlobalVar(func); 
-                                        for(auto str1:storeGlobalVar){
-                                            if(str1==gepBaseDef->toStr().substr(1)){
-                                                notPull=true;
+                                        std::set<std::string> storeGlobalVar = pureFunc1->getStoreGlobalVar(func);
+                                        for (auto str1 : storeGlobalVar)
+                                        {
+                                            if (str1 == gepBaseDef->toStr().substr(1))
+                                            {
+                                                notPull = true;
                                                 break;
                                             }
                                         }
-                                        if(notPull){
+                                        if (notPull)
+                                        {
                                             break;
-                                        }            
+                                        }
                                     }
                                 }
                             }
-                            if(!notPull){
+                            if (!notPull)
+                            {
                                 LoopConstInstructions.push_back(ins);
-                                // store 不增加新的def                                
+                                // store 不增加新的def
                             }
                         }
                     }
@@ -869,35 +883,46 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
             return true;
         }
     }
-    if(loadUse->getDef()&&loadUse->getDef()->isGep()){
-        std::vector<Operand*> temp;
-        for(auto t1=0;t1<loadUse->getDef()->getUse().size();t1++){
+    if (loadUse->getDef() && loadUse->getDef()->isGep())
+    {
+        std::vector<Operand *> temp;
+        for (auto t1 = 0; t1 < loadUse->getDef()->getUse().size(); t1++)
+        {
             temp.push_back(loadUse->getDef()->getUse()[t1]);
         }
         // Operand* op=loadUse->getDef()->getUse()[0];
-        for(auto use:loopStoreGep){
-            if(use[0]->toStr()==temp[0]->toStr()){
-                for(auto t2=1;t2<use.size();t2++){
-                    if(!use[t2]->getEntry()->isConstant()){
+        for (auto use : loopStoreGep)
+        {
+            if (use[0]->toStr() == temp[0]->toStr())
+            {
+                for (auto t2 = 1; t2 < use.size(); t2++)
+                {
+                    if (!use[t2]->getEntry()->isConstant())
+                    {
                         return true;
                     }
-                    else if(temp[t2]){
-                        if(temp[t2]->getEntry()->isConstant()){
-                            SymbolEntry* se1=use[t2]->getEntry();
-                            SymbolEntry* se2=temp[t2]->getEntry();
-                            //std::cout<<se1->toStr()<<" "<<se2->toStr()<<std::endl;
-                            if(((ConstantSymbolEntry*)se1)->getValue()==((ConstantSymbolEntry*)se2)->getValue()){
+                    else if (temp[t2])
+                    {
+                        if (temp[t2]->getEntry()->isConstant())
+                        {
+                            SymbolEntry *se1 = use[t2]->getEntry();
+                            SymbolEntry *se2 = temp[t2]->getEntry();
+                            // std::cout<<se1->toStr()<<" "<<se2->toStr()<<std::endl;
+                            if (((ConstantSymbolEntry *)se1)->getValue() == ((ConstantSymbolEntry *)se2)->getValue())
+                            {
                                 return true;
                             }
                         }
-                        else{
+                        else
+                        {
                             return true;
                         }
                     }
-                    else{
+                    else
+                    {
                         return true;
                     }
-                }                
+                }
             }
             // if(use->toStr()==op->toStr()){
             //     return true;
@@ -910,8 +935,9 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
                 return true;
             }
         }
-        if(temp[0]->getDef()&&temp[0]->getDef()->isGep()){
-            Operand* tempDef=temp[0]->getDef()->getUse()[0];
+        if (temp[0]->getDef() && temp[0]->getDef()->isGep())
+        {
+            Operand *tempDef = temp[0]->getDef()->getUse()[0];
             for (auto use : loopStoreGep)
             {
                 if (tempDef->toStr() == use[0]->toStr())
@@ -920,22 +946,29 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
                 }
             }
         }
-        for(auto ins:loopCallIns){
-            Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)ins)->getFunc()))->getFunction();
-            if(pureFunc1==nullptr){
+        for (auto ins : loopCallIns)
+        {
+            Function *func = ((IdentifierSymbolEntry *)(((CallInstruction *)ins)->getFunc()))->getFunction();
+            if (pureFunc1 == nullptr)
+            {
                 pureFunc1 = new PureFunctionAnalyser(func->getParent());
             }
-            std::vector<Operand*> argOps=ins->getUse();
-            std::vector<Operand*> chanegArgOps;
-            std::set<int> changeArg=pureFunc1->getChangeArgNum(func);
-            if(argOps.size()!=0&&!changeArg.empty()){
-                for(auto changePos:changeArg){
+            std::vector<Operand *> argOps = ins->getUse();
+            std::vector<Operand *> chanegArgOps;
+            std::set<int> changeArg = pureFunc1->getChangeArgNum(func);
+            if (argOps.size() != 0 && !changeArg.empty())
+            {
+                for (auto changePos : changeArg)
+                {
                     chanegArgOps.push_back(argOps[changePos]);
                 }
-                for(auto use:chanegArgOps){
-                    if(use->getDef()&&use->getDef()->isGep()){
-                        Operand* gepDef=use->getDef()->getUse()[0];
-                        if(temp[0]->toStr()==gepDef->toStr()){
+                for (auto use : chanegArgOps)
+                {
+                    if (use->getDef() && use->getDef()->isGep())
+                    {
+                        Operand *gepDef = use->getDef()->getUse()[0];
+                        if (temp[0]->toStr() == gepDef->toStr())
+                        {
                             return true;
                         }
                     }
@@ -954,13 +987,16 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
         {
             if (temp1->isCall())
             {
-                Function* func=((IdentifierSymbolEntry*)(((CallInstruction*)temp1)->getFunc()))->getFunction();
-                if(pureFunc1==nullptr){
+                Function *func = ((IdentifierSymbolEntry *)(((CallInstruction *)temp1)->getFunc()))->getFunction();
+                if (pureFunc1 == nullptr)
+                {
                     pureFunc1 = new PureFunctionAnalyser(func->getParent());
                 }
-                std::set<std::string> storeGlobalVar=pureFunc1->getStoreGlobalVar(func); 
-                for(auto str1:storeGlobalVar){
-                    if(str1==loadUse->toStr().substr(1)){
+                std::set<std::string> storeGlobalVar = pureFunc1->getStoreGlobalVar(func);
+                for (auto str1 : storeGlobalVar)
+                {
+                    if (str1 == loadUse->toStr().substr(1))
+                    {
                         return true;
                     }
                 }
@@ -1045,18 +1081,21 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> L
             // 考虑数组在循环中，另外被load然后store赋值的情况
             if (gepIns && i->isGep())
             {
-                Operand* gepDef=gepIns->getDef();
-                bool needConsider=true;
-                if (i->getDef()->toStr() != gepDef->toStr() && i->getUse().size()==gepIns->getUse().size())
+                Operand *gepDef = gepIns->getDef();
+                bool needConsider = true;
+                if (i->getDef()->toStr() != gepDef->toStr() && i->getUse().size() == gepIns->getUse().size())
                 {
-                    //细化判断，要求每一个偏移都一样
-                    for(auto pos=0;pos<i->getUse().size();pos++){
-                        if(i->getUse()[pos]->toStr()!=gepIns->getUse()[pos]->toStr()){
-                            needConsider=false;
+                    // 细化判断，要求每一个偏移都一样
+                    for (auto pos = 0; pos < i->getUse().size(); pos++)
+                    {
+                        if (i->getUse()[pos]->toStr() != gepIns->getUse()[pos]->toStr())
+                        {
+                            needConsider = false;
                             break;
                         }
                     }
-                    if(needConsider){
+                    if (needConsider)
+                    {
                         // 下面就只是处理一维的情况
                         Operand *def = i->getDef();
                         Instruction *temp = i;
@@ -1067,7 +1106,7 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> L
                                 return false;
                             }
                             temp = temp->getNext();
-                        }                       
+                        }
                     }
                 }
             }

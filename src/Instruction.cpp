@@ -784,6 +784,7 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
                 cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSR, tmp, src1, genMachineImm(31)));
                 cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, dst, new MachineOperand(*src1), new MachineOperand(*tmp)));
                 cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, new MachineOperand(*dst), new MachineOperand(*dst), genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
+                // cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
             }
             else
             {
