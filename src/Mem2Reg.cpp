@@ -161,7 +161,7 @@ void Mem2Reg::insertPhiInstruction(Function *function)
             auto use_def = load_inst->getDef();
             for (auto &&i : use_def->getUse())
             {
-                i->replaceUse(use_def, paramArray);
+                i->replaceUse(use_def, defArray);
             }
             load_inst->getParent()->remove(load_inst);
             delete load_inst; // %t->setDef(NULL), %t will be deleted;  defArray->removeUse;

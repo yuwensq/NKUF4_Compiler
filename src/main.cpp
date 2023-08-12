@@ -144,13 +144,19 @@ int main(int argc, char *argv[])
         atomicCodeElim();
     };
 
-    // g2l.pass();
+    g2l.pass();
     // duc.pass("g2l");
-    // m2r.pass(); // Only IR supported
+    m2r.pass(); // Only IR supported
     // duc.pass("m2r");
-    // pairCodeElim();
-    // finline.pass();
+    pairCodeElim();
+    finline.pass();
     // // duc.pass("func inline");
+    spcfg.pass();
+    iph.pass();
+    sccp.pass();
+    cse.pass();
+    // dce.pass();
+
     // pairCodeElim();
     // spcfg.pass();
     // if (optmize)
