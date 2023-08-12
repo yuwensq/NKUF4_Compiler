@@ -1,5 +1,0 @@
-  %t62 = getelementptr inbounds i32, i32* %t61, i32 0
-  %t64 = getelementptr inbounds i32, i32* %t63, i32 0
-  %t72 = getelementptr inbounds i32, i32* %t71, i32 0
-  %t76 = getelementptr inbounds i32, i32* %t75, i32 0
-  %t17 = load i32*, i32** %t55, align 4

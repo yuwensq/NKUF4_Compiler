@@ -148,14 +148,14 @@ int main(int argc, char *argv[])
     // duc.pass("g2l");
     m2r.pass(); // Only IR supported
     // duc.pass("m2r");
-    pairCodeElim();
+    // pairCodeElim();
     finline.pass();
     // // duc.pass("func inline");
-    spcfg.pass();
-    iph.pass();
-    sccp.pass();
-    cse.pass();
-    // dce.pass();
+    // spcfg.pass();
+    // iph.pass();
+    // sccp.pass();
+    // cse.pass();
+    dce.pass();
 
     // pairCodeElim();
     // spcfg.pass();

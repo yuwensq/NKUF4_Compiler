@@ -77,6 +77,7 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
     std::map<Operand *, Operand *> addr2arg; // 就是传数组的时候要先alloc一个更高维度的指针，
                                              // 这个结构记录这个指针和数组参数的映射
     std::map<Operand *, Operand *> dst2addr;
+    std::vector<Instruction *> bitcastInsts;
     blk2blk.clear();
     op2op.clear();
     // 先复制每个基本块
@@ -180,6 +181,13 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
                 auto func = unit->se2Func(funcSe);
                 callIns[func].insert(newInst);
             }
+            if (newInst->isBitcast())
+            {
+                if (calleeFunc->getParamNumber(inst->getUse()[0]) != -1)
+                {
+                    bitcastInsts.push_back(newInst);
+                }
+            }
         }
 #ifndef DEBUGPTR
         // 处理指针传参的问题
@@ -197,6 +205,15 @@ void FunctionInline::copyFunc(Instruction *calledInst, Function *calleeFunc)
             }
         }
 #endif
+    }
+    for (auto bitcast : bitcastInsts)
+    {
+        std::vector<Instruction *> uses(bitcast->getDef()->getUse().begin(), bitcast->getDef()->getUse().end());
+        for (auto use : uses)
+        {
+            use->replaceUse(bitcast->getDef(), bitcast->getUse()[0]);
+        }
+        bitcast->getParent()->strongRemove(bitcast);
     }
     // 再把每个基本块连起来
     for (auto pa : blk2blk)
