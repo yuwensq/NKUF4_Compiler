@@ -131,6 +131,8 @@ int main(int argc, char *argv[])
         // duc.pass("sccp" + num);
         cse.pass();
         // duc.pass("cse" + num);
+        // gvn.pass();
+        // duc.pass("gvn" + num);
         dce.pass();
         // duc.pass("dce" + num);
         turn++;
@@ -148,22 +150,28 @@ int main(int argc, char *argv[])
     // duc.pass("m2r");
     pairCodeElim();
     finline.pass();
-    // duc.pass("func inline");
-    pairCodeElim();
+    // // duc.pass("func inline");
     spcfg.pass();
-    if (optmize)
-        lcm.pass();
-    pairCodeElim();
-    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    {
-        do
-        {
-            pairCodeElim();
-        } while (lcm.pass1());
-    }
-    lcm.pass();
-    pairCodeElim();
-    pe.pass();
+    iph.pass();
+    sccp.pass();
+    cse.pass();
+    // dce.pass();
+
+    // pairCodeElim();
+    // spcfg.pass();
+    // if (optmize)
+    //     lcm.pass();
+    // pairCodeElim();
+    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    // {
+    //     do
+    //     {
+    //         pairCodeElim();
+    //     } while (lcm.pass1());
+    // }
+    // lcm.pass();
+    // pairCodeElim();
+    // pe.pass();
     iph.pass2();
     tca.pass();
 

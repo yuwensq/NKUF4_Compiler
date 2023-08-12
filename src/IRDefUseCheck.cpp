@@ -47,7 +47,7 @@ void DefUseCheck::pass(std::string passName)
                         }
                 }
                 Log("%s Uses are not corresponding. %%t%d %d %d", passName.c_str(), static_cast<TemporarySymbolEntry *>(def->getEntry())->getLabel(), all_use[def], def->getUse().size());
-                // Assert(false, "%s Uses are not corresponding. %%t%d %d %d", passName.c_str(), static_cast<TemporarySymbolEntry *>(def->getEntry())->getLabel(), all_use[def], def->getUse().size());
+                Assert(false, "%s Uses are not corresponding. %%t%d %d %d", passName.c_str(), static_cast<TemporarySymbolEntry *>(def->getEntry())->getLabel(), all_use[def], def->getUse().size());
             }
         }
         all_def.clear();

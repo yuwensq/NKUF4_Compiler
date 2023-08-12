@@ -2,6 +2,7 @@
 #include "debug.h"
 #include <queue>
 
+extern FILE *yyout;
 // #define PUREFUNCDEBUG
 
 void PureFunctionAnalyser::analyseCallRelation()
@@ -86,14 +87,29 @@ bool PureFunctionAnalyser::srcIsLocal(Operand *op, std::string &name)
 int PureFunctionAnalyser::getArgNumber(Operand *op)
 {
     auto func = op->getDef()->getParent()->getParent();
-    while (dynamic_cast<GepInstruction *>(op->getDef()) != nullptr)
+    // if (op->getDef() == nullptr)
+    // {
+    //     fprintf(yyout, "%s\n", op->toStr().c_str());
+    //     fflush(yyout);
+    // }
+    // op->getDef()->output();
+    // fflush(yyout);
+    // Log("x");
+    // assert(op->getDef()->isGep());
+    while (op->getDef() != nullptr && op->getDef()->isGep())
     {
         op = op->getDef()->getUse()[0];
     }
-    Assert(op->getDef()->isLoad(), "???");
-    auto arg_addr = op->getDef()->getUse()[0];
-    Assert(arg_addr->getUse()[0]->isStore(), "???");
-    auto arg = arg_addr->getUse()[0]->getUse()[1];
+    Assert(op->getDef()->isLoad() || op->getDef()->isBitcast(), "???");
+    Operand *arg = nullptr;
+    if (op->getDef()->isLoad())
+    {
+        auto arg_addr = op->getDef()->getUse()[0];
+        Assert(arg_addr->getUse()[0]->isStore(), "???");
+        arg = arg_addr->getUse()[0]->getUse()[1];
+    }
+    else if (op->getDef()->isBitcast())
+        arg = op->getDef()->getUse()[0];
     return func->getParamNumber(arg);
 }
 

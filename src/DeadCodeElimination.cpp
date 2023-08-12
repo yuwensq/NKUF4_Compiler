@@ -10,6 +10,8 @@ void DeadCodeElimination::pass()
     gepOp.clear();
     gloOp.clear();
     allocOp.clear();
+    bitAllocOp.clear();
+    bitGloOp.clear();
     // Log("死代码删除开始，round%d\n", round);
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
@@ -96,7 +98,7 @@ void DeadCodeElimination::mark(Function *func)
         // Log("markBasic:begin\n");
         markBasic(func);
         // Log("markBasic:end\n");
-        int temp = gepOp.size() + gloOp.size() + allocOp.size();
+        int temp = gepOp.size() + gloOp.size() + allocOp.size()+bitAllocOp.size()+bitGloOp.size();
         if (temp > opNum)
         {
             opNum = temp;
@@ -126,7 +128,7 @@ void DeadCodeElimination::markBasic(Function *func)
             auto def = it->getDef();
             if (def && !def->getMark())
             {
-                if (def->isLoad())
+                if (def->isLoad()||def->isBitcast())
                 {
                     addCriticalOp(def);
                 }
@@ -216,7 +218,7 @@ void DeadCodeElimination::addCriticalOp(Instruction *ins)
             }
         }
     }
-    if (ins->isCall())
+    else if (ins->isCall())
     {
         // 如果它的参数中有指针，那么我们要将对应的数组首地址压入gepOp，对他的store要保留
         // 同时应考虑前继为alloc
@@ -239,6 +241,25 @@ void DeadCodeElimination::addCriticalOp(Instruction *ins)
                         gepOp.insert(defIns->getUse()[0]);
                     }
                 }
+            }
+        }
+    }
+    else if(ins->isBitcast()){
+        Operand* useOp=ins->getUse()[0];
+        if(useOp->getDef()&&useOp->getDef()->isGep()){
+            Operand* useDefOp=useOp->getDef()->getUse()[0];
+            Instruction* useDefIns=useDefOp->getDef();
+            if(useDefIns){
+                if(useDefIns->isAlloc()){
+                    bitAllocOp.insert(useDefOp);
+                }
+                else if(useDefIns->isGep()){
+                    //留到后面处理
+                }
+            }
+            //对应全局数组
+            else if(useDefOp->isGlobal()){
+                bitGloOp.insert(useDefOp);
             }
         }
     }
@@ -322,26 +343,61 @@ void DeadCodeElimination::markStore(Function *func)
                             }
                         }
                     }
-                    else if (!gepOp.empty())
-                    {
+                    else{
+                        bool markFlag=false;
                         auto use = def->getUse()[0];
-                        Operand *use1 = nullptr; // 父节点
                         Instruction *def2 = use->getDef();
-                        if (def2 && def2->isGep())
-                        {
-                            use1 = def2->getUse()[0];
-                        }
-
-                        for (auto ArrUse : gepOp)
-                        {
-                            if (use->toStr() == ArrUse->toStr() || (use1 && use1->toStr() == ArrUse->toStr()))
+                        if (!gepOp.empty()){
+                            Operand *use1 = nullptr; // 父节点
+                            if (def2 && def2->isGep())
                             {
-                                ins->setMark();
-                                ins->getParent()->setMark();
-                                worklist.push_back(ins);
-                                break;
+                                use1 = def2->getUse()[0];
+                            }
+                            if (def2 && def2->isBitcast())
+                            {
+                                use1 = def2->getUse()[0];
+                                while(use1->getDef()&&use1->getDef()->isBitcast()){
+                                    use1=use1->getDef()->getUse()[0];
+                                }
+                                if(use1->getDef()&&use1->getDef()->isGep()){
+                                    use1=use1->getDef()->getUse()[0];
+                                }
+                            }
+                            for (auto ArrUse : gepOp)
+                            {
+                                if (use->toStr() == ArrUse->toStr() || (use1 && use1->toStr() == ArrUse->toStr()))
+                                {
+                                    markFlag=true;
+                                    // ins->setMark();
+                                    // ins->getParent()->setMark();
+                                    // worklist.push_back(ins);
+                                    break;
+                                }
+                            }                     
+                        }
+                        if(!markFlag&&!bitAllocOp.empty()){
+                            if(def2&&def2->isAlloc()){
+                                for(auto bitArr:bitAllocOp){
+                                    if(bitArr->toStr()==def2->getDef()->toStr()){
+                                        markFlag=true;
+                                        break;
+                                    }
+                                }
                             }
                         }
+                        if(!markFlag&&!bitGloOp.empty()){
+                            for(auto bitGlo:bitGloOp){
+                                if(bitGlo->toStr()==use->toStr()){
+                                    markFlag=true;
+                                    break;                                    
+                                }
+                            }
+                        }
+                        if(markFlag){
+                            ins->setMark();
+                            ins->getParent()->setMark();
+                            worklist.push_back(ins);
+                        }       
                     }
                 }
             }

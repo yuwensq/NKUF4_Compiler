@@ -4,7 +4,7 @@
 #include "Operand.h"
 #include "AsmBuilder.h"
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <sstream>
 
 class BasicBlock;
@@ -668,7 +668,7 @@ public:
 class PhiInstruction : public Instruction
 {
 private:
-    std::map<BasicBlock *, Operand *> srcs;
+    std::unordered_map<BasicBlock *, Operand *> srcs;
     Operand *addr; // old PTR
 
 public:
@@ -678,7 +678,7 @@ public:
     void addEdge(BasicBlock *block, Operand *src);
     Operand *getAddr() { return addr; }
     Operand *getEdge(BasicBlock *block) { return (srcs.find(block) != srcs.end()) ? srcs[block] : nullptr; }
-    std::map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
+    std::unordered_map<BasicBlock *, Operand *> &getSrcs() { return srcs; }
     bool findSrc(BasicBlock *block);
     Operand *getBlockSrc(BasicBlock *block);
     void removeBlockSrc(BasicBlock *block);
