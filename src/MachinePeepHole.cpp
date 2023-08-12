@@ -85,18 +85,18 @@ bool MachinePeepHole::subPass(bool afterRegAlloc)
                     now_inst = blk->getInsts().erase(now_inst);
                     now_inst--;
                 }
-                else if ((*now_inst)->isCondMov() && (*next_inst)->isCondMov() && *(*now_inst)->getDef()[0] == *(*next_inst)->getDef()[0])
-                {
-                    // 条件mov的结果没人用
-                    auto third_inst = next_inst + 1;
-                    if (third_inst == blk->end() || !(*(*third_inst)->getUse()[0] == *(*now_inst)->getDef()[0]))
-                    {
-                        changed = true;
-                        now_inst = blk->getInsts().erase(now_inst);
-                        now_inst = blk->getInsts().erase(now_inst);
-                        now_inst--;
-                    }
-                }
+                // else if (!afterRegAlloc && (*now_inst)->isCondMov() && (*next_inst)->isCondMov() && *(*now_inst)->getDef()[0] == *(*next_inst)->getDef()[0])
+                // {
+                //     // 条件mov的结果没人用
+                //     auto third_inst = next_inst + 1;
+                //     if (third_inst == blk->end() || !(*(*third_inst)->getUse()[0] == *(*now_inst)->getDef()[0]))
+                //     {
+                //         changed = true;
+                //         now_inst = blk->getInsts().erase(now_inst);
+                //         now_inst = blk->getInsts().erase(now_inst);
+                //         now_inst--;
+                //     }
+                // }
                 else if (((*now_inst)->isMov() || (*now_inst)->isVMov() || (*now_inst)->isVMov32()) && *(*now_inst)->getUse()[0] == *(*now_inst)->getDef()[0])
                 {
                     // mov rx, rx

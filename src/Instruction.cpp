@@ -776,12 +776,21 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
             // cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
             // src2 = new MachineOperand(*internal_reg);
         }
-        // else if ((opcode == MUL || opcode == DIV) && AsmBuilder::isPowNumber(src2->getVal()) != -1)
-        // {
-        //     auto op = (opcode == MUL) ? BinaryMInstruction::LSL : BinaryMInstruction::ASR;
-        //     cur_block->InsertInst(new BinaryMInstruction(cur_block, op, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
-        //     return;
-        // }
+        else if ((opcode == MUL || opcode == DIV) && AsmBuilder::isPowNumber(src2->getVal()) != -1)
+        {
+            if (opcode == DIV) // 负数除法不能直接右移
+            {
+                auto tmp = genMachineVReg();
+                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSR, tmp, src1, genMachineImm(31)));
+                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, dst, new MachineOperand(*src1), new MachineOperand(*tmp)));
+                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, new MachineOperand(*dst), new MachineOperand(*dst), genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
+            }
+            else
+            {
+                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSL, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
+            }
+            return;
+        }
         else if (opcode == MUL || opcode == DIV || opcode == MOD || !AsmBuilder::isLegalImm(src2->getVal()))
         {
             // int类型，按需放寄存器里
