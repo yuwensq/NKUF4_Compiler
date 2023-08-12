@@ -30,6 +30,7 @@ void Mem2Reg::insertPhiInstruction(Function *function)
     vector<BinaryInstruction *>().swap(addZeroIns);
     vector<AllocaInstruction *>().swap(allocaIns);
     vector<AllocaInstruction *> allocaArr;
+    vector<Instruction *> del_list;
     BasicBlock *entry = function->getEntry();
     for (auto i = entry->begin(); i != entry->end(); i = i->getNext())
     {
@@ -42,8 +43,16 @@ void Mem2Reg::insertPhiInstruction(Function *function)
         {
             // Log("%s", alloca->getDef()->toStr().c_str());
             auto &v = alloca->getDef()->getUse();
-            if (!v.empty() && v[0]->isStore())
-                allocaArr.push_back(alloca);
+            if (!v.empty())
+            {
+                if (v[0]->isStore())
+                    allocaArr.push_back(alloca);
+            }
+            else
+            {
+                // only alloca, no use
+                del_list.push_back(alloca);
+            }
         }
     }
     vector<BasicBlock *> worklist;
@@ -119,16 +128,9 @@ void Mem2Reg::insertPhiInstruction(Function *function)
             }
         }
     }
-    vector<Instruction *> del_list;
     for (auto &alloca : allocaArr)
     {
         auto defArray = alloca->getDef();
-        if (defArray->getUse().size() == 0)
-        {
-            // only alloca, no use
-            del_list.push_back(alloca);
-            continue;
-        }
         auto storeArray = alloca->getDef()->getUse()[0]; // parameter => defArray
         if (storeArray->getUse()[0]->getUse().size() == 1)
         {
