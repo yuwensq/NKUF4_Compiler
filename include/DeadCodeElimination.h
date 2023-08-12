@@ -12,6 +12,8 @@ private:
     std::set<Operand*> gepOp; //load,src是数组的首地址op
     std::set<Operand*> gloOp; //load,src是全局的op
     std::set<Operand*> allocOp; //load,src的def是一个alloc语句
+    std::set<Operand*> bitAllocOp; //与bitcast相关，load,src的def的def是一个alloc语句
+
 public:
     DeadCodeElimination(Unit* unit) : unit(unit){};
     void pass();
