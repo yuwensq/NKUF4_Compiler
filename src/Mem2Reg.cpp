@@ -119,10 +119,24 @@ void Mem2Reg::insertPhiInstruction(Function *function)
             }
         }
     }
+    vector<Instruction *> del_list;
     for (auto &alloca : allocaArr)
     {
         auto defArray = alloca->getDef();
+        if (defArray->getUse().size() == 0)
+        {
+            // only alloca, no use
+            del_list.push_back(alloca);
+            continue;
+        }
         auto storeArray = alloca->getDef()->getUse()[0]; // parameter => defArray
+        if (storeArray->getUse()[0]->getUse().size() == 1)
+        {
+            // no use after alloca & store
+            del_list.push_back(storeArray);
+            del_list.push_back(alloca);
+            continue;
+        }
         auto paramArray = storeArray->getUse()[1];
         assert(paramArray->getEntry()->isTemporary());
         assert(((TemporarySymbolEntry *)paramArray->getEntry())->isParam());
@@ -151,6 +165,12 @@ void Mem2Reg::insertPhiInstruction(Function *function)
             delete load_inst; // %t->setDef(NULL), %t will be deleted;  defArray->removeUse;
         }
         bitcast->getDef()->getEntry()->setType(paramArray->getType());
+    }
+    for (auto it = del_list.begin(); it != del_list.end();)
+    {
+        entry->remove(*it);
+        delete *it;
+        it = del_list.erase(it);
     }
 }
 
