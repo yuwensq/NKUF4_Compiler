@@ -137,8 +137,8 @@ bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
                         {
                             changeArgArray[func] = true;
                             int argNum = getArgNumber(inst->getOperands()[1]);
-                            if (argNum == -1)
-                                Log("here");
+                            // if (argNum == -1)
+                            //     Log("here");
                             changeArgNumber[func].insert(argNum);
                         }
                     }
@@ -153,14 +153,14 @@ bool PureFunctionAnalyser::analyseFuncWithoutCallee(Function *func)
                         funcChangeGlobalVars[func].insert(name);
                     else
                     {
-                        
+
                         changeArgArray[func] = true;
                         int argNum = getArgNumber(inst->getOperands()[0]);
-                        if (argNum == -1) {
-                            inst->output();
-                            fflush(yyout);
-                            Log("here");
-                        }
+                        // if (argNum == -1) {
+                        //     inst->output();
+                        //     fflush(yyout);
+                        //     Log("here");
+                        // }
                         changeArgNumber[func].insert(argNum);
                     }
                 }
@@ -222,7 +222,7 @@ void PureFunctionAnalyser::analyseFunc()
             auto callerInst = callerPa.second;
             for (auto argNum : changeArgNumber[func])
             {
-                Log("%d", argNum);
+                // Log("%d", argNum);
                 auto op = callerInst->getUse()[argNum];
                 isLocal = srcIsLocal(op, name);
                 if (!isLocal)

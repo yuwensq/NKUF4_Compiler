@@ -1300,9 +1300,12 @@ void BitcastInstruction::output() const
     fprintf(yyout, "  %s = bitcast %s %s to %s\n", dst.c_str(), src_type.c_str(), src.c_str(), dst_type.c_str());
 }
 
-void BitcastInstruction::genMachineCode(AsmBuilder *)
+void BitcastInstruction::genMachineCode(AsmBuilder *builder)
 {
-    //
+    auto cur_block = builder->getBlock();
+    auto dst = genMachineOperand(operands[0]);
+    auto src = genMachineOperand(operands[1]);
+    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, src));
 }
 
 GepInstruction::GepInstruction(Operand *dst, Operand *base, std::vector<Operand *> offs, BasicBlock *insert_bb, bool type2) : Instruction(GEP, insert_bb), type2(type2)

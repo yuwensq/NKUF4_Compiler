@@ -147,33 +147,27 @@ int main(int argc, char *argv[])
     g2l.pass();
     // duc.pass("g2l");
     m2r.pass(); // Only IR supported
-    // duc.pass("m2r");
-    // pairCodeElim();
+    // // duc.pass("m2r");
+    pairCodeElim();
     finline.pass();
-    // // duc.pass("func inline");
-    // spcfg.pass();
-    // iph.pass();
-    // sccp.pass();
-    // cse.pass();
-    dce.pass();
-
+    // // // duc.pass("func inline");
+    pairCodeElim();
+    spcfg.pass();
+    if (optmize)
+        lcm.pass();
+    pairCodeElim();
+    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    {
+        do
+        {
+            pairCodeElim();
+        } while (lcm.pass1());
+    }
+    lcm.pass();
     // pairCodeElim();
-    // spcfg.pass();
-    // if (optmize)
-    //     lcm.pass();
-    // pairCodeElim();
-    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    // {
-    //     do
-    //     {
-    //         pairCodeElim();
-    //     } while (lcm.pass1());
-    // }
-    // lcm.pass();
-    // pairCodeElim();
-    // pe.pass();
-    iph.pass2();
-    tca.pass();
+    // // pe.pass();
+    // iph.pass2();
+    // tca.pass();
 
     Log("IR优化成功"); /**/
 
