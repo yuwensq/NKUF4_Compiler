@@ -1129,15 +1129,39 @@ void LoopCodeMotion::changePhiInstruction(std::vector<BasicBlock *> &Loop, Basic
             if (i->isPhi())
             {
                 PhiInstruction *pi = (PhiInstruction *)i;
-                // 判断phi指令的src块是否在循环里
-                for (auto oldBlock : oldBlocks)
-                {
-                    if (pi->findSrc(oldBlock))
+                //如果这个时候的有效前驱（与head不构成回边的）只有一个的话，phi直接替代即可
+                if(oldBlocks.size()==1){
+                    //std::cout<<"def:"<<pi->getDef()->toStr()<<std::endl;
+                    // 判断phi指令的src块是否在循环里
+                    for (auto oldBlock : oldBlocks)
                     {
-                        Operand *op = pi->getBlockSrc(oldBlock);
-                        pi->removeBlockSrc(oldBlock);
-                        pi->addSrc(newPreBlock, op);
+                        if (pi->findSrc(oldBlock))
+                        {
+                            Operand *op = pi->getBlockSrc(oldBlock);
+                            pi->removeBlockSrc(oldBlock);
+                            pi->addSrc(newPreBlock, op);
+                        }
                     }
+                    //for(auto s:pi->getSrcs()) std::cout<<s.second->toStr()<<std::endl;                    
+                }
+                //否则，多个源可能有多个不同的初始值，需要在newPreBlock中插入新的phi
+                else{
+                    Operand *oldOp = pi->getDef();
+                    auto newOp = new Operand(new TemporarySymbolEntry(oldOp->getType(), SymbolTable::getLabel()));
+                    auto newPhi = new PhiInstruction(newOp,nullptr);
+                    newPreBlock->insertFront(newPhi,false);
+                    newOp->setDef(newPhi);
+                    for (auto oldBlock : oldBlocks)
+                    {
+                        if (pi->findSrc(oldBlock))
+                        {
+                            Operand *op = pi->getBlockSrc(oldBlock);
+                            pi->removeBlockSrc(oldBlock);
+                            newPhi->addSrc(oldBlock,op);
+                            // pi->addSrc(newPreBlock, op);
+                        }
+                    }
+                    pi->addSrc(newPreBlock,newOp);
                 }
             }
             i = i->getNext();
