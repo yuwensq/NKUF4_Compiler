@@ -522,8 +522,9 @@ public:
     void insertFront(MachineInstruction *inst) { this->inst_list.insert(inst_list.begin(), inst); };
     void eraseInst(MachineInstruction *inst)
     {
-        if (find(inst_list.begin(), inst_list.end(), inst) != inst_list.end())
-            this->inst_list.erase(find(inst_list.begin(), inst_list.end(), inst));
+        auto it = find(inst_list.begin(), inst_list.end(), inst);
+        if (it != inst_list.end())
+            this->inst_list.erase(it);
     };
     inline std::set<MachineOperand *> &getLiveIn() { return live_in; };
     inline std::set<MachineOperand *> &getLiveOut() { return live_out; };

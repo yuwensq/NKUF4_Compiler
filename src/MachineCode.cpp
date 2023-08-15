@@ -264,7 +264,6 @@ std::string BinaryMInstruction::opStr()
         return "lsl";
     case BinaryMInstruction::LSR:
         return "lsr";
-        break;
     case BinaryMInstruction::ASR:
         return "asr";
     default:
@@ -699,6 +698,13 @@ void MachineBlock::insertBefore(MachineInstruction *insertee, MachineInstruction
 void MachineBlock::insertAfter(MachineInstruction *insertee, MachineInstruction *pin)
 {
     auto it = std::find(inst_list.begin(), inst_list.end(), pin);
+    if (it == inst_list.end())
+    {
+        fprintf(yyout, "%d\n", pin);
+        pin->output();
+        fflush(yyout);
+        Log("%d", pin);
+    }
     Assert(it != inst_list.end(), "指令没在inst列表中");
     it++;
     inst_list.insert(it, insertee);

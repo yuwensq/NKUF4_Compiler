@@ -74,7 +74,7 @@ bool MachinePeepHole::subPass(bool afterRegAlloc)
                     now_inst = blk->getInsts().erase(now_inst);
                     now_inst--;
                 }
-                else if ((*now_inst)->isAdd() && (*now_inst)->getUse()[1]->isImm() && (*now_inst)->getUse()[1]->getVal() < 4096 && (next_inst + 1) != blk->end() && (*(next_inst + 1))->isStore() && (*(next_inst + 1))->getUse().size() == 2 && *(*(next_inst + 1))->getUse()[1] == *(*now_inst)->getDef()[0] && op2UseTimes[*(*now_inst)->getDef()[0]] == 1)
+                else if ((*now_inst)->isAdd() && (*now_inst)->getUse()[1]->isImm() && (*now_inst)->getUse()[1]->getVal() < 4096 && (next_inst + 1) != blk->end() && !((*next_inst)->getDef().size() == 1 && *(*next_inst)->getDef()[0] == *(*now_inst)->getUse()[0]) && (*(next_inst + 1))->isStore() && (*(next_inst + 1))->getUse().size() == 2 && *(*(next_inst + 1))->getUse()[1] == *(*now_inst)->getDef()[0] && op2UseTimes[*(*now_inst)->getDef()[0]] == 1)
                 {
                     auto strInst = *(next_inst + 1);
                     strInst->getUse()[1]->setParent(nullptr);

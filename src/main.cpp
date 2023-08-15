@@ -147,10 +147,10 @@ int main(int argc, char *argv[])
     g2l.pass();
     // duc.pass("g2l");
     m2r.pass(); // Only IR supported
-    // // duc.pass("m2r");
+    // duc.pass("m2r");
     pairCodeElim();
     finline.pass();
-    // // // duc.pass("func inline");
+    // duc.pass("func inline");
     pairCodeElim();
     spcfg.pass();
     if (optmize)
@@ -163,11 +163,13 @@ int main(int argc, char *argv[])
             pairCodeElim();
         } while (lcm.pass1());
     }
-    lcm.pass();
-    // pairCodeElim();
-    // // pe.pass();
-    // iph.pass2();
-    // tca.pass();
+    pairCodeElim();
+    if (optmize)
+        lcm.pass();
+    pairCodeElim();
+    pe.pass();
+    iph.pass2();
+    tca.pass();
 
     Log("IR优化成功"); /**/
 
@@ -184,6 +186,9 @@ int main(int argc, char *argv[])
         MachineLVN mlvn(&mUnit);
         MachineTailCallHandler mtch(&mUnit);
         mst.pass();
+        mlvn.pass();
+        mcp.pass();
+        mdce.pass();
         mph.pass();
         mcp.pass();
         mlvn.pass();

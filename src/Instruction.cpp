@@ -1303,8 +1303,20 @@ void BitcastInstruction::output() const
 void BitcastInstruction::genMachineCode(AsmBuilder *builder)
 {
     auto cur_block = builder->getBlock();
+    assert(operands[1]->getEntry()->isTemporary());
     auto dst = genMachineOperand(operands[0]);
-    auto src = genMachineOperand(operands[1]);
+    MachineOperand *src = nullptr;
+    int offset = static_cast<TemporarySymbolEntry *>(operands[1]->getEntry())->getOffset();
+    if (offset < 0)
+    {
+        auto off = genMachineImm(offset);
+        auto tmp = new MachineOperand(*immToVReg(off, cur_block));
+        src = genMachineVReg();
+        cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, src, genMachineReg(11), tmp));
+        src = new MachineOperand(*src);
+    }
+    else
+        src = genMachineOperand(operands[1]);
     cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, src));
 }
 

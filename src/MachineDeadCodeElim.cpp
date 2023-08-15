@@ -2,6 +2,8 @@
 #include "LiveVariableAnalysis.h"
 #define getHash(x) MachineUnit::getHash(x)
 
+extern FILE *yyout;
+
 void MachineDeadCodeElim::pass()
 {
     LiveVariableAnalysis lva;
@@ -52,7 +54,9 @@ void MachineDeadCodeElim::pass()
                 }
             }
             for (auto deadCode : deadInstructions)
+            {
                 mb->eraseInst(deadCode);
+            }
         }
     }
     for (int i = 0; i < 4; i++)
