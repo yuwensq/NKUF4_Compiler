@@ -1455,15 +1455,6 @@ PhiInstruction::PhiInstruction(Operand *dst, BasicBlock *insert_bb) : Instructio
 
 PhiInstruction::~PhiInstruction()
 {
-    if (addr != nullptr)
-    {
-        // addr->setDef(nullptr);
-        if (addr->usersNum() == 0)
-        {
-            delete addr;
-            addr = nullptr;
-        }
-    }
 }
 
 void PhiInstruction::output() const

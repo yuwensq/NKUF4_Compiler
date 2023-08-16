@@ -1,7 +1,8 @@
 #include "Mem2Reg.h"
-#include <map>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
+#include <queue>
 #include "BasicBlock.h"
 #include "Instruction.h"
 #include "ParamHandler.h"
@@ -20,6 +21,7 @@ void Mem2Reg::pass()
         rename(*it);
         // 这个会导致r0-r3被覆盖
         cleanAddZeroIns(*it);
+        checkPhiNodes(*it);
     }
     auto ph = new ParamHandler(unit);
     ph->pass();
@@ -27,10 +29,12 @@ void Mem2Reg::pass()
 
 void Mem2Reg::insertPhiInstruction(Function *function)
 {
-    vector<BinaryInstruction *>().swap(addZeroIns);
-    vector<AllocaInstruction *>().swap(allocaIns);
+    addZeroIns.clear();
+    allocaIns.clear();
+    phiNodes.clear();
     vector<AllocaInstruction *> allocaArr;
-    vector<Instruction *> del_list;
+    vector<Instruction *> uselessIns;
+
     BasicBlock *entry = function->getEntry();
     for (auto i = entry->begin(); i != entry->end(); i = i->getNext())
     {
@@ -51,15 +55,15 @@ void Mem2Reg::insertPhiInstruction(Function *function)
             else
             {
                 // only alloca, no use
-                del_list.push_back(alloca);
+                uselessIns.push_back(alloca);
             }
         }
     }
-    vector<BasicBlock *> worklist;
-    set<BasicBlock *> inWorklist, inserted, assigns;
-    for (auto i : allocaIns)
+    queue<BasicBlock *> worklist;
+    unordered_set<BasicBlock *> inWorklist, inserted, assigns;
+    for (auto &i : allocaIns)
     {
-        vector<BasicBlock *>().swap(worklist);
+        queue<BasicBlock *>().swap(worklist);
         inWorklist.clear();
         inserted.clear();
         assigns.clear();
@@ -103,25 +107,26 @@ void Mem2Reg::insertPhiInstruction(Function *function)
                 }
             operand->removeUse(*use);
         }
-        for (auto block : assigns)
+        for (auto &block : assigns)
         {
-            worklist.push_back(block);
+            worklist.push(block);
             inWorklist.insert(block);
             while (!worklist.empty())
             {
-                BasicBlock *n = worklist[0];
-                worklist.erase(worklist.begin());
+                BasicBlock *n = worklist.front();
+                worklist.pop();
                 for (auto m : n->domFrontier)
                 {
                     if (inserted.find(m) == inserted.end())
                     {
                         auto phi = new PhiInstruction(newOperand);
+                        phiNodes.push_back(phi);
                         m->insertFront(phi, false);
                         inserted.insert(m);
                         if (inWorklist.find(m) == inWorklist.end())
                         {
                             inWorklist.insert(m);
-                            worklist.push_back(m);
+                            worklist.push(m);
                         }
                     }
                 }
@@ -135,8 +140,8 @@ void Mem2Reg::insertPhiInstruction(Function *function)
         if (storeArray->getUse()[0]->getUse().size() == 1)
         {
             // no use after alloca & store
-            del_list.push_back(storeArray);
-            del_list.push_back(alloca);
+            uselessIns.push_back(storeArray);
+            uselessIns.push_back(alloca);
             continue;
         }
         auto paramArray = storeArray->getUse()[1];
@@ -168,18 +173,17 @@ void Mem2Reg::insertPhiInstruction(Function *function)
         }
         bitcast->getDef()->getEntry()->setType(paramArray->getType());
     }
-    for (auto it = del_list.begin(); it != del_list.end();)
+    for (auto it = uselessIns.begin(); it != uselessIns.end(); it++)
     {
         entry->remove(*it);
         delete *it;
-        it = del_list.erase(it);
     }
 }
 
 void Mem2Reg::rename(Function *function)
 {
     stacks.clear();
-    for (auto i : allocaIns)
+    for (auto &i : allocaIns)
     {
         auto operand = i->getDef();
         stacks[operand] = stack<Operand *>();
@@ -190,7 +194,7 @@ void Mem2Reg::rename(Function *function)
 
 void Mem2Reg::rename(BasicBlock *block)
 {
-    std::map<Operand *, int> counter;
+    std::unordered_map<Operand *, int> counter;
     for (auto i = block->begin(); i != block->end(); i = i->getNext())
     {
         Operand *def = i->getDef();
@@ -201,7 +205,7 @@ void Mem2Reg::rename(BasicBlock *block)
             i->replaceDef(new_);
         }
         if (!i->isPhi())
-            for (auto u : i->getUse())
+            for (auto &u : i->getUse())
                 if (stacks.find(u) != stacks.end() && !stacks[u].empty())
                     i->replaceUse(u, stacks[u].top());
     }
@@ -209,25 +213,25 @@ void Mem2Reg::rename(BasicBlock *block)
     {
         for (auto i = (*it)->begin(); i != (*it)->end(); i = i->getNext())
         {
-            if (i->isPhi())
+            if (!i->isPhi())
+                break;
+            auto phi = (PhiInstruction *)i;
+            Operand *o = phi->getAddr();
+            if (!stacks[o].empty())
             {
-                PhiInstruction *phi = (PhiInstruction *)i;
-                Operand *o = phi->getAddr();
-                if (!stacks[o].empty())
-                    phi->addEdge(block, stacks[o].top());
-                else
-                    phi->addEdge(block, new Operand(new ConstantSymbolEntry(
-                                            o->getType(), 0)));
+                phi->addEdge(block, stacks[o].top());
             }
             else
-                break;
+            {
+                phi->addEdge(block, new Operand(new ConstantSymbolEntry(o->getType(), 0)));
+            }
         }
     }
     auto func = block->getParent();
     auto node = func->getDomNode(block);
-    for (auto child : node->children)
+    for (auto &child : node->children)
         rename(child->block);
-    for (auto it : counter)
+    for (auto &it : counter)
         for (int i = 0; i < it.second; i++)
             stacks[it.first].pop();
 }
@@ -284,7 +288,7 @@ void Mem2Reg::cleanAddZeroIns(Function *func)
 
 void Mem2Reg::checkCondBranch(Function *func)
 {
-    for (auto block : func->getBlockList())
+    for (auto &block : func->getBlockList())
     {
         auto in = block->rbegin();
         if (in->isCond())
@@ -299,6 +303,24 @@ void Mem2Reg::checkCondBranch(Function *func)
                 new UncondBrInstruction(trueBlock, block);
                 block->remove(in);
             }
+        }
+    }
+}
+
+void Mem2Reg::checkPhiNodes(Function *function)
+{
+    for (auto it = phiNodes.begin(); it != phiNodes.end(); it++)
+    {
+        auto &phi = *it;
+        if (phi->getDef()->getUse().empty())
+        {
+            auto &srcs = phi->getOperands();
+            for (size_t i = 1; i < srcs.size(); i++)
+            {
+                srcs[i]->removeUse(phi);
+            }
+            phi->getParent()->remove(phi);
+            delete phi;
         }
     }
 }

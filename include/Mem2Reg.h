@@ -21,25 +21,22 @@
 4. 遍历Phi节点，对于所有使用内存变量的条目，将其替换为对应的寄存器变量。
 5. 删除不再使用的内存变量。
 */
+
 class Mem2Reg
 {
 private:
     Unit *unit;
-    // std::map<BasicBlock *, std::set<BasicBlock *>> IDom;
-    // void ComputeDom(Function *);
-    // std::map<BasicBlock *, std::set<BasicBlock *>> DF;
-    // void ComputeDomFrontier(Function *);
-    // void InsertPhi(Function *);
-    // void Rename(Function *);
     std::vector<AllocaInstruction *> allocaIns;
     std::map<Operand *, std::stack<Operand *>> stacks;
     std::vector<BinaryInstruction *> addZeroIns;
+    std::vector<PhiInstruction *> phiNodes;
     void insertPhiInstruction(Function *function);
     void rename(BasicBlock *block);
     void rename(Function *function);
     Operand *newName(Operand *old);
     void cleanAddZeroIns(Function *function);
     void checkCondBranch(Function *function);
+    void checkPhiNodes(Function *function);
 
 public:
     Mem2Reg(Unit *unit) : unit(unit) {}

@@ -166,7 +166,7 @@ BasicBlock::~BasicBlock()
 
 void BasicBlock::strongRemove(Instruction *inst)
 {
-    for (auto use : inst->getUse())
+    for (auto &use : inst->getUse())
         use->removeUse(inst);
     remove(inst);
 }
