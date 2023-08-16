@@ -18,6 +18,8 @@ struct Expr
         auto inst2 = other.inst;
         if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
             return false;
+        if (inst1->isCall() && static_cast<CallInstruction *>(inst1)->getFunc() != static_cast<CallInstruction *>(inst2)->getFunc())
+            return false;
         auto ops1 = inst1->getUse();
         auto ops2 = inst2->getUse();
         if (ops1.size() != ops2.size())
@@ -76,9 +78,10 @@ private:
     void doCSE();
     Instruction *getSrc(Operand *, std::string &);
     /**
-     * 判断load指令是否被无效了，就是再往前找也没用了
+     * 判断load指令的use的地址是否被无效了，就是再往前找也没用了
      */
     bool invalidate(Instruction *, Instruction *);
+    bool invalidate(Operand *, Instruction *);
     /**
      * 判断两个指令是否是相同的表达式
      */

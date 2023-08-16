@@ -19,6 +19,7 @@ void PureFunctionAnalyser::analyseCallRelation()
                     auto calleeFunc = static_cast<CallInstruction *>(inst)->getFunc();
                     if (static_cast<IdentifierSymbolEntry *>(calleeFunc)->isSysy())
                     {
+                        callSysy[*func] = true;
                         inst = inst->getNext();
                         continue;
                     }
@@ -178,15 +179,16 @@ void PureFunctionAnalyser::analyseFunc()
 {
     // phase1
     analyseCallRelation();
+    std::queue<Function *> callSysyFuncs;
     // unPureList记录每个不纯的函数，并传播不纯的关系和对全局变量的修改
     std::queue<Function *> unPureList;
     for (auto func = unit->begin(); func != unit->end(); func++)
     {
         funcIsPure[*func] = analyseFuncWithoutCallee(*func);
         if (!funcIsPure[*func])
-        {
             unPureList.push(*func);
-        }
+        if (callSysy[*func])
+            callSysyFuncs.push(*func);
     }
 
 #ifdef PUREFUNCDEBUG
@@ -286,6 +288,22 @@ void PureFunctionAnalyser::analyseFunc()
                 unPureList.push(callerFunc);
         }
     }
+
+    // phase4
+    while (!callSysyFuncs.empty())
+    {
+        auto func = callSysyFuncs.front();
+        callSysyFuncs.pop();
+        // 该函数的每个caller也都不纯了，对他们的状态进行更新并入队列
+        for (auto callerPa : caller[func])
+        {
+            auto callerFunc = callerPa.first;
+            if (!callSysy[callerFunc])
+                callSysyFuncs.push(callerFunc);
+            callSysy[callerFunc] = true;
+        }
+    }
+
 #ifdef PUREFUNCDEBUG
     Log("%s", "PureFunction Phase3 over");
     for (auto func = unit->begin(); func != unit->end(); func++)
@@ -308,6 +326,11 @@ bool PureFunctionAnalyser::isPure(Function *func)
     if (funcIsPure.find(func) != funcIsPure.end())
         return funcIsPure[func];
     return false;
+}
+
+bool PureFunctionAnalyser::isReallyPure(Function *func)
+{
+    return !callSysy[func] && isPure(func);
 }
 
 bool PureFunctionAnalyser::changeAArray(Function *func)

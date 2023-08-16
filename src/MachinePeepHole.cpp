@@ -85,6 +85,28 @@ bool MachinePeepHole::subPass(bool afterRegAlloc)
                     now_inst = blk->getInsts().erase(now_inst);
                     now_inst--;
                 }
+                else if ((*now_inst)->isAdd() && (*now_inst)->getUse()[1]->isImm() && (*now_inst)->getUse()[1]->getVal() < 4096 && (*next_inst)->isLoad() && (*next_inst)->getUse().size() == 1 && *(*next_inst)->getUse()[0] == *(*now_inst)->getDef()[0] && op2UseTimes[*(*now_inst)->getDef()[0]] == 1)
+                {
+                    auto ldrInst = *next_inst;
+                    ldrInst->getUse()[0]->setParent(nullptr);
+                    ldrInst->getUse()[0] = new MachineOperand(*(*now_inst)->getUse()[0]);
+                    ldrInst->getUse().push_back(new MachineOperand(*(*now_inst)->getUse()[1]));
+                    ldrInst->getUse()[0]->setParent(ldrInst);
+                    ldrInst->getUse()[1]->setParent(ldrInst);
+                    now_inst = blk->getInsts().erase(now_inst);
+                    now_inst--;
+                }
+                else if ((*now_inst)->isAdd() && (*now_inst)->getUse()[1]->isImm() && (*now_inst)->getUse()[1]->getVal() < 4096 && (next_inst + 1) != blk->end() && !((*next_inst)->getDef().size() == 1 && *(*next_inst)->getDef()[0] == *(*now_inst)->getUse()[0]) && (*(next_inst + 1))->isLoad() && (*(next_inst + 1))->getUse().size() == 1 && *(*(next_inst + 1))->getUse()[0] == *(*now_inst)->getDef()[0] && op2UseTimes[*(*now_inst)->getDef()[0]] == 1)
+                {
+                    auto ldrInst = *(next_inst + 1);
+                    ldrInst->getUse()[0]->setParent(nullptr);
+                    ldrInst->getUse()[0] = new MachineOperand(*(*now_inst)->getUse()[0]);
+                    ldrInst->getUse().push_back(new MachineOperand(*(*now_inst)->getUse()[1]));
+                    ldrInst->getUse()[0]->setParent(ldrInst);
+                    ldrInst->getUse()[1]->setParent(ldrInst);
+                    now_inst = blk->getInsts().erase(now_inst);
+                    now_inst--;
+                }
                 // else if (!afterRegAlloc && (*now_inst)->isCondMov() && (*next_inst)->isCondMov() && *(*now_inst)->getDef()[0] == *(*next_inst)->getDef()[0])
                 // {
                 //     // 条件mov的结果没人用

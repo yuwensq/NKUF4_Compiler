@@ -118,9 +118,28 @@ Instruction *IRComSubExprElim::getSrc(Operand *op, std::string &name)
     return res;
 }
 
-bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
+bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *nowInst)
 {
-    Assert(loadInst->isLoad(), "这传的参数不对呀");
+    if (nowInst->isLoad())
+        return invalidate(nowInst->getUse()[0], preInst);
+    else if (nowInst->isCall())
+    {
+        for (auto use : nowInst->getUse())
+        {
+            if (use->getType()->isPtr() && invalidate(use, preInst))
+                return true;
+        }
+    }
+    else
+    {
+        assert(0);
+    }
+    return false;
+}
+
+bool IRComSubExprElim::invalidate(Operand *srcAddr, Instruction *preInst)
+{
+    Assert(srcAddr->getType()->isPtr(), "这传的参数不对呀");
     bool preIsCall = false;
     Function *func = nullptr;
     // 上一条指令的源头的名称和定义源的alloc指令
@@ -140,7 +159,7 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
     }
     else
         return false;
-    allocInstLoad = getSrc(loadInst->getUse()[0], nameLoad);
+    allocInstLoad = getSrc(srcAddr, nameLoad);
     // load一个全局变量或全局数组
     if (nameLoad.size() > 0)
     {
@@ -164,7 +183,7 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
         {
             if (nameStore == nameLoad)
                 return true;
-            else if (!loadInst->getUse()[0]->getEntry()->isVariable() && nameStore == "" && dynamic_cast<AllocaInstruction *>(allocInstPre) == nullptr)
+            else if (!srcAddr->getEntry()->isVariable() && nameStore == "" && dynamic_cast<AllocaInstruction *>(allocInstPre) == nullptr)
                 return true;
         }
         return false;
@@ -188,7 +207,7 @@ bool IRComSubExprElim::invalidate(Instruction *preInst, Instruction *loadInst)
             {
                 // return true;
                 // 这里，如果load和store同一个局部数组，我们可以看一看他们的offs相同不，如果不相同，照样注销不了
-                auto gepLoad = loadInst->getUse()[0]->getDef();
+                auto gepLoad = srcAddr->getDef();
                 auto gepStore = preInst->getUse()[0]->getDef();
                 if (!(gepLoad->isGep() && gepStore->isGep()))
                     return true;
@@ -234,6 +253,8 @@ bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
 {
     if (inst1->getType() != inst2->getType() || inst1->getOpCode() != inst2->getOpCode())
         return false;
+    if (inst1->isCall() && static_cast<CallInstruction *>(inst1)->getFunc() != static_cast<CallInstruction *>(inst2)->getFunc())
+        return false;
     auto ops1 = inst1->getUse();
     auto ops2 = inst2->getUse();
     if (ops1.size() != ops2.size())
@@ -272,7 +293,7 @@ bool IRComSubExprElim::isSameExpr(Instruction *inst1, Instruction *inst2)
 
 bool IRComSubExprElim::skip(Instruction *inst)
 {
-    if ((inst->isBinaryCal() && !inst->isCmp()) || inst->isUnaryCal() || inst->isGep() || inst->isLoad())
+    if ((inst->isBinaryCal() && !inst->isCmp()) || inst->isUnaryCal() || inst->isGep() || inst->isLoad() || (inst->isCall() && pfa->isReallyPure(unit->se2Func(static_cast<CallInstruction *>(inst)->getFunc()))))
         return false;
     return true;
 }
@@ -287,14 +308,10 @@ Instruction *IRComSubExprElim::preSameExpr(Instruction *inst)
     auto bb = inst->getParent();
     for (preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
     {
-        if (inst->isLoad() && invalidate(preInst, inst))
-        {
+        if ((inst->isLoad() || inst->isCall()) && invalidate(preInst, inst))
             return nullptr;
-        }
         if (isSameExpr(preInst, inst))
-        {
             return preInst;
-        }
     }
     return nullptr;
 }
@@ -345,7 +362,7 @@ bool IRComSubExprElim::isKilled(Instruction *inst)
     auto bb = inst->getParent();
     for (preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
     {
-        if (inst->isLoad() && invalidate(preInst, inst))
+        if (invalidate(preInst, inst))
             return true;
     }
     return false;
@@ -366,23 +383,21 @@ void IRComSubExprElim::calGenAndKill(Function *func)
         {
             // sum++;
             // Log("%d", sum);
-            // 如果遇到了一条store或call，可能把已经gen的load指令给kill了
+            // 如果遇到了一条store或call，可能把已经gen的load和call指令给kill了
             if (inst->isStore() || inst->isCall())
             {
                 removeExpr.clear();
                 for (auto &index : genBB[*bb])
                 {
-                    if (exprVec[index].inst->isLoad() && invalidate(inst, exprVec[index].inst))
-                    {
+                    auto exprInst = exprVec[index].inst;
+                    if ((exprInst->isLoad() || exprInst->isCall()) && invalidate(inst, exprInst))
                         removeExpr.push_back(index);
-                    }
                 }
                 for (auto &index : removeExpr)
                 {
                     genBB[*bb].erase(index);
                     expr2Op[*bb].erase(index);
                 }
-                continue;
             }
             if (skip(inst))
                 continue;
@@ -403,6 +418,7 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                 一个基本块内不会出现这种 t1 = t2 + t3
                                        t2 = ...
                 所以这里，之后gen的表达式不会kill掉已经gen的表达式
+                就算是phi指令，也是并行取值，所以问题不大哦
             */
             // 从genBB中删除和inst->getDef相关的表达式
             // removeExpr.clear();
@@ -433,7 +449,7 @@ void IRComSubExprElim::calGenAndKill(Function *func)
                 // 如果超时了，可以优化一下这里
                 for (auto i = 0; i < exprVec.size(); i++)
                 {
-                    if (!exprVec[i].inst->isLoad())
+                    if (!(exprVec[i].inst->isLoad() || exprVec[i].inst->isCall()))
                         continue;
                     if (invalidate(inst, exprVec[i].inst))
                         killBB[*bb].insert(i);
@@ -592,7 +608,7 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
             if (skip(inst))
                 continue;
             bool inInst = (preBBOutOp.find(ins2Expr[inst]) != preBBOutOp.end());
-            if (!inInst || (inst->isLoad() && isKilled(inst)))
+            if (!inInst || ((inst->isLoad() || inst->isCall()) && isKilled(inst)))
                 continue;
             // 找到了，可以删除
             result = false;

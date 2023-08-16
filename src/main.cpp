@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
     g2l.pass();
     // duc.pass("g2l");
     m2r.pass(); // Only IR supported
-    // duc.pass("m2r");
+    // // duc.pass("m2r");
     pairCodeElim();
     finline.pass();
     // duc.pass("func inline");

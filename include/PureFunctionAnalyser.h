@@ -22,6 +22,8 @@ private:
     std::map<Function *, std::set<std::pair<Function *, Instruction *>>> caller;
     // callee记录每个函数调用的函数，这里先不记录对于sysy的调用，这里要注意
     std::map<Function *, std::set<Function *>> callee;
+    // 记录函数是否调用sysy函数，如果调用，直接认为他不纯吧
+    std::map<Function *, bool> callSysy;
     // 判断函数纯不纯
     std::map<Function *, bool> funcIsPure;
     // 判断函数会不会对传入的参数数组进行修改
@@ -55,6 +57,8 @@ public:
      * 判断一个函数是否是纯函数
      */
     bool isPure(Function *func);
+    // 这个除了isPure为true，还没有调用过sysy函数
+    bool isReallyPure(Function *func);
     bool changeAArray(Function *func);
     std::set<std::string> &getStoreGlobalVar(Function *func);
     std::set<int> &getChangeArgNum(Function *func);
