@@ -151,7 +151,10 @@ AllocaInstruction::~AllocaInstruction()
 {
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
+    {
         delete operands[0];
+        operands[0] = nullptr;
+    }
 }
 
 void AllocaInstruction::output() const
@@ -174,7 +177,10 @@ LoadInstruction::~LoadInstruction()
 {
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
+    {
         delete operands[0];
+        operands[0] = nullptr;
+    }
     operands[1]->removeUse(this);
 }
 
@@ -229,7 +235,10 @@ BinaryInstruction::~BinaryInstruction()
 {
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
+    {
         delete operands[0];
+        operands[0] = nullptr;
+    }
     operands[1]->removeUse(this);
     operands[2]->removeUse(this);
 }
@@ -280,7 +289,10 @@ CmpInstruction::~CmpInstruction()
 {
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
+    {
         delete operands[0];
+        operands[0] = nullptr;
+    }
     operands[1]->removeUse(this);
     operands[2]->removeUse(this);
 }
@@ -1287,7 +1299,10 @@ BitcastInstruction::~BitcastInstruction()
 {
     operands[0]->setDef(nullptr);
     if (operands[0]->usersNum() == 0)
+    {
         delete operands[0];
+        operands[0] = nullptr;
+    }
     operands[1]->removeUse(this);
 }
 
@@ -1444,7 +1459,10 @@ PhiInstruction::~PhiInstruction()
     {
         // addr->setDef(nullptr);
         if (addr->usersNum() == 0)
+        {
             delete addr;
+            addr = nullptr;
+        }
     }
 }
 
