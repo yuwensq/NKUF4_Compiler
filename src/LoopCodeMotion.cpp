@@ -1119,56 +1119,73 @@ bool LoopCodeMotion::OperandIsLoopConst(Operand *op, std::vector<BasicBlock *> L
 // phi指令的块不在循环里，改成对应的preblock
 void LoopCodeMotion::changePhiInstruction(std::vector<BasicBlock *> &Loop, BasicBlock *newPreBlock, std::vector<BasicBlock *> oldBlocks)
 {
-    for (auto block : Loop)
+    // for (auto block : Loop)
+    // {
+    BasicBlock* block=Loop[0];
+    Instruction *i = block->begin();
+    Instruction *last = block->end();
+    while (i != last)
     {
-        Instruction *i = block->begin();
-        Instruction *last = block->end();
-        while (i != last)
+        // 是phi指令
+        if (i->isPhi())
         {
-            // 是phi指令
-            if (i->isPhi())
+            PhiInstruction *pi = (PhiInstruction *)i;
+            bool allEqual=true;
+            Operand *srcOp=nullptr;
+            for (auto oldBlock : oldBlocks)
             {
-                PhiInstruction *pi = (PhiInstruction *)i;
-                // 如果这个时候的有效前驱（与head不构成回边的）只有一个的话，phi直接替代即可
-                if (oldBlocks.size() == 1)
+                if (pi->findSrc(oldBlock))
                 {
-                    // std::cout<<"def:"<<pi->getDef()->toStr()<<std::endl;
-                    //  判断phi指令的src块是否在循环里
-                    for (auto oldBlock : oldBlocks)
-                    {
-                        if (pi->findSrc(oldBlock))
-                        {
-                            Operand *op = pi->getBlockSrc(oldBlock);
-                            pi->removeBlockSrc(oldBlock);
-                            pi->addSrc(newPreBlock, op);
-                        }
+                    if(!srcOp){
+                        srcOp=pi->getBlockSrc(oldBlock);
                     }
-                    // for(auto s:pi->getSrcs()) std::cout<<s.second->toStr()<<std::endl;
-                }
-                // 否则，多个源可能有多个不同的初始值，需要在newPreBlock中插入新的phi
-                else
-                {
-                    Operand *oldOp = pi->getDef();
-                    auto newOp = new Operand(new TemporarySymbolEntry(oldOp->getType(), SymbolTable::getLabel()));
-                    auto newPhi = new PhiInstruction(newOp, nullptr);
-                    newPreBlock->insertFront(newPhi, false);
-                    newOp->setDef(newPhi);
-                    for (auto oldBlock : oldBlocks)
-                    {
-                        if (pi->findSrc(oldBlock))
-                        {
-                            Operand *op = pi->getBlockSrc(oldBlock);
-                            pi->removeBlockSrc(oldBlock);
-                            newPhi->addSrc(oldBlock, op);
-                            // pi->addSrc(newPreBlock, op);
-                        }
+                    else if(srcOp->toStr()!=pi->getBlockSrc(oldBlock)->toStr()){
+                        allEqual=false;
+                        break;
                     }
-                    pi->addSrc(newPreBlock, newOp);
                 }
             }
-            i = i->getNext();
+            // 如果这个时候的有效前驱（与head不构成回边的）只有一个的话，phi直接替代即可
+            if (oldBlocks.size() == 1||allEqual)
+            {
+                // std::cout<<"def:"<<pi->getDef()->toStr()<<std::endl;
+                //  判断phi指令的src块是否在循环里
+                for (auto oldBlock : oldBlocks)
+                {
+                    if (pi->findSrc(oldBlock))
+                    {
+                        Operand *op = pi->getBlockSrc(oldBlock);
+                        pi->removeBlockSrc(oldBlock);
+                        //unorder_map可以避免相同key的重复插入
+                        pi->addSrc(newPreBlock, op);
+                    }
+                }
+                // for(auto s:pi->getSrcs()) std::cout<<s.second->toStr()<<std::endl;
+            }
+            // 否则，多个源可能有多个不同的初始值，需要在newPreBlock中插入新的phi
+            else
+            {
+                Operand *oldOp = pi->getDef();
+                auto newOp = new Operand(new TemporarySymbolEntry(oldOp->getType(), SymbolTable::getLabel()));
+                auto newPhi = new PhiInstruction(newOp, nullptr);
+                newPreBlock->insertFront(newPhi, false);
+                newOp->setDef(newPhi);
+                for (auto oldBlock : oldBlocks)
+                {
+                    if (pi->findSrc(oldBlock))
+                    {
+                        Operand *op = pi->getBlockSrc(oldBlock);
+                        pi->removeBlockSrc(oldBlock);
+                        newPhi->addSrc(oldBlock, op);
+                        // pi->addSrc(newPreBlock, op);
+                    }
+                }
+                pi->addSrc(newPreBlock, newOp);
+            }
         }
+        i = i->getNext();
     }
+    // }
 }
 
 void LoopCodeMotion::dealwithNoPreBB(Function *func)
