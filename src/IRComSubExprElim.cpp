@@ -236,7 +236,7 @@ bool IRComSubExprElim::invalidate(Operand *srcAddr, Instruction *preInst)
         {
             // 非纯函数
             if (preIsCall)
-                return pfa->isPure(func);
+                return !pfa->isPure(func);
             // store全局数组
             if (!preInst->getUse()[0]->getEntry()->isVariable() && nameStore.size() > 0)
                 return true;
@@ -742,11 +742,6 @@ void IRComSubExprElim::pass(bool debug)
     this->debug = debug;
     // 这个加load可能会导致变慢
     insertLoadAfterStore();
-    if (debug)
-    {
-        fprintf(yyout, "load over\n");
-        unit->output();
-    }
     doCSE();
     removeLoadAfterStore();
 #ifdef PRINTLOG

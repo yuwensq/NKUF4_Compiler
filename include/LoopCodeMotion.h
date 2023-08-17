@@ -13,7 +13,7 @@
 /// @brief corresponding coefficients
 struct CCEntry
 {
-    /**i=>(i,1,0), 
+    /**i=>(i,1,0),
      * j = 3*i+2; j=>(i,3,2)
      * j=>(i,c,d)
      * k = j + b; then k=>(i,c,d+b)
