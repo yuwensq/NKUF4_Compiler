@@ -39,12 +39,28 @@ void LoopCodeMotion::pass2()
         // 强度削弱
         for (auto &Loop : LoopList)
         {
-            std::vector<BasicBlock *> outBlock = calculateOutBlock(Loop);
-            std::vector<Instruction *> LoopConstInstructions = calculateLoopConstant(Loop, *func);
             auto preheader = new BasicBlock(*func);
             preprocess(preheader, Loop, BackEdges);
-            LoopStrengthReduction(preheader, Loop);
         }
+
+        clearData();
+        calculateFinalDomBBSet(*func);
+        getBackEdges(*func).swap(BackEdges);
+        mergeEdge(BackEdges).swap(edgeGroups);
+        calculateLoopList(*func, edgeGroups).swap(LoopList);
+
+        for (auto &Loop : LoopList)
+        {
+            assert(Loop[0]->getPredRef().size() == 2);
+            for (auto &preheader : Loop[0]->getPredRef())
+            {
+                if (find(BackEdges.begin(), BackEdges.end(), make_pair(preheader, Loop[0])) != BackEdges.end())
+                    continue;
+                LoopStrengthReduction(preheader, Loop);
+                break;
+            }
+        }
+        elimSelfIVs(*func);
     }
 }
 
@@ -110,7 +126,7 @@ void LoopCodeMotion::preprocess(
     if (loopheader->getNumOfPred() == 2)
         return;
     auto latch = new BasicBlock(loopheader->getParent());
-    // Log("latch: %d",latch->getNo());
+    Log("latch: %d", latch->getNo());
     Loop.push_back(latch);
     // TODO：add a latch
     auto &preds = loopheader->getPredRef();
@@ -403,5 +419,56 @@ void LoopCodeMotion::findNonbasicInductionVariables(std::vector<BasicBlock *> &L
             break;
         else
             IVs = newIVs;
+    }
+}
+
+void LoopCodeMotion::elimSelfIVs(Function *func)
+{
+    for (auto &block : func->getBlockList())
+    {
+        for (auto inst = block->begin(); inst != block->end(); inst = inst->getNext())
+        {
+            if (!inst->isPhi())
+                break;
+            auto def = inst->getDef();
+            if (def->getUse().size() == 0)
+            {
+                inst = inst->getPrev();
+                block->strongRemove(inst->getNext());
+            }
+            else if (def->getUse().size() == 1)
+            {
+                auto user = def->getUse()[0];
+                if (!user->getDef())
+                    continue;
+                auto &v = user->getDef()->getUse();
+                if (v.size() == 1 && v[0] == inst)
+                {
+                    user->getParent()->strongRemove(user);
+                    inst = inst->getPrev();
+                    block->strongRemove(inst->getNext());
+                    if (IVs.count(def))
+                    {
+                        auto phi = (PhiInstruction*)inst;
+                        auto &srcs = phi->getSrcs();
+                        for (auto &[bb, op] : srcs)
+                        {
+                            if (bb == user->getParent())
+                            continue;
+                            assert(op->getDef()->isAdd());
+                            assert(op->getUse().size() == 0);
+                            auto _add = op->getDef();
+                            assert(_add->getPrev()->getOpCode() == BinaryInstruction::MUL);
+                            _add->getParent()->strongRemove(_add->getPrev());
+                            _add->getParent()->strongRemove(_add);
+                        }
+                    }
+                }
+                else
+                    continue;
+            }
+            else
+                continue;
+        }
     }
 }

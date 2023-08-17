@@ -27,8 +27,7 @@ struct CCEntry
 /**
  * TODO：
  * Identify loop const operands
- * new a latch, which will affect LoopList
- * the order of LoopList
+ * simplify memory to register
  * ************
  * int a; a[2]=0; 不报错
  * 两个return，报错
@@ -89,7 +88,7 @@ public:
         std::vector<std::pair<BasicBlock *, BasicBlock *>> &BackEdges);
     void LoopStrengthReduction(BasicBlock *preheader, std::vector<BasicBlock *> &Loop);
     void findNonbasicInductionVariables(std::vector<BasicBlock *> &Loop);
-    void removeSelfIVs(Function *func);
+    void elimSelfIVs(Function *func);
 };
 
 #endif
