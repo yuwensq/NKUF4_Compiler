@@ -26,13 +26,13 @@ void LoopCodeMotion::pass2()
 
         // 查找当前函数的循环体的集合
         std::vector<std::vector<BasicBlock *>> LoopList = calculateLoopList(*func, edgeGroups);
-        for (auto &Loop : LoopList)
-        {
-            std::cerr << "Loop size:" << Loop.size() << std::endl;
-            for (auto &block : Loop)
-                std::cerr << block->getNo() << " ";
-            std::cerr << std::endl;
-        }
+        // for (auto &Loop : LoopList)
+        // {
+        //     std::cerr << "Loop size:" << Loop.size() << std::endl;
+        //     for (auto &block : Loop)
+        //         std::cerr << block->getNo() << " ";
+        //     std::cerr << std::endl;
+        // }
 
         // auto &domBBSet = getDomBBSet(*func);
 
@@ -106,11 +106,76 @@ void LoopCodeMotion::preprocess(
     changePhiInstruction(Loop, preheader, pre_block_delete);
 
     // 增加latch
-    if (headBlock->getNumOfPred() == 2)
+    auto &loopheader = headBlock;
+    if (loopheader->getNumOfPred() == 2)
         return;
-    auto latch = new BasicBlock(headBlock->getParent());
+    auto latch = new BasicBlock(loopheader->getParent());
+    // Log("latch: %d",latch->getNo());
     Loop.push_back(latch);
     // TODO：add a latch
+    auto &preds = loopheader->getPredRef();
+    for (auto it = preds.begin(); it != preds.end();)
+    {
+        if (*it == preheader)
+        {
+            it++;
+            continue;
+        }
+        auto &pred = *it;
+        latch->addPred(pred);
+        pred->addSucc(latch);
+        if (pred->rbegin()->isCond())
+        {
+            auto j_inst = (CondBrInstruction *)pred->rbegin();
+            if (j_inst->getFalseBranch() == loopheader)
+            {
+                j_inst->setFalseBranch(latch);
+            }
+            else if (j_inst->getTrueBranch() == loopheader)
+            {
+                j_inst->setTrueBranch(latch);
+            }
+            else
+                assert(0);
+        }
+        else if (pred->rbegin()->isUncond())
+        {
+            ((UncondBrInstruction *)pred->rbegin())->setBranch(latch);
+        }
+        else
+            assert(0);
+        pred->removeSucc(loopheader);
+        it = preds.erase(it);
+    }
+    for (auto inst = loopheader->begin(); inst != loopheader->end(); inst = inst->getNext())
+    {
+        if (!inst->isPhi())
+            break;
+        auto origin = (PhiInstruction *)inst;
+        auto dest = new PhiInstruction(new Operand(new TemporarySymbolEntry(inst->getDef()->getType(), SymbolTable::getLabel())), latch);
+        auto &srcs = origin->getSrcs();
+        for (auto it = srcs.begin(); it != srcs.end();)
+        {
+            auto &[pred, v] = *it;
+            if (pred == preheader)
+            {
+                it++;
+                continue;
+            }
+            else
+            {
+                dest->addEdge(pred, v);
+                origin->removeUse(v);
+                v->removeUse(origin);
+                it = srcs.erase(it);
+            }
+        }
+        origin->addEdge(latch, dest->getDef());
+        dest->getDef()->setDef(dest);
+    }
+    loopheader->addPred(latch);
+    latch->addSucc(loopheader);
+    new UncondBrInstruction(loopheader, latch);
 }
 
 void LoopCodeMotion::LoopStrengthReduction(BasicBlock *preheader, std::vector<BasicBlock *> &Loop)
@@ -129,6 +194,7 @@ void LoopCodeMotion::LoopStrengthReduction(BasicBlock *preheader, std::vector<Ba
         auto def = phi->getDef();
         auto src = phi->getBlockSrc(latch);
         auto srcdef = src->getDef();
+        assert(srcdef);
         if (!srcdef->isBinary())
             continue;
         auto &v = srcdef->getOperands();
@@ -235,64 +301,6 @@ void LoopCodeMotion::LoopStrengthReduction(BasicBlock *preheader, std::vector<Ba
     {
         latch->insertBefore(ins, j_inst);
     }
-
-    // vector<Instruction *> ins_list;
-    // for (auto &[biv, bcc] : IVs)
-    // {
-    //     if (!(bcc.multiplicative == 1 && bcc.additive == 0))
-    //         continue;
-    //     auto insert_pos = ((PhiInstruction *)biv->getDef())->getBlockSrc(latch)->getDef();
-    //     auto *lhs = insert_pos->getOperands()[1], *rhs = insert_pos->getOperands()[2];
-    //     assert(lhs == biv || rhs == biv);
-    //     int n = ((ConstantSymbolEntry *)(lhs == biv ? rhs : lhs)->getEntry())->getValue();
-    //     for (auto &[iv, cc] : IVs)
-    //     {
-    //         if (cc.basic_induction_variable != biv)
-    //             continue;
-    //         if (phiMap.count(iv) && (cc.multiplicative != 1 || cc.additive != 0))
-    //         {
-    //             auto phidef = phiMap[iv];
-    //             int incre = cc.multiplicative * n;
-    //             auto t = new Operand(new TemporarySymbolEntry(iv->getType(), SymbolTable::getLabel()));
-    //             insert_pos->getParent()->insertAfter(
-    //                 new BinaryInstruction(
-    //                     BinaryInstruction::ADD, t,
-    //                     phidef, new Operand(new ConstantSymbolEntry(TypeSystem::intType, incre))),
-    //                 insert_pos);
-    //             ((PhiInstruction *)phidef->getDef())->addSrc(latch, t);
-    //             insert_pos = insert_pos->getNext();
-    //         }
-    //     }
-    // }
-    // for (auto &[iv, cc] : IVs)
-    // {
-    //     if (phiMap.count(iv) && (cc.multiplicative != 1 || cc.additive != 0)) // not a basic
-    //     {
-    //         for (auto inst = latch->begin(); inst != latch->end(); inst = inst->getNext())
-    //         {
-    //             if (!inst->isBinary())
-    //                 continue;
-    //             Operand *lhs = inst->getOperands()[1], *rhs = inst->getOperands()[2];
-    //             if (lhs == cc.basic_induction_variable || rhs == cc.basic_induction_variable)
-    //             {
-    //                 // At the end of the loop latch, insert an update instruction for this non-basic induction variable, and set it as the other incoming value of the Phi node we just inserted;
-    //                 int incre = cc.multiplicative * IVs[inst->getDef()].additive;
-    //                 auto phidef = phiMap[iv];
-    //                 auto incoming = new Operand(new TemporarySymbolEntry(phidef->getType(), SymbolTable::getLabel()));
-    //                 ins_list.push_back(
-    //                     new BinaryInstruction(
-    //                         BinaryInstruction::ADD, incoming,
-    //                         phidef, new Operand(new ConstantSymbolEntry(TypeSystem::intType, incre))));
-    //                 ((PhiInstruction *)phidef->getDef())->addSrc(latch, incoming);
-    //             }
-    //         }
-    //     }
-    // }
-    // j_inst = latch->rbegin();
-    // for (auto &inst : ins_list)
-    // {
-    //     latch->insertBefore(inst, j_inst);
-    // }
 
     // Replace all uses of the original induction variable with the Phi node we inserted.
     // replace all the original uses with phi-node

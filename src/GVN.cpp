@@ -149,6 +149,7 @@ void GlobalValueNumbering::preprocess(Function *func)
                     Log("size=%ld", srcs.size());
                     assert(srcs.size() == (size_t)loopheader->getNumOfPred());
                     origin->addEdge(landingpad, dest->getDef());
+                    dest->getDef()->setDef(dest);
                 }
             }
             // 3. find exit
