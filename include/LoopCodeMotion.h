@@ -10,6 +10,30 @@
 #include "BasicBlock.h"
 #include "Operand.h"
 
+/// @brief corresponding coefficients
+struct CCEntry
+{
+    /**i=>(i,1,0), 
+     * j = 3*i+2; j=>(i,3,2)
+     * j=>(i,c,d)
+     * k = j + b; then k=>(i,c,d+b)
+     * k = b - j; then k=>(i,-c,b-d)
+     * k = b * j; then k=>(i,b*c,b*d)
+     */
+    Operand *basic_induction_variable;
+    // Operand *multiplicative_factor, *additive_factor;
+    int multiplicative, additive;
+};
+/**
+ * TODO：
+ * Identify loop const operands
+ * new a latch, which will affect LoopList
+ * the order of LoopList
+ * ************
+ * int a; a[2]=0; 不报错
+ * 两个return，报错
+ */
+
 // 循环优化类
 class LoopCodeMotion
 {
@@ -51,6 +75,21 @@ public:
     void clearData();
     void pass();
     bool pass1(); // 成功展开返回true
+    // 强度削弱
+private:
+    std::unordered_map<Operand *, CCEntry> IVs;
+    std::unordered_map<Operand *, bool> lcOps; // loop const int
+    Operand *one = nullptr, *zero = nullptr;
+
+public:
+    void pass2();
+    void preprocess(
+        BasicBlock *preheader,
+        std::vector<BasicBlock *> &Loop,
+        std::vector<std::pair<BasicBlock *, BasicBlock *>> &BackEdges);
+    void LoopStrengthReduction(BasicBlock *preheader, std::vector<BasicBlock *> &Loop);
+    void findNonbasicInductionVariables(std::vector<BasicBlock *> &Loop);
+    void removeSelfIVs(Function *func);
 };
 
 #endif
