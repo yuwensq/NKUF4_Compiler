@@ -154,20 +154,23 @@ int main(int argc, char *argv[])
     pairCodeElim();
     spcfg.pass();
     if (optmize)
-        lcm.pass();
+        lcm.pass(); // 代码外提
     pairCodeElim();
-    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    {
-        do
-        {
-            pairCodeElim();
-        } while (lcm.pass1());
-    }
+    lcm.pass2(); // 强度削弱
     pairCodeElim();
-    if (optmize)
-        lcm.pass();
-    pairCodeElim();
-    pe.pass();
+    lcm.pass1();
+    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    // {
+    //     do
+    //     {
+    //         pairCodeElim();
+    //     } while (lcm.pass1()); // 循环展开
+    // }
+    // pairCodeElim();
+    // if (optmize)
+    //     lcm.pass();
+    // pairCodeElim();
+    // pe.pass();
     iph.pass2();
     tca.pass();
 
