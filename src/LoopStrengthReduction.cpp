@@ -287,6 +287,9 @@ void LoopCodeMotion::LoopStrengthReduction(BasicBlock *preheader, std::vector<Ba
 
     // modify the new latch block by inserting cheaper computation
     j_inst = latch->rbegin();
+    if(j_inst->isCond()){
+        j_inst=j_inst->getPrev();
+    }
     ins_list.clear();
     for (auto &block : Loop)
         for (auto inst = block->begin(); inst != block->end(); inst = inst->getNext())
