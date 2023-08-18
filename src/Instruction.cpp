@@ -790,17 +790,36 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
         }
         else if ((opcode == MUL || opcode == DIV) && AsmBuilder::isPowNumber(src2->getVal()) != -1)
         {
+            int k = AsmBuilder::isPowNumber(src2->getVal());
             if (opcode == DIV) // 负数除法不能直接右移
             {
                 auto tmp = genMachineVReg();
-                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSR, tmp, src1, genMachineImm(31)));
-                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, dst, new MachineOperand(*src1), new MachineOperand(*tmp)));
-                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, new MachineOperand(*dst), new MachineOperand(*dst), genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
+                if (src2->getVal() == 2) // 除以二可以这样搞
+                {
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSR, tmp, src1, genMachineImm(31)));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, dst, new MachineOperand(*src1), new MachineOperand(*tmp)));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, new MachineOperand(*dst), new MachineOperand(*dst), genMachineImm(k)));
+                }
+                else
+                {
+                    if (AsmBuilder::isLegalImm(src2->getVal() - 1))
+                    {
+                        cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, tmp, src1, genMachineImm(src2->getVal() - 1)));
+                    }
+                    else
+                    {
+                        cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ADD, tmp, src1, genMachineImm(src2->getVal())));
+                        cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::SUB, new MachineOperand(*tmp), new MachineOperand(*tmp), genMachineImm(1)));
+                    }
+                    cur_block->InsertInst(new CmpMInstruction(cur_block, CmpMInstruction::CMP, new MachineOperand(*src1), genMachineImm(0)));
+                    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, new MachineOperand(*tmp), new MachineOperand(*src1), MachineInstruction::GE));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, dst, new MachineOperand(*tmp), genMachineImm(k)));
+                }
                 // cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
             }
             else
             {
-                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSL, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
+                cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSL, dst, src1, genMachineImm(k)));
             }
             return;
         }

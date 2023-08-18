@@ -156,21 +156,20 @@ int main(int argc, char *argv[])
     if (optmize)
         lcm.pass(); // 代码外提
     pairCodeElim();
-    lcm.pass2(); // 强度削弱
+    if (optmize) // 功能测试不开这个，这个会让某些样例很慢
+    {
+        do
+        {
+            pairCodeElim();
+        } while (lcm.pass1()); // 循环展开
+    }
     pairCodeElim();
-    lcm.pass1();
-    // if (optmize) // 功能测试不开这个，这个会让某些样例很慢
-    // {
-    //     do
-    //     {
-    //         pairCodeElim();
-    //     } while (lcm.pass1()); // 循环展开
-    // }
+    if (optmize)
+        lcm.pass();
+    pairCodeElim();
+    // lcm.pass2(); // 强度削弱
     // pairCodeElim();
-    // if (optmize)
-    //     lcm.pass();
-    // pairCodeElim();
-    // pe.pass();
+    pe.pass();
     iph.pass2();
     tca.pass();
 
