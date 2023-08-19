@@ -68,6 +68,9 @@ std::string MachineOperand::PrintReg()
     case 11:
         res = "fp";
         break;
+    case 12:
+        res = "ip";
+        break;
     case 13:
         res = "sp";
         break;

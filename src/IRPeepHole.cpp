@@ -324,6 +324,58 @@ void IRPeepHole::subPass(Function *func)
         bb->strongRemove(inst);
         return prevInst;
     };
+    auto case11 = [&](Instruction *inst)
+    {
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        if (addUseOp == nullptr || addConstOp == nullptr || static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue() != 0)
+            return false;
+        auto [subUseOp, subConstOp] = isBinaryConst(inst, BinaryInstruction::SUB);
+        if (subUseOp == nullptr || subConstOp == nullptr || static_cast<ConstantSymbolEntry *>(subConstOp->getEntry())->getValue() != 0)
+            return false;
+        return true;
+    };
+    auto solveCase11 = [&](Instruction *inst)
+    {
+        auto bb = inst->getParent();
+        auto prevInst = inst->getPrev();
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        auto [subUseOp, subConstOp] = isBinaryConst(inst, BinaryInstruction::SUB);
+        auto op = addUseOp == nullptr ? subUseOp : addUseOp;
+        for (auto useInst : inst->getDef()->getUse())
+        {
+            useInst->replaceUse(inst->getDef(), op);
+        }
+        bb->strongRemove(inst);
+        return prevInst;
+    };
+    auto case12 = [&](Instruction *inst)
+    {
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        if (addUseOp == nullptr || addConstOp == nullptr || inst->getDef() == nullptr || inst->getDef()->getUse().size() != 1)
+            return false;
+        auto nextInst = inst->getDef()->getUse()[0];
+        auto [addUseOp1, addConstOp1] = isBinaryConst(nextInst, BinaryInstruction::ADD);
+        if (addUseOp1 == nullptr || addConstOp1 == nullptr)
+            return false;
+        return true;
+    };
+    auto solveCase12 = [&](Instruction *inst)
+    {
+        auto bb = inst->getParent();
+        auto preInst = inst->getPrev();
+        auto nextInst = inst->getDef()->getUse()[0];
+        auto [addUseOp, addConstOp] = isBinaryConst(inst, BinaryInstruction::ADD);
+        auto [addUseOp1, addConstOp1] = isBinaryConst(nextInst, BinaryInstruction::ADD);
+        addUseOp->removeUse(inst);
+        nextInst->replaceUse(addUseOp1, addUseOp);
+        // 这里直接相加
+        auto value1 = static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue();
+        auto value2 = static_cast<ConstantSymbolEntry *>(addConstOp1->getEntry())->getValue();
+        bool floatV = static_cast<ConstantSymbolEntry *>(addConstOp1->getEntry())->getType()->isFloat();
+        nextInst->replaceUse(addConstOp1, new Operand(new ConstantSymbolEntry(floatV ? TypeSystem::floatType : TypeSystem::intType, floatV ? (float)value1 + (float)value2 : value1 + value2)));
+        bb->strongRemove(inst);
+        return preInst;
+    };
     bool change = false;
     do
     {
@@ -380,6 +432,16 @@ void IRPeepHole::subPass(Function *func)
                 if (case10(inst))
                 {
                     inst = solveCase10(inst);
+                    change = true;
+                }
+                if (case11(inst))
+                {
+                    inst = solveCase11(inst);
+                    change = true;
+                }
+                if (case12(inst))
+                {
+                    inst = solveCase12(inst);
                     change = true;
                 }
             }
