@@ -15,9 +15,9 @@ private:
     {
         int color;
         bool spill;
-        bool hasSpilled;               // 判断这个是否是当前轮次被溢出的
-        int disp;                      // displacement in stack
-        int loopWeight;                // 优化溢出判断
+        bool hasSpilled; // 判断这个是否是当前轮次被溢出的
+        int disp;        // displacement in stack
+        int loopWeight;  // 优化溢出判断
         std::set<MachineOperand *> defs;
         std::set<MachineOperand *> uses;
         bool fpu; // 是不是浮点寄存器，可以把浮点数的图和普通寄存器的图分开
@@ -61,6 +61,8 @@ private:
     const int sbase = 0;
     const int rRegNum = 11;
     const int sRegNum = 32;
+    std::set<int> allUsableRRegs;
+    std::set<int> allUsableSRegs;
     bool isCall(MachineInstruction *);
     void clearData();
     void debug1(std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &, std::map<MachineBlock *, std::set<MachineOperand *>> &);
@@ -88,6 +90,12 @@ private:
 public:
     GraphColor(MachineUnit *munit) : unit(munit)
     {
+        for (int i = 0; i < 11; i++)
+            allUsableRRegs.insert(i);
+        allUsableRRegs.insert(12);
+        allUsableRRegs.insert(14);
+        for (int i = 0; i < 32; i++)
+            allUsableSRegs.insert(i);
         mlpa = new MachineLoopAnalyser(munit);
     };
     ~GraphColor()

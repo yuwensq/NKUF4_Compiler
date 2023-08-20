@@ -210,6 +210,10 @@ void GraphColor::genNodes()
         nodes.emplace_back(true, nullptr);
         nodes[i + rArgRegNum].color = i;
     }
+    nodes.emplace_back(false, nullptr);
+    nodes.back().color = 12;
+    nodes.emplace_back(false, nullptr);
+    nodes.back().color = 14;
 
     std::map<MachineBlock *, std::set<MachineOperand *>> gen;
     std::map<MachineBlock *, std::set<MachineOperand *>> kill;
@@ -300,7 +304,7 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
             if (isCall(inst))
             {
                 // call指令相当于对所有的r和s参数寄存器都定值了
-                for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+                for (int i = 0; i < rArgRegNum + sArgRegNum + 2; i++)
                 {
                     gen[block].erase(i);
                     kill[block].insert(i);
@@ -420,7 +424,7 @@ void GraphColor::genInterfereGraph()
             if (isCall(inst))
             {
                 // call指令相当于对所有的r和s参数寄存器都定值了
-                for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+                for (int i = 0; i < rArgRegNum + sArgRegNum + 2; i++)
                 {
                     connectEdge2(i, block);
                     out[block].erase(i);
@@ -465,7 +469,7 @@ void GraphColor::genInterfereGraph()
     // 要在这里做聚合操作，因为之后会把r和s删掉
     coalescing();
     // 把图里面的r和s寄存器删掉
-    for (int i = 0; i < rArgRegNum + sArgRegNum; i++)
+    for (int i = 0; i < rArgRegNum + sArgRegNum + 2; i++)
         graph.erase(i);
 }
 
@@ -477,7 +481,7 @@ void GraphColor::coalescing()
         {
             if (inst->isMov() && inst->getUse()[0]->isVReg() && inst->getDef()[0]->isVReg())
             {
-                auto k = inst->getDef()[0]->isFReg() ? sRegNum : rRegNum;
+                auto k = inst->getDef()[0]->isFReg() ? allUsableSRegs.size() : allUsableRRegs.size();
                 auto x = var2Node[inst->getDef()[0]];
                 auto y = var2Node[inst->getUse()[0]];
                 if (x == y || graph[x].count(y) > 0) // 如果是一个，跳过就行
@@ -550,7 +554,7 @@ void GraphColor::genColorSeq()
         auto tos = tmpGraph[nodeNo];
         for (auto &to : tos)
         {
-            if (to >= rArgRegNum + sArgRegNum)
+            if (to >= rArgRegNum + sArgRegNum + 2)
                 tmpGraph[to].erase(nodeNo);
         }
         return tmpGraph.erase(it);
@@ -568,7 +572,7 @@ void GraphColor::genColorSeq()
             int edges = (*it).second.size();
             int loopWeight = nodes[nodeNo].loopWeight;
             // Log("%d", nodeNo);
-            int maxColors = nodes[nodeNo].fpu ? sRegNum : rRegNum;
+            int maxColors = nodes[nodeNo].fpu ? allUsableSRegs.size() : allUsableRRegs.size();
             if (!nodes[nodeNo].hasSpilled)
             {
 #ifdef LOOPFIRST
@@ -628,13 +632,13 @@ int GraphColor::findMinValidColor(int nodeNo)
     for (auto to : graph[nodeNo])
         if (nodes[to].color != -1)
             usedColor.insert(nodes[to].color);
-    int validColor = (nodes[nodeNo].fpu ? sbase : rbase);
-    int maxValidColor = (nodes[nodeNo].fpu ? sRegNum : rRegNum) + validColor;
-    for (; validColor < maxValidColor && usedColor.find(validColor) != usedColor.end(); validColor++)
+    auto validColor = (nodes[nodeNo].fpu ? allUsableSRegs.begin() : allUsableRRegs.begin());
+    auto maxValidColor = (nodes[nodeNo].fpu ? allUsableSRegs.end() : allUsableRRegs.end());
+    for (; validColor != maxValidColor && usedColor.find(*validColor) != usedColor.end(); validColor++)
         ;
-    if (validColor >= maxValidColor)
-        validColor = -1;
-    return validColor;
+    if (validColor == maxValidColor)
+        return -1;
+    return *validColor;
 }
 
 bool GraphColor::tryColor()
@@ -702,13 +706,13 @@ bool GraphColor::graphColorRegisterAlloc()
 
 void GraphColor::modifyCode()
 {
-    for (int i = rArgRegNum + sArgRegNum; i < nodes.size(); i++)
+    for (int i = rArgRegNum + sArgRegNum + 2; i < nodes.size(); i++)
     {
         auto &node = nodes[i];
         if (node.color == -1)
             continue;
         // 这里，参数寄存器不需要保存
-        if ((node.fpu && node.color >= sArgRegNum) || (!node.fpu && node.color >= rArgRegNum))
+        if ((node.fpu && node.color >= sArgRegNum && node.color != 12 && node.color != 14) || (!node.fpu && node.color >= rArgRegNum))
             func->addSavedRegs(node.color);
         for (auto def : node.defs)
         {

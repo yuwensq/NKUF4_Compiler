@@ -1442,9 +1442,6 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
                 continue;
             use->replaceUse(modDef, finalRes);
         }
-        // bodybb->getParent()->getParent()->output();
-        // fflush(yyout);
-        // exit(0);
         bbDiscarded[safeBB] = true;
         bbDiscarded[bodybb] = true;
         return true;

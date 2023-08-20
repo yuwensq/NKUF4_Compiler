@@ -165,8 +165,10 @@ int main(int argc, char *argv[])
     }
     pairCodeElim();
     if (optmize)
+    {
         lcm.pass();
-    pairCodeElim();
+        pairCodeElim();
+    }
     // lcm.pass2(); // 强度削弱
     // pairCodeElim();
     pe.pass();
@@ -190,21 +192,21 @@ int main(int argc, char *argv[])
         mst.pass();
         mlvn.pass();
         mcp.pass();
-        if (optmize) // shm写的活跃变量分析太拉了，这个开了long_line超时
-            mdce.pass();
-        mph.pass();
-        mcp.pass();
-        mlvn.pass();
-        mcp.pass();
-        mph.pass();
-        if (optmize) // shm写的活跃变量分析太拉了，这个开了long_line超时
-            mdce.pass();
-        mph.pass();
-        mlvn.pass();
         if (optmize)
+        {
             mdce.pass();
-        mst.pass();
-        mtch.pass(); // 把这个放在最后做，要不大概率会有问题
+            mph.pass();
+            mcp.pass();
+            mlvn.pass();
+            mcp.pass();
+            mph.pass();
+            mdce.pass();
+            mph.pass();
+            mlvn.pass();
+            mdce.pass();
+            mst.pass();
+            mtch.pass(); // 把这个放在最后做，要不大概率会有问题
+        }
         Log("目标代码优化成功");
         // if (optmize)
         // {
