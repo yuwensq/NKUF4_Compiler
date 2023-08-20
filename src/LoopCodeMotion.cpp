@@ -874,7 +874,6 @@ std::vector<Instruction *> LoopCodeMotion::calculateLoopConstant(std::vector<Bas
 
 bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
 {
-    // 考虑函数内联后，对样例37的特殊处理
     Operand *loadUse = ins->getUse()[0];
     for (auto use : loopStoreGlobal)
     {
@@ -979,7 +978,6 @@ bool LoopCodeMotion::isLoadInfluential(Instruction *ins)
     // Instruction *temp = ins->getNext();
     BasicBlock *block = ins->getParent();
     // 如果load一个全局的话，这个全局变量之前可能call函数，修改了这个全局变量,这样就不是一个不变指令了
-    // 下面的处理是很粗糙的
     if (loadUse->isGlobal())
     {
         Instruction *temp1 = block->begin();
