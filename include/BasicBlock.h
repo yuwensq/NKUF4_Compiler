@@ -1,7 +1,7 @@
 #ifndef __BASIC_BLOCK_H__
 #define __BASIC_BLOCK_H__
 #include <vector>
-#include <set>
+#include <unordered_set>
 #include "Instruction.h"
 #include "AsmBuilder.h"
 
@@ -9,11 +9,11 @@ class Function;
 
 class BasicBlock
 {
-    typedef std::set<BasicBlock *>::iterator bb_iterator;
+    typedef std::unordered_set<BasicBlock *>::iterator bb_iterator;
 
 private:
     // 这里设置为set可以去重
-    std::set<BasicBlock *> pred, succ;
+    std::unordered_set<BasicBlock *> pred, succ;
     Instruction *head;
     Function *parent;
     int no;
@@ -40,8 +40,8 @@ public:
     int getNo() { return no; };
     std::vector<BasicBlock *> getPred() { return std::vector<BasicBlock *>(pred.begin(), pred.end()); };
     std::vector<BasicBlock *> getSucc() { return std::vector<BasicBlock *>(succ.begin(), succ.end()); };
-    std::set<BasicBlock *> &getPredRef() { return pred; }
-    std::set<BasicBlock *> &getSuccRef() { return succ; }
+    std::unordered_set<BasicBlock *> &getPredRef() { return pred; }
+    std::unordered_set<BasicBlock *> &getSuccRef() { return succ; }
     Function *getParent() { return parent; };
     Instruction *begin() { return head->getNext(); };
     Instruction *end() { return head; };
@@ -61,7 +61,8 @@ public:
 
 public:
     int order;
-    std::set<BasicBlock *> domFrontier;
+    std::unordered_set<BasicBlock *> domFrontier;
+    std::unordered_set<BasicBlock *> liveOut;
 };
 
 #endif
