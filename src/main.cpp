@@ -129,7 +129,8 @@ int main(int argc, char *argv[])
         // duc.pass("iph" + num);
         sccp.pass();
         // duc.pass("sccp" + num);
-        cse.pass();
+        if (optmize)
+            cse.pass();
         // duc.pass("cse" + num);
         // gvn.pass();
         // duc.pass("gvn" + num);
@@ -149,6 +150,8 @@ int main(int argc, char *argv[])
     m2r.pass(); // Only IR supported
     // duc.pass("m2r");
     pairCodeElim();
+    if (!optmize) // 如果没开优化，只cse一次
+        cse.pass();
     finline.pass();
     // duc.pass("func inline");
     pairCodeElim();

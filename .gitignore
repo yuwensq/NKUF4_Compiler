@@ -10,7 +10,7 @@ parser.h
 *.log
 *.bin
 *.s
-Makefile*
+./Makefile*
 *.core
 test/*
 example*

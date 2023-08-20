@@ -80,18 +80,7 @@ bool LoopCodeMotion::pass1()
         {
             flag = true;
         }
-        std::vector<BasicBlock*> temp;
-        temp.swap(Ln.vectorLoopBody);
-        // 只要第一次的normal展开的body即可
-        vectorLoop.insert(make_pair(*func,temp));
-        // vectorLoop[*func]=temp;
     }
-    // for(auto vl:vectorLoop){
-    //     std::cout<<vl.first->getSymPtr()->toStr()<<endl;
-    //     for(auto bb:vl.second){
-    //         std::cout<<bb->getNo()<<std::endl;
-    //     }
-    // }
     // cout<<flag<<endl;
     return flag;
 }

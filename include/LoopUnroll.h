@@ -47,7 +47,6 @@ public:
 
     void Unroll();
     bool successUnroll = false;
-    vector<BasicBlock*> vectorLoopBody;
 };
 
 #endif

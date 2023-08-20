@@ -74,7 +74,6 @@ public:
     void clearData();
     void pass();
     bool pass1(); // 成功展开返回true
-    std::unordered_map<Function* ,std::vector<BasicBlock*>> vectorLoop;
     // 强度削弱
 private:
     std::unordered_map<Operand *, CCEntry> IVs;

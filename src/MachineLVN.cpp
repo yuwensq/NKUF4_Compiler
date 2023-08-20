@@ -142,7 +142,12 @@ void MachineLVN::replaceWithMov(std::vector<MachineInstruction *>::iterator inst
             newInst = new LoadMInstruction(block, LoadMInstruction::LDR, new MachineOperand(*inst->getDef()[0]), new MachineOperand(op));
     }
     else
-        newInst = new MovMInstruction(block, MovMInstruction::MOV, new MachineOperand(*inst->getDef()[0]), new MachineOperand(op));
+    {
+        if (op.isFReg())
+            newInst = new MovMInstruction(block, MovMInstruction::VMOV32, new MachineOperand(*inst->getDef()[0]), new MachineOperand(op));
+        else
+            newInst = new MovMInstruction(block, MovMInstruction::MOV, new MachineOperand(*inst->getDef()[0]), new MachineOperand(op));
+    }
     *instIt = newInst;
 }
 

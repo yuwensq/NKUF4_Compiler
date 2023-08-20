@@ -1135,11 +1135,6 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
             }
         }
     }
-    // 先只考虑i=i+1
-    if(isIncrease){
-        vectorLoopBody.push_back(bodybb);
-        //std::cout<<bodybb->getNo()<<std::endl;
-    }
     successUnroll = true;
 }
 

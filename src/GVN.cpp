@@ -79,26 +79,20 @@ void GlobalValueNumbering::preprocess(Function *func)
                 {
                     landingpad->addPred(pred);
                     pred->addSucc(landingpad);
-                    if (pred->rbegin()->isCond())
+                    assert(pred->rbegin()->isCond());
+                    auto j_inst = (CondBrInstruction *)pred->rbegin();
+                    if (j_inst->getFalseBranch() == loopheader)
                     {
-                        auto j_inst = (CondBrInstruction *)pred->rbegin();
-                        if (j_inst->getFalseBranch() == loopheader)
-                        {
-                            j_inst->setFalseBranch(landingpad);
-                            // auto next = j_inst->getTrueBranch();
-                        }
-                        else if (j_inst->getTrueBranch() == loopheader)
-                        {
-                            j_inst->setTrueBranch(landingpad);
-                            // auto next = j_inst->getFalseBranch();
-                        }
-                        else
-                            assert(0);
+                        j_inst->setFalseBranch(landingpad);
+                        // auto next = j_inst->getTrueBranch();
                     }
-                    else if (pred->rbegin()->isUncond())
+                    else if (j_inst->getTrueBranch() == loopheader)
                     {
-                        ((UncondBrInstruction *)pred->rbegin())->setBranch(landingpad);
+                        j_inst->setTrueBranch(landingpad);
+                        // auto next = j_inst->getFalseBranch();
                     }
+                    else
+                        assert(0);
 
                     num++;
                     pred->removeSucc(loopheader);
@@ -106,8 +100,8 @@ void GlobalValueNumbering::preprocess(Function *func)
                 }
             }
             Log("loopheader:%d", iewno = loopheader->getNo());
-            //assert(num == loopheader->getNumOfPred());
-            if (loopheader->getNumOfPred() == 1)
+            assert(num == loopheader->getNumOfPred());
+            if (num == 1)
             {
                 for (auto inst = loopheader->begin(); inst != loopheader->end(); inst = inst->getNext())
                 {
@@ -162,7 +156,7 @@ void GlobalValueNumbering::preprocess(Function *func)
             // 4. add a virtual edge
             // virtualEdge[landingpad].insert(next);
             // virtualREdge[next].insert(landingpad);
-            //assert(num == loopheader->getNumOfPred());
+            assert(num == loopheader->getNumOfPred());
             loopheader->addPred(landingpad);
             landingpad->addSucc(loopheader);
             new UncondBrInstruction(loopheader, landingpad);
@@ -230,7 +224,7 @@ void GlobalValueNumbering::assignRanks(Instruction *inst)
 
 void GlobalValueNumbering::removeTrivialAssignments()
 {
-    Log("remove start,%ld", trivial_worklist.size());
+    Log("remove start,%d", trivial_worklist.size());
     for (auto &&inst : trivial_worklist)
     {
         auto &ops = inst->getOperands();
@@ -735,15 +729,8 @@ bool GlobalValueNumbering::qpGlobalSearch(std::vector<Instruction *> &may_list, 
 
 void GlobalValueNumbering::moveComputationsOutOfALoop(BasicBlock *header)
 {
-    auto it = header->pred_begin();
-    for (;it != header->pred_end(); it++)
-    {
-        if (landingpads.count(*it))
-        {
-            break;
-        }
-    }
-    auto &pad = *it;
+    assert(header->getNumOfPred() == 1);
+    auto pad = *(header->pred_begin());
     for (auto inst = header->begin(); inst < header->end(); inst = inst->getNext())
     {
         if (!qpLocalSearch(inst))
