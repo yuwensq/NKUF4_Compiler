@@ -2,12 +2,12 @@
 using namespace std;
 
 void LoopVectorization::assignLoopBody(unordered_map<Function* ,vector<BasicBlock*>>& vectorLoop){
-    for(auto vl:vectorLoop){
+    for(auto &vl:vectorLoop){
         // this->vectorLoop.insert(make_pair(vl.first,vl.second));
         // vectorLoop[vl.first]=vl.second;
-        vector<BasicBlock*> temp;
-        temp.swap(vl.second);
-        this->vectorLoop[vl.first]=temp;
+        // vector<BasicBlock*> temp;
+        // temp.swap(vl.second);
+        this->vectorLoop[vl.first]=vl.second;
     }
 }
 
