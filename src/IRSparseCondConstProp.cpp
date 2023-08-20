@@ -126,11 +126,16 @@ static Lattice constFold(Lattice op1, Lattice op2, Instruction *inst)
                     resV = iv1 * iv2;
                 break;
             case BinaryInstruction::DIV: // 这里用不用处理除零异常呢？
-                Assert(fv2 != 0 && iv2 != 0, "除数不能为零");
                 if (isFloat)
+                {
+                    Assert(fv2 != 0, "除数不能为零");
                     resV = fv1 / fv2;
+                }
                 else
+                {
+                    Assert(iv2 != 0, "除数不能为零");
                     resV = iv1 / iv2;
+                }
                 break;
             case BinaryInstruction::MOD:
                 Assert(!isFloat, "Mod运算的操作数为float");
