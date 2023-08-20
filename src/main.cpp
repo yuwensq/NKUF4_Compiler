@@ -28,6 +28,7 @@
 #include "IRPeepHole.h"
 #include "GVN.h"
 #include "IRDefUseCheck.h"
+#include "LoopVectorization.h"
 
 using namespace std;
 
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
     IRPeepHole iph(&unit);
     GlobalValueNumbering gvn(&unit);
     DefUseCheck duc(&unit);
+    LoopVectorization lve(&unit);
 
     auto atomicCodeElim = [&]()
     {
@@ -174,6 +176,8 @@ int main(int argc, char *argv[])
     pe.pass();
     iph.pass2();
     tca.pass();
+    lve.assignLoopBody(lcm.vectorLoop);
+    lve.pass();
 
     Log("IR优化成功"); /**/
 
