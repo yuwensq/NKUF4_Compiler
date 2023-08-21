@@ -179,8 +179,8 @@ int main(int argc, char *argv[])
     pe.pass();
     iph.pass2();
     tca.pass();
-    lve.assignLoopBody(lcm.vectorLoop);
-    lve.pass();
+    // lve.assignLoopBody(lcm.vectorLoop);
+    // lve.pass();
 
     Log("IR优化成功"); /**/
 
