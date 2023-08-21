@@ -1061,7 +1061,17 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
             }
             else
             {
-                useOp->addUse(newIns);
+                bool replace=true;
+                for(auto useIns:useOp->getUse()){
+                    if(useIns->getDef()&&newIns->getDef()){
+                        if(useIns->getDef()->toStr()==newIns->getDef()->toStr()){
+                            replace=false;
+                        }
+                    }
+                }
+                if(replace){
+                    useOp->addUse(newIns);
+                }
             }
         }
     }
