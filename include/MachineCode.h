@@ -92,7 +92,9 @@ protected:
         VMRS,
         MLA,
         MLS,
-        VNEG
+        VNEG,
+        OFFBINARY, 
+        SMULL
     };
 
 public:
@@ -436,6 +438,67 @@ class MlsMInstruction : public MachineInstruction
 public:
     MlsMInstruction(MachineBlock *p, MachineOperand *dst,
                     MachineOperand *src1, MachineOperand *src2, MachineOperand *src3,
+                    int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (size_t i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
+    void output();
+};
+
+class OffsetBinaryMInstruction : public MachineInstruction
+{
+public:
+    int offset;
+    OffsetBinaryMInstruction(MachineBlock *p, int op, MachineOperand *dst,
+                             MachineOperand *src1, MachineOperand *src2, MachineOperand *src3, int offset,
+                             int cond = MachineInstruction::NONE);
+    bool replaceUse(MachineOperand *old, MachineOperand *rep)
+    {
+        if (rep->isImm())
+            return false;
+        for (size_t i = 0; i < use_list.size(); i++)
+        {
+            if (use_list[i] == old)
+            {
+                delete use_list[i];
+                use_list[i] = rep;
+                rep->setParent(this);
+                return true;
+            }
+        }
+        return false;
+    }
+    void output();
+    enum
+    {
+        ADD,
+        SUB
+    };
+    enum
+    {
+        LSL,
+        ASR
+    };
+};
+
+class SMULLMInstruction : public MachineInstruction
+{
+public:
+    SMULLMInstruction(MachineBlock *p, MachineOperand *lo,
+                    MachineOperand *hi, MachineOperand *src1, MachineOperand *src2,
                     int cond = MachineInstruction::NONE);
     bool replaceUse(MachineOperand *old, MachineOperand *rep)
     {

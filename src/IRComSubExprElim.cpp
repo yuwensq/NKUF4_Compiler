@@ -356,14 +356,26 @@ bool IRComSubExprElim::localCSE(Function *func)
 /**
  * 这个函数写的也比较简单
  */
-bool IRComSubExprElim::isKilled(Instruction *inst)
+bool IRComSubExprElim::isKilled(Instruction *inst, bool selfLoop)
 {
-    Instruction *preInst = nullptr;
     auto bb = inst->getParent();
-    for (preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
+    if (!selfLoop)
     {
-        if (invalidate(preInst, inst))
-            return true;
+        for (auto preInst = inst->getPrev(); preInst != bb->end(); preInst = preInst->getPrev())
+        {
+            if (invalidate(preInst, inst))
+                return true;
+        }
+    }
+    else
+    {
+        for (auto lInst = bb->begin(); lInst != bb->end(); lInst = lInst->getNext())
+        {
+            if (lInst == inst)
+                continue;
+            if (invalidate(lInst, inst))
+                return true;
+        }
     }
     return false;
 }
@@ -593,11 +605,22 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
 #endif
     for (auto bb = func->begin(); bb != func->end(); bb++)
     {
-        bool onlyOnePred = ((*bb)->getNumOfPred() == 1);
+        auto preds = (*bb)->getPred();
+        bool onlyOnePred = (preds.size() == 1);
+        bool selfLoop = (preds.size() == 2 && std::find(preds.begin(), preds.end(), *bb) != preds.end());
         // 多个前驱的话还要加phi指令，不要了
-        if (!onlyOnePred)
+        if (!onlyOnePred && !selfLoop)
             continue;
-        auto preBB = *(*bb)->pred_begin();
+        BasicBlock *preBB = nullptr;
+        if (onlyOnePred)
+            preBB = preds[0];
+        else
+        {
+            if (preds[0] == *bb)
+                preBB = preds[1];
+            else
+                preBB = preds[0];
+        }
         std::map<int, Operand *> preBBOutOp;
         for (auto &pa : outBBOp[preBB])
         {
@@ -608,7 +631,7 @@ bool IRComSubExprElim::removeGlobalCSE(Function *func)
             if (skip(inst))
                 continue;
             bool inInst = (preBBOutOp.find(ins2Expr[inst]) != preBBOutOp.end());
-            if (!inInst || ((inst->isLoad() || inst->isCall()) && isKilled(inst)))
+            if (!inInst || ((inst->isLoad() || inst->isCall()) && isKilled(inst, selfLoop)))
                 continue;
             // 找到了，可以删除
             result = false;

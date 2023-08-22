@@ -110,29 +110,30 @@ void GraphColor::calDRGenKill(std::map<MachineBlock *, std::set<MachineOperand *
         {
             if (inst->getDef().size() > 0)
             {
-                assert(inst->getDef().size() == 1);
-                // 学学新用法
-                auto def = inst->getDef()[0];
-                auto argRegNode = isArgReg(def);
-                // 把已经分配的参数寄存器摘出来
-                if (argRegNode != -1)
+                for (auto def : inst->getDef())
                 {
-                    var2Node[def] = argRegNode;
-                    continue;
+                    // 学学新用法
+                    auto argRegNode = isArgReg(def);
+                    // 把已经分配的参数寄存器摘出来
+                    if (argRegNode != -1)
+                    {
+                        var2Node[def] = argRegNode;
+                        continue;
+                    }
+                    if (!def->isVReg() || var2Node.find(def) != var2Node.end())
+                        continue;
+                    nodes.emplace_back(def->isFReg(), def);
+                    nodes.back().loopWeight = mlpa->getDepth(block);
+                    var2Node[def] = nodes.size() - 1;
+                    if (spilledRegs.count(def) > 0)
+                        nodes[var2Node[def]].hasSpilled = true;
+                    auto copyGen = gen[block];
+                    for (auto op : copyGen)
+                        if ((*op) == (*def))
+                            gen[block].erase(op);
+                    gen[block].insert(def);
+                    kill[block].insert(def);
                 }
-                if (!def->isVReg() || var2Node.find(def) != var2Node.end())
-                    continue;
-                nodes.emplace_back(def->isFReg(), def);
-                nodes.back().loopWeight = mlpa->getDepth(block);
-                var2Node[def] = nodes.size() - 1;
-                if (spilledRegs.count(def) > 0)
-                    nodes[var2Node[def]].hasSpilled = true;
-                auto copyGen = gen[block];
-                for (auto op : copyGen)
-                    if ((*op) == (*def))
-                        gen[block].erase(op);
-                gen[block].insert(def);
-                kill[block].insert(def);
             }
         }
     }
@@ -261,11 +262,13 @@ void GraphColor::genNodes()
             }
             if (inst->getDef().size() > 0)
             {
-                auto def = inst->getDef()[0];
-                if (def->isVReg())
+                for (auto def : inst->getDef())
                 {
-                    op2Def.erase(*def);
-                    op2Def[*def].insert(var2Node[def]);
+                    if (def->isVReg())
+                    {
+                        op2Def.erase(*def);
+                        op2Def[*def].insert(var2Node[def]);
+                    }
                 }
             }
         }
@@ -319,12 +322,13 @@ void GraphColor::calLVGenKill(std::map<MachineBlock *, std::set<int>> &gen, std:
             }
             if (inst->getDef().size() > 0)
             {
-                assert(inst->getDef().size() == 1);
-                auto def = inst->getDef()[0];
-                if (def->isVReg() || isArgReg(def) != -1)
+                for (auto def : inst->getDef())
                 {
-                    gen[block].erase(var2Node[def]);
-                    kill[block].insert(var2Node[def]);
+                    if (def->isVReg() || isArgReg(def) != -1)
+                    {
+                        gen[block].erase(var2Node[def]);
+                        kill[block].insert(var2Node[def]);
+                    }
                 }
             }
             for (auto &use : inst->getUse())
@@ -445,14 +449,16 @@ void GraphColor::genInterfereGraph()
             }
             if (inst->getDef().size() > 0)
             {
-                assert(inst->getDef().size() == 1);
-                auto def = inst->getDef()[0];
-                if (def->isVReg() || isArgReg(def) != -1)
+                for (auto def : inst->getDef())
                 {
-                    connectEdge(def, block);
-                    out[block].erase(var2Node[def]);
-                    graph[var2Node[def]];
+                    if (def->isVReg() || isArgReg(def) != -1)
+                    {
+                        connectEdge(def, block);
+                        graph[var2Node[def]];
+                    }
                 }
+                for (auto def : inst->getDef())
+                    out[block].erase(var2Node[def]);
             }
             for (auto &use : inst->getUse())
             {
@@ -922,6 +928,8 @@ std::pair<int, int> GraphColor::findFuncUseArgs(MachineOperand *funcOp)
     funcName = funcName.substr(1, funcName.size() - 1);
     if (funcName == "memset")
         return std::make_pair(3, 0);
+    else if (funcName == "__aeabi_ldivmod")
+        return std::make_pair(4, 0);
     auto funcSe = globals->lookup(funcName);
     Assert(funcSe, "为啥找不到这个函数嘞");
     auto funcType = static_cast<FunctionType *>(static_cast<IdentifierSymbolEntry *>(funcSe)->getType());

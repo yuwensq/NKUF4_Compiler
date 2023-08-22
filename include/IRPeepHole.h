@@ -7,14 +7,15 @@ class IRPeepHole
 {
 private:
     Unit *unit;
+    bool flag = false;
     void subPass(Function *);
     void subPassForBlk(Function *);
     void subPass2(Function *);
 
 public:
     IRPeepHole(Unit *unit) : unit(unit){};
+    void setFlag(bool flag) { this->flag = flag; };
     void pass();
-    void pass2();
 };
 
 #endif

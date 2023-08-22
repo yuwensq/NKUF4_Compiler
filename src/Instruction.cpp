@@ -620,6 +620,11 @@ MachineOperand *Instruction::immToVReg(MachineOperand *imm, MachineBlock *cur_bl
         auto cur_inst = new MovMInstruction(cur_block, MovMInstruction::MOV, internal_reg, imm);
         cur_block->InsertInst(cur_inst);
     }
+    else if (AsmBuilder::isLegalImm(~value))
+    {
+        auto cur_inst = new MovMInstruction(cur_block, MovMInstruction::MVN, internal_reg, genMachineImm(~value));
+        cur_block->InsertInst(cur_inst);
+    }
     else
     {
         auto cur_inst = new LoadMInstruction(cur_block, LoadMInstruction::LDR, internal_reg, imm);
@@ -747,7 +752,37 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
     auto src2 = genMachineOperand(operands[2]);
     MachineInstruction *cur_inst = nullptr;
     // 加法，这里交换一下
-    if (opcode == BinaryInstruction::ADD && src1->isImm() && !src2->isImm())
+    if (opcode == BinaryInstruction::MUL && bit64)
+    {
+        // 是一条smull指令
+        auto lo = genMachineVReg();
+        auto hi = genMachineVReg();
+        if (src1->isImm())
+            src1 = new MachineOperand(*immToVReg(src1, cur_block));
+        if (src2->isImm())
+            src2 = new MachineOperand(*immToVReg(src2, cur_block));
+        cur_block->InsertInst(new SMULLMInstruction(cur_block, lo, hi, src1, src2));
+        builder->smullSig2Doub[operands[0]] = std::make_pair(lo, hi);
+        return;
+    }
+    else if (opcode == BinaryInstruction::MOD && bit64)
+    {
+        auto lo = builder->smullSig2Doub[operands[1]].first;
+        auto hi = builder->smullSig2Doub[operands[1]].second;
+        lo = new MachineOperand(*lo);
+        hi = new MachineOperand(*hi);
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(0), lo));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(1), hi));
+        if (src2->isImm())
+            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(2), new MachineOperand(*immToVReg(src2, cur_block))));
+        else
+            cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(2), src2));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, genMachineReg(3), genMachineImm(0)));
+        cur_block->InsertInst(new BranchMInstruction(cur_block, BranchMInstruction::BL, new MachineOperand("@__aeabi_ldivmod")));
+        cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, dst, genMachineReg(2)));
+        return;
+    }
+    if ((opcode == BinaryInstruction::ADD || opcode == BinaryInstruction::MUL) && src1->isImm() && !src2->isImm())
         std::swap(src1, src2);
     if (src1->isImm())
     {
@@ -788,7 +823,7 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
             // cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::VMOV, internal_reg, src2));
             // src2 = new MachineOperand(*internal_reg);
         }
-        else if ((opcode == MUL || opcode == DIV) && AsmBuilder::isPowNumber(src2->getVal()) != -1)
+        else if ((opcode == MUL || opcode == DIV || opcode == MOD) && AsmBuilder::isPowNumber(src2->getVal()) != -1)
         {
             int k = AsmBuilder::isPowNumber(src2->getVal());
             if (opcode == DIV) // 负数除法不能直接右移
@@ -818,9 +853,27 @@ void BinaryInstruction::genMachineCode(AsmBuilder *builder)
                 // }
                 // cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::ASR, dst, src1, genMachineImm(AsmBuilder::isPowNumber(src2->getVal()))));
             }
-            else
+            else if (opcode == MUL)
             {
                 cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::LSL, dst, src1, genMachineImm(k)));
+            }
+            else
+            {
+                auto mask = genMachineImm(src2->getVal() - 1);
+                if (AsmBuilder::isLegalImm(mask->getVal()))
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::AND, dst, src1, mask));
+                else if (AsmBuilder::isLegalImm(~mask->getVal()))
+                {
+                    auto tmp = new MachineOperand(*immToVReg(mask, cur_block));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::AND, dst, src1, tmp));
+                }
+                else
+                {
+                    auto tmp = genMachineVReg();
+                    cur_block->InsertInst(new MovMInstruction(cur_block, MovMInstruction::MOV, tmp, new MachineOperand(*src2)));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::SUB, new MachineOperand(*tmp), new MachineOperand(*tmp), genMachineImm(1)));
+                    cur_block->InsertInst(new BinaryMInstruction(cur_block, BinaryMInstruction::AND, dst, src1, new MachineOperand(*tmp)));
+                }
             }
             return;
         }

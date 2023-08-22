@@ -17,6 +17,7 @@ private:
 public:
     MachinePeepHole(MachineUnit *unit) : unit(unit) {}
     void pass(bool afterRegAlloc = false);
+    void pass2();
 };
 
 #endif

@@ -14,6 +14,7 @@ private:
     std::set<unsigned int> legalVMOVImms;
 
 public:
+    std::map<Operand *, std::pair<MachineOperand *, MachineOperand *>> smullSig2Doub;
     AsmBuilder()
     {
         legalVMOVImms.clear();

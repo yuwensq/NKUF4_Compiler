@@ -303,9 +303,12 @@ void IRPeepHole::subPass(Function *func)
         }
         return prevInst;
     };
-    auto case10 = [&](Instruction *inst)
+    auto case10 = [&](Instruction *inst) // 这个是把模换成除减的
     {
-        return inst->isBinary() && inst->getOpCode() == BinaryInstruction::MOD;
+        auto [useOp, constOp] = isBinaryConst(inst, BinaryInstruction::MOD);
+        if (useOp == nullptr || constOp == nullptr || AsmBuilder::isPowNumber(static_cast<ConstantSymbolEntry *>(constOp->getEntry())->getValue()) == -1)
+            return inst->isBinary() && inst->getOpCode() == BinaryInstruction::MOD && !static_cast<BinaryInstruction *>(inst)->forbidSremSpl();
+        return false;
     };
     auto solveCase10 = [&](Instruction *inst)
     {
@@ -429,7 +432,7 @@ void IRPeepHole::subPass(Function *func)
                     inst = solveCase9(inst);
                     change = true;
                 }
-                if (case10(inst))
+                if (case10(inst) && flag) // 只有做完循环展开才做这个
                 {
                     inst = solveCase10(inst);
                     change = true;
@@ -480,12 +483,4 @@ void IRPeepHole::subPass2(Function *func)
             }
         }
     } while (change);
-}
-
-void IRPeepHole::pass2()
-{
-    for (auto func = unit->begin(); func != unit->end(); func++)
-    {
-        subPass2(*func);
-    }
 }

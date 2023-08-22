@@ -168,6 +168,7 @@ int main(int argc, char *argv[])
             pairCodeElim();
         } while (lcm.pass1()); // 循环展开
     }
+    iph.setFlag(true);
     pairCodeElim();
     if (optmize)
     {
@@ -177,10 +178,9 @@ int main(int argc, char *argv[])
     // lcm.pass2(); // 强度削弱
     // pairCodeElim();
     pe.pass();
-    iph.pass2();
     tca.pass();
-    lve.assignLoopBody(lcm.vectorLoop);
-    lve.pass();
+    // lve.assignLoopBody(lcm.vectorLoop);
+    // lve.pass();
 
     Log("IR优化成功"); /**/
 
@@ -213,6 +213,7 @@ int main(int argc, char *argv[])
             mdce.pass();
             mst.pass();
             mtch.pass(); // 把这个放在最后做，要不大概率会有问题
+            mph.pass2();
         }
         Log("目标代码优化成功");
         // if (optmize)

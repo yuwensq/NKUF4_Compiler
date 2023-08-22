@@ -301,3 +301,9 @@ void MachinePeepHole::analyse()
         }
     }
 }
+
+void MachinePeepHole::pass2()
+{
+    clearData();
+    analyse();
+}

@@ -239,8 +239,15 @@ public:
         operands[0]->setDef(this);
     }
     Instruction *copy() { return new BinaryInstruction(*this); }
+    bool is64Bit() { return bit64; };
+    void set64Bit(bool bit64) { this->bit64 = bit64; };
+    bool forbidSremSpl() {return this->forbidSremSplit;};
+    void setForbidSremSplit(bool fss) {this->forbidSremSplit = fss;};
+
 
 private:
+    bool forbidSremSplit = false;
+    bool bit64 = false;
     bool floatVersion;
 };
 

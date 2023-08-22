@@ -103,7 +103,7 @@ private:
     /**
      * 判断一个load指令会不会被他之后的指令kill
      */
-    bool isKilled(Instruction *inst);
+    bool isKilled(Instruction *inst, bool selfLoop);
     /**
      * 数据流分析，计算每个基本块的gen集合和set集合
      */

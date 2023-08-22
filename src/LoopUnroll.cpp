@@ -1294,8 +1294,8 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         auto phiDef = chain[0]->getDef();
         auto addDef = chain[1]->getDef();
         auto modDef = chain[2]->getDef();
-        if (addDef->getUse().size() != 1 || phiDef->getUse().size() != 1)
-            return false;
+        // if (addDef->getUse().size() != 1 || phiDef->getUse().size() != 1)
+        //     return false;
 
         int maxTurnValue = 40000;
         auto func = bodybb->getParent();
@@ -1320,6 +1320,7 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         {
             // return false;
             // Log("case a");
+            return false;
             auto type = endOp->getType();
             auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
             new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, endOp, brotherBB);
@@ -1343,14 +1344,14 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
             maxTurnValue = INTMAX / int(static_cast<ConstantSymbolEntry *>(addConstOp->getEntry())->getValue());
             auto type = addConstOp->getType();
             auto tmp1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, addConstOp, brotherBB);
+            auto newMulInst = new BinaryInstruction(BinaryInstruction::MUL, tmp1, endOp, addConstOp, brotherBB);
             auto tmpSafe1 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::ADD, tmpSafe1, tmp1, safeStride, brotherBB);
-            auto tmpSafe2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::SUB, tmpSafe2, tmpSafe1, safeStride, brotherBB);
             auto tmp2 = new Operand(new TemporarySymbolEntry(type, SymbolTable::getLabel()));
-            new BinaryInstruction(BinaryInstruction::MOD, tmp2, tmpSafe2, modConstOp, brotherBB);
+            auto newModInst = new BinaryInstruction(BinaryInstruction::MOD, tmp2, tmp1, modConstOp, brotherBB);
             new UncondBrInstruction(endBB, brotherBB);
+            newMulInst->set64Bit(true);
+            newModInst->set64Bit(true);
+            newModInst->setForbidSremSplit(true);
             newResult = tmp2;
         }
         else
@@ -1385,7 +1386,7 @@ bool LoopUnroll::discardLoop(int bodyInsNum, BasicBlock *bodybb, BasicBlock *con
         }
 
         auto newCond = new Operand(new TemporarySymbolEntry(TypeSystem::boolType, SymbolTable::getLabel()));
-        new CmpInstruction(CmpInstruction::LE, newCond, endOp, new Operand(new ConstantSymbolEntry(endOp->getType(), maxTurnValue)), beginBB);
+        new CmpInstruction(CmpInstruction::LE, newCond, new Operand(new ConstantSymbolEntry(endOp->getType(), 0)), new Operand(new ConstantSymbolEntry(endOp->getType(), maxTurnValue)), beginBB);
         new CondBrInstruction(safeBB, bodybb, newCond, beginBB);
 
         brotherBB->addPred(safeBB);

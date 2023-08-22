@@ -410,13 +410,15 @@ void MovMInstruction::output()
     case MOV:
         fprintf(yyout, "\tmov");
         break;
+    case MVN:
+        fprintf(yyout, "\tmvn");
+        break;
     case VMOV:
         fprintf(yyout, "\tvmov");
         break;
     case VMOV32:
         fprintf(yyout, "\tvmov.f32");
         break;
-    case MVN: // 这个暂时用不到
     default:
         break;
     }
@@ -657,6 +659,59 @@ void MlsMInstruction::output()
     use_list[1]->output();
     fprintf(yyout, ", ");
     use_list[2]->output();
+    fprintf(yyout, "\n");
+}
+
+OffsetBinaryMInstruction::OffsetBinaryMInstruction(MachineBlock *p, int op, MachineOperand *dst, MachineOperand *src1, MachineOperand *src2, MachineOperand *src3, int offset, int cond)
+{
+    this->parent = p;
+    this->type = MachineInstruction::OFFBINARY;
+    this->op = op;
+    this->cond = cond;
+    this->offset = offset;
+    this->def_list.push_back(dst);
+    this->use_list.push_back(src1);
+    this->use_list.push_back(src2);
+    this->use_list.push_back(src3);
+    dst->setParent(this);
+    src1->setParent(this);
+    src2->setParent(this);
+    src3->setParent(this);
+}
+
+void OffsetBinaryMInstruction::output()
+{
+    switch (this->op)
+    {
+    case OffsetBinaryMInstruction::ADD:
+        fprintf(yyout, "\tadd");
+        break;
+    case OffsetBinaryMInstruction::SUB:
+        fprintf(yyout, "\tsub");
+        break;
+    default:
+        break;
+    }
+    this->PrintCond();
+    fprintf(yyout, " ");
+    this->def_list[0]->output();
+    fprintf(yyout, ", ");
+    this->use_list[0]->output();
+    fprintf(yyout, ", ");
+    this->use_list[1]->output();
+    fprintf(yyout, ", ");
+    switch (this->offset)
+    {
+    case OffsetBinaryMInstruction::LSL:
+        fprintf(yyout, "lsl");
+        break;
+    case OffsetBinaryMInstruction::ASR:
+        fprintf(yyout, "asr");
+        break;
+    default:
+        break;
+    }
+    this->use_list[2]->output();
     fprintf(yyout, "\n");
 }
 
@@ -1017,4 +1072,33 @@ void MachineUnit::output()
     for (auto iter : func_list)
         iter->output();
     printLTORG();
+}
+
+SMULLMInstruction::SMULLMInstruction(MachineBlock *p, MachineOperand *lo, MachineOperand *hi, MachineOperand *src1, MachineOperand *src2, int cond)
+{
+    this->parent = p;
+    this->type = MachineInstruction::SMULL;
+    this->op = -1;
+    this->cond = cond;
+    def_list.push_back(lo);
+    def_list.push_back(hi);
+    use_list.push_back(src1);
+    use_list.push_back(src2);
+    lo->setParent(this);
+    hi->setParent(this);
+    src1->setParent(this);
+    src2->setParent(this);
+}
+
+void SMULLMInstruction::output()
+{
+    fprintf(yyout, "\tsmull ");
+    def_list[0]->output();
+    fprintf(yyout, ", ");
+    def_list[1]->output();
+    fprintf(yyout, ", ");
+    use_list[0]->output();
+    fprintf(yyout, ", ");
+    use_list[1]->output();
+    fprintf(yyout, "\n");
 }
