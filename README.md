@@ -74,4 +74,4 @@ Options:
 
 ## 往届学长优秀作品参考
 - [shm学长"NKUER4"团队](https://github.com/shm0214/2022_compile)
-- [syd学长"天津泰达"团队](https://github.com/shm0214/2022_compile)
+- [syd学长"天津泰达"团队](https://github.com/Emanual20/CSC2021-NKU-TEDA)
