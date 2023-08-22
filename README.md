@@ -9,6 +9,8 @@
 
 <font color="red">每天都快一点点，最后就可以快很多</font>
 
+[经验总结](https://xwblog.xyz/2023/08/04/%E6%AF%95%E6%98%87%E6%9D%AF%E6%AF%94%E8%B5%9B%E5%BF%83%E5%BE%97/#more)
+
 ## 项目简介
 
 该项目为一个单前端单后端的编译器，可对[SysY语言](https://gitlab.eduxiji.net/nscscc/compiler2023/-/blob/master/SysY2022%E8%AF%AD%E8%A8%80%E5%AE%9A%E4%B9%89-V1.pdf)进行编译，生成armv7a架构的汇编语言。
