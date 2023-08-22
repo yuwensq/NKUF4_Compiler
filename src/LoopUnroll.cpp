@@ -658,6 +658,7 @@ void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand 
             }
         }
     }
+    // this的问题
     for (auto nextIns : nextInsList)
     {
         for (auto useOp : nextIns->getUse())
@@ -687,6 +688,9 @@ void LoopUnroll::specialUnroll(BasicBlock *bb, int num, Operand *endOp, Operand 
                 if (count(copyPhis.begin(), copyPhis.end(), preIns))
                 {
                     PhiInstruction *phi = (PhiInstruction *)phis[calculatePhi];
+                    for(auto useOp:nextInsList[i]->getUse()){
+                        useOp->removeUse(nextInsList[i]);
+                    }                    
                     nextInsList[i] = (Instruction *)(new BinaryInstruction(BinaryInstruction::ADD, newDef, phi->getBlockSrc(bb), new Operand(new ConstantSymbolEntry(preIns->getDef()->getType(), 0)), nullptr));
                     notReplaceOp.push_back(newDef);
                     calculatePhi++;
@@ -1057,7 +1061,17 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
             }
             else
             {
-                useOp->addUse(newIns);
+                bool replace=true;
+                for(auto useIns:useOp->getUse()){
+                    if(useIns->getDef()&&newIns->getDef()){
+                        if(useIns->getDef()->toStr()==newIns->getDef()->toStr()){
+                            replace=false;
+                        }
+                    }
+                }
+                if(replace){
+                    useOp->addUse(newIns);
+                }
             }
         }
     }
@@ -1134,6 +1148,11 @@ void LoopUnroll::normalUnroll(BasicBlock *condbb, BasicBlock *bodybb, Operand *b
                 phi->addSrc(newOutCond, originalOperand);
             }
         }
+    }
+    // 先只考虑i=i+1
+    if(isIncrease){
+        vectorLoopBody.push_back(bodybb);
+        //std::cout<<bodybb->getNo()<<std::endl;
     }
     successUnroll = true;
 }
