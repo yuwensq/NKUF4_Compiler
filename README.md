@@ -1,5 +1,21 @@
 # NKUF4团队的SYSY编译器
 
+```
+团队学校：南开大学
+团队名称：NKUF4
+团队成员：徐文斌 许友锐 栗心武 聂志强
+指导教师：王刚 李忠伟
+```
+
+## 项目简介
+
+该项目为一个单前端单后端的编译器，可对[SysY语言](https://gitlab.eduxiji.net/nscscc/compiler2023/-/blob/master/SysY2022%E8%AF%AD%E8%A8%80%E5%AE%9A%E4%B9%89-V1.pdf)进行编译，生成armv7a架构的汇编语言。
+![项目架构](https://raw.githubusercontent.com/yuwensq/imgBase/master/202308222049865.jpg)
+
+项目总体上分为前端、中端和后端三部分。前端的词法分析和语法分析基于lex和yacc实现，中间代码与llvm IR兼容，后端生成arm汇编代码。
+编译器实现了各种代码优化算法，具有较好的优化能力。
+![](https://raw.githubusercontent.com/yuwensq/imgBase/master/202308222050780.jpg)
+
 ## 编译器命令
 ```
 Usage：build/compiler [options] infile
@@ -9,29 +25,10 @@ Options:
     -a          Print abstract syntax tree.
     -i          Print intermediate code
     -S          Print assembly code
+    -O2         open O2 optimization
 ```
-
-## VSCode调试
-
-提供了VSCode调试所需的`json`文件，使用前需正确设置`launch.json`中`miDebuggerPath`中`gdb`的路径。`launch.json`中`args`值即为编译器的参数，可自行调整。
 
 ## Makefile使用
-
-* 修改测试路径：
-
-默认测试路径为test，你可以修改为任意要测试的路径。我们已将最终所有测试样例分级上传。
-
-如：要测试level1-1下所有sy文件，可以将makefile中的
-
-```
-TEST_PATH ?= test
-```
-
-修改为
-
-```
-TEST_PATH ?= test/level1-1
-```
 
 * 编译：
 
@@ -72,12 +69,7 @@ TEST_PATH ?= test/level1-1
 ```
     make clean
 ```
-清除所有可执行文件和测试输出。
-```
-    make clean-test
-```
-清除所有测试输出。
-```
-    make clean-app
-```
-清除编译器可执行文件。
+
+## 往届学长优秀作品参考
+- [shm学长"NKUER4"团队](https://github.com/shm0214/2022_compile)
+- [syd学长"天津泰达"团队](https://github.com/shm0214/2022_compile)
